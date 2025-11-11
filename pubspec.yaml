@@ -1,0 +1,41 @@
+name: yuh_blockin # Renamed for clarity, you can keep yuh_blockin_web if you prefer
+description: "A Flutter project for Yuh Blockin'."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Core dependencies for premium app functionality
+  cupertino_icons: ^1.0.2
+  crypto: ^3.0.3
+  shared_preferences: ^2.2.2
+  audioplayers: ^6.0.0
+  provider: ^6.1.1
+
+  # Optional: Keep these only if you want advanced state management
+  # hooks_riverpod: ^2.5.1
+  # flutter_hooks: ^0.20.5
+
+  # Optional: Animation support (currently using built-in Flutter animations)
+  # flutter_animate: ^4.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+# Flutter-specific configuration
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/animations/
+    - assets/images/
+    - assets/sounds/
+    - assets/icons/
+
