@@ -299,131 +299,91 @@ class _WelcomePage extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
 
-            // Playful animated car icon with breathing effect
-            AnimatedBuilder(
-              animation: sparkleController,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: 1.0 + (sin(sparkleController.value * 2 * pi) * 0.08),
-                  child: Container(
-                    width: isTablet ? 120 : 100,
-                    height: isTablet ? 120 : 100,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          PremiumTheme.accentColor,
-                          Colors.orange.shade400,
-                          PremiumTheme.accentColor.withOpacity(0.8),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: PremiumTheme.accentColor.withOpacity(0.25),
-                          blurRadius: 24,
-                          spreadRadius: 4,
-                        ),
-                        BoxShadow(
-                          color: Colors.orange.withOpacity(0.15),
-                          blurRadius: 40,
-                          spreadRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.directions_car,
-                      size: isTablet ? 52 : 44,
-                      color: Colors.white,
-                    ),
+            // Premium car vector icon - clean and professional
+            Container(
+              width: isTablet ? 120 : 100,
+              height: isTablet ? 120 : 100,
+              decoration: BoxDecoration(
+                gradient: PremiumTheme.heroGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: PremiumTheme.accentColor.withOpacity(0.15),
+                    blurRadius: 32,
+                    spreadRadius: 8,
                   ),
-                );
-              },
+                ],
+              ),
+              child: Icon(
+                Icons.directions_car_outlined,
+                size: isTablet ? 50 : 42,
+                color: Colors.white,
+              ),
             ),
 
             const SizedBox(height: 32),
 
-            // Enhanced welcome message with playful "Yuh Blockin'" slogan
+            // Enhanced welcome message with premium typography
             Column(
               children: [
-                // Main slogan - more playful and bold
+                Text(
+                  'Let\'s get that car',
+                  style: TextStyle(
+                    fontSize: isTablet ? 36 : 28,
+                    fontWeight: FontWeight.w300,
+                    color: PremiumTheme.primaryTextColor,
+                    letterSpacing: 0.8,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'out your way!',
+                  style: TextStyle(
+                    fontSize: isTablet ? 40 : 32,
+                    fontWeight: FontWeight.w200,
+                    color: PremiumTheme.accentColor,
+                    letterSpacing: 1.0,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        PremiumTheme.accentColor,
-                        PremiumTheme.accentColor.withOpacity(0.8),
+                        PremiumTheme.surfaceColor,
+                        PremiumTheme.surfaceColor.withOpacity(0.9),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(32),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: PremiumTheme.accentColor.withOpacity(0.3),
+                      width: 1,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: PremiumTheme.accentColor.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+                        color: PremiumTheme.accentColor.withOpacity(0.1),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: Text(
-                    'Yuh Blockin\'!',
+                    PremiumConfig.appName,
                     style: TextStyle(
-                      fontSize: isTablet ? 42 : 36,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                      height: 1.1,
+                      fontSize: isTablet ? 22 : 18,
+                      fontWeight: FontWeight.w600,
+                      color: PremiumTheme.accentColor,
+                      letterSpacing: 0.8,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Playful subtitle with emoji-like styling
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '🚗',
-                        style: TextStyle(fontSize: isTablet ? 24 : 20),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Flexible(
-                      child: Text(
-                        'Get that car outta your way!',
-                        style: TextStyle(
-                          fontSize: isTablet ? 24 : 20,
-                          fontWeight: FontWeight.w500,
-                          color: PremiumTheme.primaryTextColor,
-                          height: 1.3,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '✨',
-                        style: TextStyle(fontSize: isTablet ? 24 : 20),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
