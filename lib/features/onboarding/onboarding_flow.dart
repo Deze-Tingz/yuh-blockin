@@ -107,50 +107,21 @@ class _OnboardingFlowState extends State<OnboardingFlow>
               // Header with skip option
               _buildHeader(),
 
-              // Main content - wrapped in flexible to prevent overflow
+              // Main content
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return PageView(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() => _currentPage = index);
-                        HapticFeedback.selectionClick();
-                      },
-                      children: [
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _WelcomePage(sparkleController: _sparkleController),
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _SecurityTransparencyPage(),
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _PrivacyFirstPage(),
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _RespectfulCommunityPage(),
-                          ),
-                        ),
-                        SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: _ReadyToStartPage(onComplete: _completeOnboarding),
-                          ),
-                        ),
-                      ],
-                    );
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() => _currentPage = index);
+                    HapticFeedback.selectionClick();
                   },
+                  children: [
+                    _WelcomePage(sparkleController: _sparkleController),
+                    _SecurityTransparencyPage(),
+                    _PrivacyFirstPage(),
+                    _RespectfulCommunityPage(),
+                    _ReadyToStartPage(onComplete: _completeOnboarding),
+                  ],
                 ),
               ),
 
@@ -216,58 +187,25 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   Widget _buildNavigationFooter() {
     return Container(
       padding: const EdgeInsets.all(32),
-      child: Row(
-        children: [
-          // Previous button
-          if (_currentPage > 0)
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _previousPage,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: PremiumTheme.surfaceColor,
-                  foregroundColor: PremiumTheme.primaryTextColor,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: PremiumTheme.dividerColor,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  'Previous',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            )
-          else
-            const Spacer(),
-
-          if (_currentPage > 0 && _currentPage < _totalPages - 1)
-            const SizedBox(width: 16),
-
-          // Next/Get Started button
-          if (_currentPage < _totalPages - 1)
-            Expanded(
-              flex: _currentPage == 0 ? 1 : 1,
+      child: _currentPage == 0
+          ?
+          // First page - center the Get Started button
+          Center(
+            child: SizedBox(
+              width: 200, // Fixed width for centered button
               child: ElevatedButton(
                 onPressed: _nextPage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PremiumTheme.accentColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: Text(
-                  _currentPage == 0 ? 'Get Started' : 'Continue',
+                  'Get Started',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -275,8 +213,67 @@ class _OnboardingFlowState extends State<OnboardingFlow>
                 ),
               ),
             ),
-        ],
-      ),
+          )
+          :
+          // Other pages - use row layout with Previous/Continue buttons
+          Row(
+            children: [
+              // Previous button
+              if (_currentPage > 0)
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _previousPage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.surfaceColor,
+                      foregroundColor: PremiumTheme.primaryTextColor,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: PremiumTheme.dividerColor,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Previous',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (_currentPage > 0 && _currentPage < _totalPages - 1)
+                const SizedBox(width: 16),
+
+              // Continue button
+              if (_currentPage < _totalPages - 1)
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _nextPage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
     );
   }
 }
@@ -292,9 +289,9 @@ class _WelcomePage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 24.0),
-      child: IntrinsicHeight(
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? 60.0 : 24.0),
         child: Column(
           children: [
             const SizedBox(height: 20),
@@ -323,29 +320,17 @@ class _WelcomePage extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // Enhanced welcome message with premium typography
+            // Enhanced welcome message with premium typography - single line
             Column(
               children: [
                 Text(
-                  'Let\'s get that car',
+                  'Let\'s get that car out your way!',
                   style: TextStyle(
-                    fontSize: isTablet ? 36 : 28,
+                    fontSize: isTablet ? 32 : 24,
                     fontWeight: FontWeight.w300,
                     color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 0.8,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'out your way!',
-                  style: TextStyle(
-                    fontSize: isTablet ? 40 : 32,
-                    fontWeight: FontWeight.w200,
-                    color: PremiumTheme.accentColor,
-                    letterSpacing: 1.0,
-                    height: 1.2,
+                    letterSpacing: 0.5,
+                    height: 1.3,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -408,41 +393,39 @@ class _WelcomePage extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Key features preview - made more compact
-            Flexible(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: PremiumTheme.surfaceColor,
-                  borderRadius: PremiumTheme.largeRadius,
-                  boxShadow: PremiumTheme.subtleShadow,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _FeatureRow(
-                      icon: Icons.security_rounded,
-                      title: 'Privacy-First Security',
-                      subtitle: 'Your data is encrypted and never shared',
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureRow(
-                      icon: Icons.people_rounded,
-                      title: 'Respectful Community',
-                      subtitle: 'Building better parking etiquette together',
-                    ),
-                    const SizedBox(height: 12),
-                    _FeatureRow(
-                      icon: Icons.auto_fix_high_rounded,
-                      title: 'Effortless Experience',
-                      subtitle: 'Simple, elegant, and effective',
-                    ),
-                  ],
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: PremiumTheme.surfaceColor,
+                borderRadius: PremiumTheme.largeRadius,
+                boxShadow: PremiumTheme.subtleShadow,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FeatureRow(
+                    icon: Icons.security_rounded,
+                    title: 'Privacy-First Security',
+                    subtitle: 'Your data is encrypted and never shared',
+                  ),
+                  const SizedBox(height: 12),
+                  _FeatureRow(
+                    icon: Icons.people_rounded,
+                    title: 'Respectful Community',
+                    subtitle: 'Building better parking etiquette together',
+                  ),
+                  const SizedBox(height: 12),
+                  _FeatureRow(
+                    icon: Icons.auto_fix_high_rounded,
+                    title: 'Effortless Experience',
+                    subtitle: 'Simple, elegant, and effective',
+                  ),
+                ],
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -457,11 +440,12 @@ class _SecurityTransparencyPage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-      child: Column(
-        children: [
-          const Spacer(flex: 1),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
 
           // Security icon
           Container(
@@ -550,8 +534,9 @@ class _SecurityTransparencyPage extends StatelessWidget {
             ),
           ),
 
-          const Spacer(flex: 2),
-        ],
+          const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -564,11 +549,12 @@ class _PrivacyFirstPage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-      child: Column(
-        children: [
-          const Spacer(flex: 1),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
 
           // Privacy shield
           Container(
@@ -674,8 +660,9 @@ class _PrivacyFirstPage extends StatelessWidget {
             ),
           ),
 
-          const Spacer(flex: 2),
-        ],
+          const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -703,11 +690,12 @@ class _RespectfulCommunityPage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-      child: Column(
-        children: [
-          const Spacer(flex: 1),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
 
           // Community icon
           Container(
@@ -792,8 +780,9 @@ class _RespectfulCommunityPage extends StatelessWidget {
             ),
           ),
 
-          const Spacer(flex: 2),
-        ],
+          const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -810,11 +799,12 @@ class _ReadyToStartPage extends StatelessWidget {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
 
           // Success checkmark
           Container(
@@ -934,8 +924,9 @@ class _ReadyToStartPage extends StatelessWidget {
             ),
           ),
 
-          const Spacer(flex: 3),
-        ],
+          const SizedBox(height: 60),
+          ],
+        ),
       ),
     );
   }

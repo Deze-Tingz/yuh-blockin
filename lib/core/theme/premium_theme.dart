@@ -129,7 +129,7 @@ class PremiumTheme {
   // MARK: - Typography System
 
   /// Premium font family - system font optimized for each platform
-  static const String fontFamily = 'SF Pro'; // Will fall back to system font
+  static const String? fontFamily = null; // Use platform default fonts (Roboto on Android, SF Pro on iOS, Segoe UI on Windows)
 
   // MARK: - Spacing System
 

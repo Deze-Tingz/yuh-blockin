@@ -440,6 +440,9 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
   void didUpdateWidget(AnimatedEmojiWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Safety check to prevent animation errors
+    if (!mounted) return;
+
     if (widget.isSelected != oldWidget.isSelected) {
       if (widget.isSelected) {
         _selectionController.forward();
@@ -454,6 +457,12 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
       } else {
         _playController.reverse();
       }
+    }
+
+    // Restart primary animation if expression changed
+    if (widget.expression.id != oldWidget.expression.id) {
+      _primaryController.reset();
+      _startPrimaryAnimation();
     }
   }
 
@@ -525,19 +534,26 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
   }
 
   double _getAnimatedScale() {
+    // Safety check for disposed controllers
+    if (!_primaryController.isAnimating && _primaryAnimation.status == AnimationStatus.dismissed) {
+      return 1.0;
+    }
+
+    final animationValue = _primaryAnimation.value.clamp(0.0, 1.0);
+
     switch (widget.expression.animationType) {
       case EmojiAnimationType.gentle:
-        return 1.0 + (math.sin(_primaryAnimation.value * 2 * math.pi) * 0.05);
+        return 1.0 + (math.sin(animationValue * 2 * math.pi) * 0.05);
       case EmojiAnimationType.playful:
-        return 1.0 + (math.sin(_primaryAnimation.value * 4 * math.pi) * 0.1);
+        return 1.0 + (math.sin(animationValue * 4 * math.pi) * 0.1);
       case EmojiAnimationType.pulse:
-        return 1.0 + (math.sin(_primaryAnimation.value * 2 * math.pi) * 0.15);
+        return 1.0 + (math.sin(animationValue * 2 * math.pi) * 0.15);
       case EmojiAnimationType.urgent:
-        return 1.0 + (_primaryAnimation.value * 0.2);
+        return 1.0 + (animationValue * 0.2);
       case EmojiAnimationType.apologetic:
-        return 1.0 + (math.sin(_primaryAnimation.value * math.pi) * 0.05);
+        return 1.0 + (math.sin(animationValue * math.pi) * 0.05);
       case EmojiAnimationType.celebration:
-        return 1.0 + (math.sin(_primaryAnimation.value * 6 * math.pi) * 0.2);
+        return 1.0 + (math.sin(animationValue * 6 * math.pi) * 0.2);
     }
   }
 
@@ -610,7 +626,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
 
   PremiumEmojiExpression? _selectedEmoji;
   bool _isPreviewPlaying = false;
-  EmojiPackType _currentPack = EmojiPackType.classic;
+  EmojiPackType _currentPack = EmojiPackType.genZIsland;
 
   @override
   void initState() {
@@ -817,27 +833,72 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                   ),
                   child: Column(
                     children: [
-                      // Preview
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedEmojiWidget(
-                            expression: _selectedEmoji!,
-                            isSelected: true,
-                            isPlaying: _isPreviewPlaying,
-                            size: 40,
+                      // Preview - Premium formatted alert display
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              _selectedEmoji!.accentColor.withOpacity(0.08),
+                              _selectedEmoji!.accentColor.withOpacity(0.03),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Text(
-                            'Yuh Blockin!',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: PremiumTheme.primaryTextColor,
-                              letterSpacing: 0.3,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _selectedEmoji!.accentColor.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // Alert preview label
+                            Text(
+                              'Alert Preview',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _selectedEmoji!.accentColor,
+                                letterSpacing: 0.8,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            // Emoji and text in premium layout
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Fixed size container for emoji to prevent layout shifts
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  alignment: Alignment.center,
+                                  child: AnimatedEmojiWidget(
+                                    expression: _selectedEmoji!,
+                                    isSelected: true,
+                                    isPlaying: _isPreviewPlaying,
+                                    size: 36,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Premium text styling
+                                Flexible(
+                                  child: Text(
+                                    'Yuh Blockin!',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: PremiumTheme.primaryTextColor,
+                                      letterSpacing: 0.5,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 16),
@@ -905,11 +966,11 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildPackOption(
-            title: 'Classic',
-            subtitle: 'Timeless vibes',
-            icon: '✨',
-            packType: EmojiPackType.classic,
-            isSelected: _currentPack == EmojiPackType.classic,
+            title: 'Island',
+            subtitle: 'Gen Z trends',
+            icon: '🏝️',
+            packType: EmojiPackType.genZIsland,
+            isSelected: _currentPack == EmojiPackType.genZIsland,
           ),
           Container(
             width: 1,
@@ -917,11 +978,11 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
             color: PremiumTheme.dividerColor.withOpacity(0.3),
           ),
           _buildPackOption(
-            title: 'Island',
-            subtitle: 'Gen Z trends',
-            icon: '🏝️',
-            packType: EmojiPackType.genZIsland,
-            isSelected: _currentPack == EmojiPackType.genZIsland,
+            title: 'Classic',
+            subtitle: 'Timeless vibes',
+            icon: '✨',
+            packType: EmojiPackType.classic,
+            isSelected: _currentPack == EmojiPackType.classic,
           ),
         ],
       ),

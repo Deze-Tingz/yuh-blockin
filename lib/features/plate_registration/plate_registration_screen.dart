@@ -251,7 +251,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       barrierColor: Colors.black.withOpacity(0.7),
       builder: (context) => _SuccessAnimation(
         onComplete: () {
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // Close the dialog
           if (widget.isOnboarding && _registeredPlates.isNotEmpty) {
             // Complete onboarding and go to main app
             Navigator.of(context).pushReplacement(
@@ -259,6 +259,9 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 builder: (context) => const PremiumHomeScreen(),
               ),
             );
+          } else if (!widget.isOnboarding) {
+            // For non-onboarding mode, go back to previous screen
+            Navigator.of(context).pop();
           }
         },
       ),
@@ -418,53 +421,26 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 },
               ),
 
-              // Dynamic header based on context
-              Column(
-                children: [
-                  Text(
-                    widget.isOnboarding ? 'Vehicle Registry' : 'Enter the plate of',
-                    style: TextStyle(
-                      fontSize: isTablet ? 48 : 40,
-                      fontWeight: FontWeight.w100,
-                      color: PremiumTheme.primaryTextColor,
-                      letterSpacing: -1.0,
-                      height: 1.0,
-                    ),
-                    textAlign: TextAlign.center,
+              // Dynamic header based on context - properly constrained
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: isTablet ? 600 : 340,
+                ),
+                child: Text(
+                  widget.isOnboarding
+                      ? 'Vehicle Registry'
+                      : 'Enter the plate of the car blocking you',
+                  style: TextStyle(
+                    fontSize: isTablet ? 32 : 24, // Match onboarding welcome text size
+                    fontWeight: FontWeight.w300,
+                    color: PremiumTheme.primaryTextColor,
+                    letterSpacing: 0.5,
+                    height: 1.3,
                   ),
-                  if (!widget.isOnboarding) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            PremiumTheme.accentColor.withOpacity(0.15),
-                            PremiumTheme.accentColor.withOpacity(0.08),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: PremiumTheme.accentColor.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'the car blocking you',
-                        style: TextStyle(
-                          fontSize: isTablet ? 32 : 28,
-                          fontWeight: FontWeight.w300,
-                          color: PremiumTheme.accentColor,
-                          letterSpacing: -0.5,
-                          height: 1.1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ],
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -663,7 +639,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
               letterSpacing: 3.0,
             ),
             decoration: InputDecoration(
-              hintText: 'ABC 123',
+              hintText: 'YOURPLATE',
               hintStyle: TextStyle(
                 color: PremiumTheme.tertiaryTextColor.withOpacity(0.6),
                 fontWeight: FontWeight.w400,
@@ -826,6 +802,10 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
         // Ultra-minimalist input field
         Container(
+          width: double.infinity,
+          constraints: BoxConstraints(
+            maxWidth: isTablet ? 400 : 320,
+          ),
           decoration: BoxDecoration(
             color: PremiumTheme.surfaceColor,
             borderRadius: BorderRadius.circular(16),
@@ -857,7 +837,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
               letterSpacing: 3.0,
             ),
             decoration: InputDecoration(
-              hintText: 'ABC-123',
+              hintText: 'YOURPLATE',
               hintStyle: TextStyle(
                 color: PremiumTheme.tertiaryTextColor.withOpacity(0.5),
                 fontWeight: FontWeight.w300,
