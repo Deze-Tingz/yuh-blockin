@@ -207,10 +207,14 @@ class PlateStorageService {
 
   bool _isValidPlateFormat(String plate) {
     // Basic validation - customize based on local requirements
-    return plate.length >= 3 &&
-           plate.length <= 10 &&
-           RegExp(r'^[A-Z0-9\s]+$').hasMatch(plate) &&
-           plate.trim().isNotEmpty;
+    // Accept alphanumeric characters, spaces, and common plate symbols
+    // Case-insensitive validation
+    final normalizedPlate = plate.toUpperCase().trim();
+    return normalizedPlate.length >= 2 &&
+           normalizedPlate.length <= 10 &&
+           RegExp(r'^[A-Z0-9\s\-]+$').hasMatch(normalizedPlate) &&
+           normalizedPlate.isNotEmpty &&
+           RegExp(r'[A-Z0-9]').hasMatch(normalizedPlate); // Must contain at least one alphanumeric
   }
 
   String _calculateChecksum(List<String> plates) {

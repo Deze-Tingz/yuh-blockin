@@ -140,15 +140,32 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   }
 
   void _validatePlate(String value) {
+    if (value.isEmpty) {
+      setState(() {
+        _isValidPlate = false;
+        _platePreview = '';
+      });
+      return;
+    }
+
     String normalizedPlate = value.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
 
     // Auto-format with dash between letters and numbers
     normalizedPlate = _formatPlateWithDash(normalizedPlate);
 
-    final isValid = normalizedPlate.length >= 3 &&
-                   normalizedPlate.length <= 12 && // Allow for dash
-                   RegExp(r'^[A-Z0-9\s\-]+$').hasMatch(normalizedPlate) &&
-                   !_registeredPlates.contains(normalizedPlate);
+    final lengthValid = normalizedPlate.length >= 2 && normalizedPlate.length <= 12;
+    final formatValid = RegExp(r'^[A-Z0-9\s\-]+$').hasMatch(normalizedPlate);
+    final hasAlphaNumeric = RegExp(r'[A-Z0-9]').hasMatch(normalizedPlate);
+    final notDuplicate = !_registeredPlates.contains(normalizedPlate);
+
+    final isValid = lengthValid && formatValid && hasAlphaNumeric && notDuplicate;
+
+    print('Validating plate "$value" -> "$normalizedPlate"');
+    print('Length valid: $lengthValid (${normalizedPlate.length})');
+    print('Format valid: $formatValid');
+    print('Has alphanumeric: $hasAlphaNumeric');
+    print('Not duplicate: $notDuplicate');
+    print('Overall valid: $isValid');
 
     setState(() {
       _isValidPlate = isValid;
