@@ -107,21 +107,50 @@ class _OnboardingFlowState extends State<OnboardingFlow>
               // Header with skip option
               _buildHeader(),
 
-              // Main content
+              // Main content - wrapped in flexible to prevent overflow
               Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                    HapticFeedback.selectionClick();
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return PageView(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() => _currentPage = index);
+                        HapticFeedback.selectionClick();
+                      },
+                      children: [
+                        SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _WelcomePage(sparkleController: _sparkleController),
+                          ),
+                        ),
+                        SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _SecurityTransparencyPage(),
+                          ),
+                        ),
+                        SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _PrivacyFirstPage(),
+                          ),
+                        ),
+                        SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _RespectfulCommunityPage(),
+                          ),
+                        ),
+                        SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: _ReadyToStartPage(onComplete: _completeOnboarding),
+                          ),
+                        ),
+                      ],
+                    );
                   },
-                  children: [
-                    _WelcomePage(sparkleController: _sparkleController),
-                    _SecurityTransparencyPage(),
-                    _PrivacyFirstPage(),
-                    _RespectfulCommunityPage(),
-                    _ReadyToStartPage(onComplete: _completeOnboarding),
-                  ],
                 ),
               ),
 
@@ -264,152 +293,158 @@ class _WelcomePage extends StatelessWidget {
     final isTablet = screenSize.width > 768;
 
     return Padding(
-      padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
+      padding: EdgeInsets.all(isTablet ? 60.0 : 24.0),
+      child: IntrinsicHeight(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
 
-          // Premium car vector icon - clean and professional
-          Container(
-            width: isTablet ? 120 : 100,
-            height: isTablet ? 120 : 100,
-            decoration: BoxDecoration(
-              gradient: PremiumTheme.heroGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: PremiumTheme.accentColor.withOpacity(0.15),
-                  blurRadius: 32,
-                  spreadRadius: 8,
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.directions_car_outlined,
-              size: isTablet ? 50 : 42,
-              color: Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // Enhanced welcome message with premium typography
-          Column(
-            children: [
-              Text(
-                'Let\'s get that car',
-                style: TextStyle(
-                  fontSize: isTablet ? 36 : 32,
-                  fontWeight: FontWeight.w300,
-                  color: PremiumTheme.primaryTextColor,
-                  letterSpacing: 0.8,
-                  height: 1.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'out your way!',
-                style: TextStyle(
-                  fontSize: isTablet ? 40 : 36,
-                  fontWeight: FontWeight.w200,
-                  color: PremiumTheme.accentColor,
-                  letterSpacing: 1.0,
-                  height: 1.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      PremiumTheme.surfaceColor,
-                      PremiumTheme.surfaceColor.withOpacity(0.9),
-                    ],
+            // Premium car vector icon - clean and professional
+            Container(
+              width: isTablet ? 120 : 100,
+              height: isTablet ? 120 : 100,
+              decoration: BoxDecoration(
+                gradient: PremiumTheme.heroGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: PremiumTheme.accentColor.withOpacity(0.15),
+                    blurRadius: 32,
+                    spreadRadius: 8,
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: PremiumTheme.accentColor.withOpacity(0.3),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: PremiumTheme.accentColor.withOpacity(0.1),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  PremiumConfig.appName,
+                ],
+              ),
+              child: Icon(
+                Icons.directions_car_outlined,
+                size: isTablet ? 50 : 42,
+                color: Colors.white,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Enhanced welcome message with premium typography
+            Column(
+              children: [
+                Text(
+                  'Let\'s get that car',
                   style: TextStyle(
-                    fontSize: isTablet ? 22 : 20,
-                    fontWeight: FontWeight.w600,
-                    color: PremiumTheme.accentColor,
+                    fontSize: isTablet ? 36 : 28,
+                    fontWeight: FontWeight.w300,
+                    color: PremiumTheme.primaryTextColor,
                     letterSpacing: 0.8,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'The respectful way to solve parking conflicts',
-              style: TextStyle(
-                fontSize: isTablet ? 24 : 22,
-                fontWeight: FontWeight.w500,
-                color: PremiumTheme.primaryTextColor,
-                height: 1.4,
-                letterSpacing: 0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // Key features preview
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: PremiumTheme.largeRadius,
-              boxShadow: PremiumTheme.subtleShadow,
-            ),
-            child: Column(
-              children: [
-                _FeatureRow(
-                  icon: Icons.security_rounded,
-                  title: 'Privacy-First Security',
-                  subtitle: 'Your data is encrypted and never shared',
+                const SizedBox(height: 6),
+                Text(
+                  'out your way!',
+                  style: TextStyle(
+                    fontSize: isTablet ? 40 : 32,
+                    fontWeight: FontWeight.w200,
+                    color: PremiumTheme.accentColor,
+                    letterSpacing: 1.0,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
-                _FeatureRow(
-                  icon: Icons.people_rounded,
-                  title: 'Respectful Community',
-                  subtitle: 'Building better parking etiquette together',
-                ),
-                const SizedBox(height: 16),
-                _FeatureRow(
-                  icon: Icons.auto_fix_high_rounded,
-                  title: 'Effortless Experience',
-                  subtitle: 'Simple, elegant, and effective',
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        PremiumTheme.surfaceColor,
+                        PremiumTheme.surfaceColor.withOpacity(0.9),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: PremiumTheme.accentColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: PremiumTheme.accentColor.withOpacity(0.1),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    PremiumConfig.appName,
+                    style: TextStyle(
+                      fontSize: isTablet ? 22 : 18,
+                      fontWeight: FontWeight.w600,
+                      color: PremiumTheme.accentColor,
+                      letterSpacing: 0.8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),
-          ),
 
-          const Spacer(flex: 3),
-        ],
+            const SizedBox(height: 24),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'The respectful way to solve parking conflicts',
+                style: TextStyle(
+                  fontSize: isTablet ? 24 : 18,
+                  fontWeight: FontWeight.w500,
+                  color: PremiumTheme.primaryTextColor,
+                  height: 1.4,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Key features preview - made more compact
+            Flexible(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.surfaceColor,
+                  borderRadius: PremiumTheme.largeRadius,
+                  boxShadow: PremiumTheme.subtleShadow,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _FeatureRow(
+                      icon: Icons.security_rounded,
+                      title: 'Privacy-First Security',
+                      subtitle: 'Your data is encrypted and never shared',
+                    ),
+                    const SizedBox(height: 12),
+                    _FeatureRow(
+                      icon: Icons.people_rounded,
+                      title: 'Respectful Community',
+                      subtitle: 'Building better parking etiquette together',
+                    ),
+                    const SizedBox(height: 12),
+                    _FeatureRow(
+                      icon: Icons.auto_fix_high_rounded,
+                      title: 'Effortless Experience',
+                      subtitle: 'Simple, elegant, and effective',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
