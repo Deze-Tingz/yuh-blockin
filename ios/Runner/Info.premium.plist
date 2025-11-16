@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Yuh Blockin' Premium</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.yuhblockin.premium</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Yuh Blockin' Premium</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+
+	<!-- Premium Caribbean Features -->
+	<key>CaribbeanPremiumFeatures</key>
+	<true/>
+	<key>ManimPremiumAnimations</key>
+	<true/>
+	<key>PremiumVoiceAlerts</key>
+	<true/>
+	<key>PremiumDarkMode</key>
+	<true/>
+
+	<!-- Background Modes for Premium ETA Tracking -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-fetch</string>
+		<string>background-processing</string>
+		<string>remote-notification</string>
+		<string>background-app-refresh</string>
+	</array>
+
+	<!-- Location Permissions for Premium ETA -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Yuh Blockin' Premium uses location for accurate parking alerts with Caribbean precision and mathematical ETA calculations</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Premium ETA tracking provides real-time updates with island-style accuracy, helping you know exactly when the car owner will arrive</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Premium background location enables precise ETA notifications even when app is not active</string>
+
+	<!-- Voice Alerts Permissions (Premium) -->
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Premium voice recognition enables Caribbean voice commands for hands-free alert creation</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access allows premium voice alerts with authentic Caribbean pronunciation</string>
+
+	<!-- Notification Permissions -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Get notified with Caribbean style when someone needs you to move your car, or when car owners respond "On mi way!"</string>
+
+	<!-- Camera for Premium License Plate Recognition -->
+	<key>NSCameraUsageDescription</key>
+	<string>Premium feature: Take photos of license plates for automatic recognition with mathematical precision</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Access photo library to select license plate images for premium auto-recognition</string>
+
+	<!-- Motion and Fitness (for Premium Analytics) -->
+	<key>NSMotionUsageDescription</key>
+	<string>Premium analytics track movement patterns for better parking behavior insights</string>
+
+	<!-- Contacts (for Premium Community Features) -->
+	<key>NSContactsUsageDescription</key>
+	<string>Premium community features allow inviting friends to join the Caribbean parking movement</string>
+
+	<!-- Calendar (for Premium Scheduling) -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>Premium scheduling integration helps predict when you'll need parking alerts</string>
+
+	<!-- App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>firebase.googleapis.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.0</string>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- Premium App Store Metadata -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.navigation</string>
+	<key>CFBundleDisplayName</key>
+	<string>Yuh Blockin' Premium</string>
+	<key>CFBundleSpokenName</key>
+	<string>Yuh Blockin Premium</string>
+
+	<!-- Supported URL Schemes for Premium Deep Linking -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.yuhblockin.premium.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yuhblockinpremium</string>
+				<string>caribbean-parking</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Premium Capabilities -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+	<key>com.apple.developer.usernotifications.critical-alerts</key>
+	<true/>
+
+	<!-- Dark Mode Support (Premium) -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+
+	<!-- Premium App Icon -->
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>Icon-App-20x20@1x</string>
+				<string>Icon-App-20x20@2x</string>
+				<string>Icon-App-20x20@3x</string>
+				<string>Icon-App-29x29@1x</string>
+				<string>Icon-App-29x29@2x</string>
+				<string>Icon-App-29x29@3x</string>
+				<string>Icon-App-40x40@1x</string>
+				<string>Icon-App-40x40@2x</string>
+				<string>Icon-App-40x40@3x</string>
+				<string>Icon-App-50x50@1x</string>
+				<string>Icon-App-50x50@2x</string>
+				<string>Icon-App-57x57@1x</string>
+				<string>Icon-App-57x57@2x</string>
+				<string>Icon-App-60x60@2x</string>
+				<string>Icon-App-60x60@3x</string>
+				<string>Icon-App-72x72@1x</string>
+				<string>Icon-App-72x72@2x</string>
+				<string>Icon-App-76x76@1x</string>
+				<string>Icon-App-76x76@2x</string>
+				<string>Icon-App-83.5x83.5@2x</string>
+				<string>Icon-App-1024x1024@1x</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>AppIcon-Premium</string>
+		</dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AppIcon-Caribbean</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>Icon-Caribbean-60x60@2x</string>
+					<string>Icon-Caribbean-60x60@3x</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>AppIcon-Sunset</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>Icon-Sunset-60x60@2x</string>
+					<string>Icon-Sunset-60x60@3x</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- Premium Feature Flags -->
+	<key>PremiumFeatures</key>
+	<dict>
+		<key>VoiceAlerts</key>
+		<true/>
+		<key>DarkMode</key>
+		<true/>
+		<key>UnlimitedMessages</key>
+		<true/>
+		<key>RealTimeETA</key>
+		<true/>
+		<key>PrioritySupport</key>
+		<true/>
+		<key>AdvancedAnalytics</key>
+		<true/>
+		<key>ManimAnimations</key>
+		<true/>
+		<key>ExtendedLimits</key>
+		<true/>
+		<key>PremiumCommunity</key>
+		<true/>
+		<key>CaribbeanVoices</key>
+		<true/>
+	</dict>
+
+	<!-- App Store Categories -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.navigation</string>
+	<key>LSApplicationSubcategory</key>
+	<string>Parking</string>
+
+	<!-- Privacy Manifest -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryLocation</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>Real-time ETA tracking for premium parking alerts</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

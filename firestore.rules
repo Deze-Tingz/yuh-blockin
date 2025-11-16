@@ -1,0 +1,196 @@
+// Firestore Security Rules for Yuh Blockin'
+// Caribbean-style privacy and security protection
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidString(text) {
+      return text is string && text.size() > 0 && text.size() <= 500;
+    }
+
+    function hasValidLicensePlate(plate) {
+      return plate is string && plate.size() >= 6 && plate.size() <= 12;
+    }
+
+    function isValidUrgency(urgency) {
+      return urgency in ['low', 'normal', 'high', 'emergency'];
+    }
+
+    // User documents - users can read/write their own data
+    match /users/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId) &&
+                      validateUserData();
+
+      function validateUserData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['handle', 'email']) &&
+               isValidString(data.handle) &&
+               data.handle.matches('^[a-zA-Z0-9_]{3,20}$') && // Caribbean-style handles
+               data.email is string &&
+               (!('reputationScore' in data) || data.reputationScore is int);
+      }
+    }
+
+    // User plates - private license plate storage
+    match /user_plates/{plateId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerUid);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerUid) &&
+                       validatePlateData();
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerUid) &&
+                       validatePlateUpdate();
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerUid);
+
+      function validatePlateData() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['plateHash', 'ownerUid', 'isActive']) &&
+               data.plateHash is string &&
+               data.plateHash.size() == 64 && // HMAC-SHA256 hash length
+               data.ownerUid == request.auth.uid &&
+               data.isActive is bool;
+      }
+
+      function validatePlateUpdate() {
+        let data = request.resource.data;
+        return data.plateHash == resource.data.plateHash && // Can't change hash
+               data.ownerUid == resource.data.ownerUid && // Can't change owner
+               data.isActive is bool; // Can only change active status
+      }
+    }
+
+    // Alerts - parking alerts with escalation
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated() &&
+                     (isOwner(resource.data.reporterUid) ||
+                      isOwner(resource.data.blockedOwnerUid));
+
+      allow create: if isAuthenticated() && isOwner(request.resource.data.reporterUid) &&
+                       validateAlertCreation();
+
+      allow update: if isAuthenticated() && validateAlertUpdate();
+
+      function validateAlertCreation() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['blockedPlateHash', 'reporterUid', 'urgency', 'status', 'sentAt']) &&
+               data.blockedPlateHash is string &&
+               data.blockedPlateHash.size() == 64 && // Valid hash
+               data.reporterUid == request.auth.uid &&
+               isValidUrgency(data.urgency) &&
+               data.status == 'sent' &&
+               data.sentAt is timestamp &&
+               (!('customMessage' in data) || isValidString(data.customMessage)) &&
+               checkRateLimit(); // Rate limiting check
+      }
+
+      function validateAlertUpdate() {
+        let data = request.resource.data;
+        let existing = resource.data;
+
+        // Only allow status updates by authorized users
+        return (
+          // Reporter can cancel
+          (isOwner(existing.reporterUid) &&
+           data.status in ['cancelled'] &&
+           existing.status in ['sent', 'acknowledged']) ||
+
+          // Blocked owner can acknowledge or resolve
+          (isOwner(existing.blockedOwnerUid) &&
+           data.status in ['acknowledged', 'resolved'] &&
+           validateStatusTransition(existing.status, data.status)) ||
+
+          // System updates (escalation, completion)
+          (data.status in ['escalationComplete'] &&
+           existing.status == 'sent')
+        ) &&
+        // Immutable fields
+        data.reporterUid == existing.reporterUid &&
+        data.blockedPlateHash == existing.blockedPlateHash &&
+        data.urgency == existing.urgency &&
+        data.sentAt == existing.sentAt;
+      }
+
+      function validateStatusTransition(from, to) {
+        return (from == 'sent' && to in ['acknowledged', 'resolved']) ||
+               (from == 'acknowledged' && to == 'resolved');
+      }
+
+      function checkRateLimit() {
+        // This is a simplified check - more complex rate limiting in Cloud Functions
+        let hourAgo = request.time - duration.value(1, 'h');
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('lastAlertAt', timestamp.value(0)) < hourAgo;
+      }
+    }
+
+    // Notification logs - read-only for users, write-only for functions
+    match /notification_logs/{logId} {
+      allow read: if false; // Only Cloud Functions can read
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // User activity logs - privacy protected
+    match /user_activity/{activityId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow write: if false; // Only Cloud Functions can write
+    }
+
+    // Reputation leaderboards - public read, function write
+    match /leaderboards/{boardId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can update
+    }
+
+    // Analytics and metrics - admin only
+    match /analytics/{document=**} {
+      allow read, write: if false; // Admin SDK only
+    }
+
+    // System configuration - read-only for all users
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Admin only
+    }
+
+    // Caribbean-style community reports
+    match /community_reports/{reportId} {
+      allow read: if isAuthenticated() &&
+                     (isOwner(resource.data.reporterUid) ||
+                      isOwner(resource.data.targetUid));
+
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.reporterUid) &&
+                       validateCommunityReport();
+
+      function validateCommunityReport() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['reporterUid', 'targetUid', 'reason', 'description']) &&
+               data.reporterUid == request.auth.uid &&
+               data.targetUid != request.auth.uid && // Can't report yourself
+               data.reason in ['spam', 'abuse', 'harassment', 'inappropriate'] &&
+               isValidString(data.description) &&
+               data.description.size() <= 1000;
+      }
+    }
+
+    // Block list for abuse prevention
+    match /user_blocks/{blockId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.blockerUid);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.blockerUid);
+      allow delete: if isAuthenticated() && isOwner(resource.data.blockerUid);
+    }
+
+    // Fallback - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
