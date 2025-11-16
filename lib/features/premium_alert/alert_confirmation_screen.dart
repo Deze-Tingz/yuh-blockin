@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../../core/theme/premium_theme.dart';
 import '../../config/premium_config.dart';
+import '../../core/services/simple_alert_service.dart';
 import '../manim_animations/manim_integration.dart';
 import 'premium_emoji_system.dart';
 
@@ -37,6 +39,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   late Animation<double> _breathingAnimation;
 
   final ManImAnimationController _manimAnimations = ManImAnimationController();
+  final SimpleAlertService _alertService = SimpleAlertService();
 
   String _currentPhase = 'sending';  // sending -> delivered -> acknowledged -> resolved
   String _statusMessage = 'Sending respectful alert...';
@@ -44,11 +47,17 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   Timer? _progressTimer;
   Timer? _phaseTimer;
 
+  // Real alert system integration
+  String? _currentUserId;
+  String? _sentAlertId;
+  StreamSubscription<List<Alert>>? _alertResponseSubscription;
+  Alert? _currentAlert;
+
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
-    _startAlertSequence();
+    _initializeAndSendAlert();
   }
 
   void _initializeAnimations() {
@@ -100,8 +109,49 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     _manimController.repeat(reverse: true);
   }
 
-  void _startAlertSequence() {
-    // Progress simulation
+  /// Initialize alert service and send real alert
+  Future<void> _initializeAndSendAlert() async {
+    try {
+      // Initialize alert service
+      await _alertService.initialize();
+
+      // Get user ID
+      final prefs = await SharedPreferences.getInstance();
+      String? userId = prefs.getString('user_id');
+
+      if (userId == null) {
+        userId = await _alertService.getOrCreateUser();
+        await prefs.setString('user_id', userId);
+      }
+
+      setState(() {
+        _currentUserId = userId;
+      });
+
+      // Start progress animation
+      _startProgressAnimation();
+
+      // Send actual alert
+      final result = await _alertService.sendAlert(
+        targetPlateNumber: widget.plateNumber,
+        senderUserId: userId!,
+        message: widget.selectedEmoji.description,
+      );
+
+      if (result.success && result.recipients > 0) {
+        _transitionToDelivered();
+        _startListeningForResponses();
+      } else {
+        _handleAlertFailure(result.error ?? 'No recipients found');
+      }
+
+    } catch (e) {
+      _handleAlertFailure(e.toString());
+    }
+  }
+
+  /// Start progress bar animation
+  void _startProgressAnimation() {
     _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       setState(() {
         _progressValue += 0.02;
@@ -111,10 +161,61 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         }
       });
     });
+  }
 
-    // Phase progression with Manim integration
-    _phaseTimer = Timer(const Duration(seconds: 2), () {
-      _transitionToDelivered();
+  /// Listen for real-time responses
+  void _startListeningForResponses() {
+    if (_currentUserId == null) return;
+
+    _alertResponseSubscription = _alertService
+        .getSentAlertsStream(_currentUserId!)
+        .listen((alerts) {
+      if (alerts.isNotEmpty) {
+        final latestAlert = alerts.first;
+
+        setState(() {
+          _currentAlert = latestAlert;
+        });
+
+        // Check for response
+        if (latestAlert.hasResponse && _currentPhase != 'resolved') {
+          _handleRealResponse(latestAlert);
+        }
+      }
+    });
+  }
+
+  /// Handle actual response from receiver
+  void _handleRealResponse(Alert alert) {
+    setState(() {
+      _currentPhase = 'acknowledged';
+      _statusMessage = 'Response: ${alert.responseText}';
+    });
+
+    HapticFeedback.mediumImpact();
+
+    // Show Manim acknowledgment animation
+    _manimAnimations.playAcknowledgmentScene(
+      context: context,
+      onComplete: () {
+        _transitionToResolved();
+      },
+    );
+  }
+
+  /// Handle alert sending failure
+  void _handleAlertFailure(String error) {
+    setState(() {
+      _currentPhase = 'failed';
+      _statusMessage = 'Alert failed: $error';
+    });
+
+    HapticFeedback.heavyImpact();
+
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     });
   }
 
@@ -201,6 +302,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     _manimController.dispose();
     _progressTimer?.cancel();
     _phaseTimer?.cancel();
+    _alertResponseSubscription?.cancel();
     _manimAnimations.dispose();
     super.dispose();
   }

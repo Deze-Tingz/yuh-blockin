@@ -250,20 +250,65 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       final prefs = await SharedPreferences.getInstance();
       String? userId = prefs.getString('user_id');
 
-      if (userId == null) {
-        // Create new user profile
-        userId = await _alertService.getOrCreateUser();
-        await prefs.setString('user_id', userId);
+      // Check if user ID exists AND if the user actually exists in the database
+      bool needsNewUser = userId == null;
+      if (userId != null) {
         if (kDebugMode) {
-          print('🆕 Created new user: $userId');
+          print('🔍 Found existing userId in prefs: $userId');
+          print('🔍 Verifying user exists in database...');
+        }
+
+        bool userExistsInDB = await _alertService.userExists(userId);
+        if (!userExistsInDB) {
+          if (kDebugMode) {
+            print('⚠️ User ID exists in prefs but NOT in database! Need to create user.');
+          }
+          needsNewUser = true;
+        } else {
+          if (kDebugMode) {
+            print('✅ User verified to exist in database: $userId');
+          }
+        }
+      }
+
+      if (needsNewUser) {
+        try {
+          // Create new user profile
+          if (kDebugMode) {
+            print('🔍 Creating new user...');
+          }
+          userId = await _alertService.getOrCreateUser();
+          await prefs.setString('user_id', userId);
+          if (kDebugMode) {
+            print('🆕 Created new user: $userId');
+          }
+
+          // Small delay to ensure user creation is fully committed before plate registration
+          await Future.delayed(Duration(milliseconds: 100));
+        } catch (e) {
+          if (kDebugMode) {
+            print('❌ Failed to create user: $e');
+          }
+          setState(() => _isRegistering = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to create user profile. Please check your internet connection and try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return; // Don't continue if user creation failed
         }
       }
 
       // Register plate with simple service
-      await _alertService.registerPlate(
-        plateNumber: plateNumber,
-        userId: userId,
-      );
+      if (userId != null) {
+        await _alertService.registerPlate(
+          plateNumber: plateNumber,
+          userId: userId,
+        );
+      } else {
+        throw Exception('User ID is null after creation attempts');
+      }
 
       // Save to local storage as well
       await _storageService.addPlate(plateNumber);

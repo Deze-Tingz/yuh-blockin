@@ -41,17 +41,56 @@ class SimpleAlertService {
 
   /// Create or get user ID
   Future<String> getOrCreateUser() async {
+    if (kDebugMode) {
+      print('🔍 getOrCreateUser() called');
+    }
+
     _ensureInitialized();
 
     final userId = 'user_${DateTime.now().millisecondsSinceEpoch}';
 
-    await _supabase.from('users').insert({'id': userId});
-
     if (kDebugMode) {
-      print('👤 Created user: $userId');
+      print('🔍 Generated userId: $userId');
+      print('🔍 About to insert into users table...');
     }
 
-    return userId;
+    try {
+      final result = await _supabase.from('users').insert({'id': userId});
+
+      if (kDebugMode) {
+        print('🔍 Insert result: $result');
+        print('👤 ✅ Created user: $userId');
+      }
+
+      return userId;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ User creation failed: $e');
+        print('❌ Error type: ${e.runtimeType}');
+        print('❌ Error details: $e');
+      }
+      rethrow; // Re-throw so calling code knows it failed
+    }
+  }
+
+  /// Check if a user exists in the database
+  Future<bool> userExists(String userId) async {
+    try {
+      _ensureInitialized();
+
+      final result = await _supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      return result != null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error checking user existence: $e');
+      }
+      return false;
+    }
   }
 
   /// Register a license plate
@@ -169,6 +208,50 @@ class SimpleAlertService {
         .eq('id', alertId);
   }
 
+  /// Send response to an alert
+  Future<bool> sendResponse({
+    required String alertId,
+    required String response,
+    String? responseMessage,
+  }) async {
+    _ensureInitialized();
+
+    try {
+      await _supabase
+          .from('alerts')
+          .update({
+            'response': response,
+            'response_message': responseMessage,
+            'response_at': DateTime.now().toIso8601String(),
+            'read_at': DateTime.now().toIso8601String(), // Also mark as read
+          })
+          .eq('id', alertId);
+
+      if (kDebugMode) {
+        print('✅ Response sent: $response for alert: $alertId');
+      }
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Failed to send response: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Get real-time stream of alerts I've sent (to see responses)
+  Stream<List<Alert>> getSentAlertsStream(String userId) {
+    _ensureInitialized();
+
+    return _supabase
+        .from('alerts')
+        .stream(primaryKey: ['id'])
+        .eq('sender_id', userId)
+        .order('created_at', ascending: false)
+        .map((data) => data.map((item) => Alert.fromJson(item)).toList());
+  }
+
   /// Delete a registered plate
   Future<void> deletePlate({
     required String plateNumber,
@@ -224,8 +307,11 @@ class Alert {
   final String receiverId;
   final String plateHash;
   final String? message;
+  final String? response; // moving_now, 5_minutes, cant_move, wrong_car
+  final String? responseMessage; // optional custom response
   final DateTime createdAt;
   final DateTime? readAt;
+  final DateTime? responseAt;
 
   Alert({
     required this.id,
@@ -233,8 +319,11 @@ class Alert {
     required this.receiverId,
     required this.plateHash,
     this.message,
+    this.response,
+    this.responseMessage,
     required this.createdAt,
     this.readAt,
+    this.responseAt,
   });
 
   factory Alert.fromJson(Map<String, dynamic> json) {
@@ -244,8 +333,30 @@ class Alert {
       receiverId: json['receiver_id'],
       plateHash: json['plate_hash'],
       message: json['message'],
+      response: json['response'],
+      responseMessage: json['response_message'],
       createdAt: DateTime.parse(json['created_at']),
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
+      responseAt: json['response_at'] != null ? DateTime.parse(json['response_at']) : null,
     );
+  }
+
+  /// Check if alert has been responded to
+  bool get hasResponse => response != null;
+
+  /// Get human-readable response text
+  String get responseText {
+    switch (response) {
+      case 'moving_now':
+        return 'Moving now';
+      case '5_minutes':
+        return 'Give me 5 minutes';
+      case 'cant_move':
+        return 'Can\'t move right now';
+      case 'wrong_car':
+        return 'Wrong car';
+      default:
+        return 'No response';
+    }
   }
 }

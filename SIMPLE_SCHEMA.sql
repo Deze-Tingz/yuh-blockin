@@ -27,8 +27,11 @@ CREATE TABLE alerts (
     receiver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plate_hash TEXT NOT NULL,
     message TEXT,
+    response TEXT, -- receiver response: moving_now, 5_minutes, cant_move, wrong_car
+    response_message TEXT, -- optional custom response message
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read_at TIMESTAMP WITH TIME ZONE
+    read_at TIMESTAMP WITH TIME ZONE,
+    response_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Basic indexes for performance
