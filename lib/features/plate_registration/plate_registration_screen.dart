@@ -378,11 +378,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
           Navigator.of(context).pop(); // Close the dialog
           if (widget.isOnboarding && _registeredPlates.isNotEmpty) {
             // Complete onboarding and go to main app
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const PremiumHomeScreen(),
-              ),
-            );
+            _completeOnboarding();
           } else if (!widget.isOnboarding) {
             // For non-onboarding mode, go back to previous screen
             Navigator.of(context).pop();
@@ -501,7 +497,29 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   /// Delete a plate from storage and update the UI
   Future<void> _deletePlate(String plate) async {
     try {
-      // Remove using local storage service
+      // Get user ID for database operations
+      final prefs = await SharedPreferences.getInstance();
+      String? userId = prefs.getString('user_id');
+
+      // Remove from database first
+      if (userId != null) {
+        try {
+          await _alertService.deletePlate(
+            plateNumber: plate,
+            userId: userId,
+          );
+          if (kDebugMode) {
+            print('✅ Deleted plate from database: $plate');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Failed to delete plate from database: $e');
+          }
+          // Continue with local deletion even if database deletion fails
+        }
+      }
+
+      // Remove from local storage
       await _storageService.removePlate(plate);
 
       // Refresh the plates list
@@ -622,6 +640,40 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         const SizedBox(width: 40),
       ],
     );
+  }
+
+  /// Complete onboarding and navigate to main app
+  Future<void> _completeOnboarding() async {
+    try {
+      // Mark onboarding as completed
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_completed', true);
+
+      if (kDebugMode) {
+        print('✅ Onboarding marked as completed');
+      }
+
+      // Navigate to main app
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const PremiumHomeScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Failed to complete onboarding: $e');
+      }
+      // Fallback navigation even if prefs fails
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const PremiumHomeScreen(),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMainContent(bool isTablet) {

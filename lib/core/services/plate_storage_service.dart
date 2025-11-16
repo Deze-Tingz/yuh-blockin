@@ -57,9 +57,18 @@ class PlateStorageService {
       // Add new plate
       final updatedPlates = [...existingPlates, normalizedPlate];
 
+      // Preserve existing primary plate or set this as primary if it's the first plate
+      String? currentPrimaryPlate;
+      try {
+        currentPrimaryPlate = await getPrimaryPlate();
+      } catch (e) {
+        // Ignore errors reading current primary plate
+      }
+
       // Create secure storage data
       final data = {
         'plates': updatedPlates,
+        'primaryPlate': currentPrimaryPlate ?? normalizedPlate, // Set as primary if no primary exists
         'lastUpdated': DateTime.now().toIso8601String(),
         'version': '1.0',
         'checksum': _calculateChecksum(updatedPlates),
@@ -90,8 +99,27 @@ class PlateStorageService {
 
       final updatedPlates = existingPlates.where((plate) => plate != normalizedPlate).toList();
 
+      // Handle primary plate logic when removing a plate
+      String? currentPrimaryPlate;
+      try {
+        currentPrimaryPlate = await getPrimaryPlate();
+      } catch (e) {
+        // Ignore errors reading current primary plate
+      }
+
+      // If the plate being removed was the primary plate, update primary
+      String? newPrimaryPlate;
+      if (currentPrimaryPlate == normalizedPlate) {
+        // Set the first remaining plate as primary, or null if no plates left
+        newPrimaryPlate = updatedPlates.isNotEmpty ? updatedPlates.first : null;
+      } else {
+        // Keep the current primary plate
+        newPrimaryPlate = currentPrimaryPlate;
+      }
+
       final data = {
         'plates': updatedPlates,
+        if (newPrimaryPlate != null) 'primaryPlate': newPrimaryPlate,
         'lastUpdated': DateTime.now().toIso8601String(),
         'version': '1.0',
         'checksum': _calculateChecksum(updatedPlates),
@@ -160,11 +188,89 @@ class PlateStorageService {
     return plates.length;
   }
 
-  /// Get the primary (first registered) license plate
-  /// Returns null if no plates are registered
+  /// Get the user's designated primary license plate
+  /// Returns null if no plates are registered or no primary plate is set
   Future<String?> getPrimaryPlate() async {
-    final plates = await getRegisteredPlates();
-    return plates.isNotEmpty ? plates.first : null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encryptedData = prefs.getString(_storageKey);
+
+      if (encryptedData == null || encryptedData.isEmpty) {
+        return null;
+      }
+
+      final jsonData = utf8.decode(base64.decode(encryptedData));
+      final data = jsonDecode(jsonData) as Map<String, dynamic>;
+
+      // Get stored primary plate
+      final primaryPlate = data['primaryPlate'] as String?;
+
+      // Verify the primary plate still exists in the plates list
+      final plates = data['plates'] as List<dynamic>?;
+      final platesList = plates?.cast<String>() ?? [];
+
+      if (primaryPlate != null && platesList.contains(primaryPlate)) {
+        return primaryPlate;
+      }
+
+      // If no valid primary plate, return the first plate as fallback
+      return platesList.isNotEmpty ? platesList.first : null;
+
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error reading primary plate: $e');
+      }
+      // Fallback to first plate from getRegisteredPlates
+      final plates = await getRegisteredPlates();
+      return plates.isNotEmpty ? plates.first : null;
+    }
+  }
+
+  /// Set a plate as the primary (main) license plate
+  Future<void> setPrimaryPlate(String plateNumber) async {
+    try {
+      final normalizedPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
+      final existingPlates = await getRegisteredPlates();
+
+      // Verify the plate exists
+      if (!existingPlates.contains(normalizedPlate)) {
+        throw PlateStorageException('Cannot set primary plate: plate not registered');
+      }
+
+      // Get current data
+      final prefs = await SharedPreferences.getInstance();
+      final encryptedData = prefs.getString(_storageKey);
+
+      Map<String, dynamic> data;
+      if (encryptedData != null && encryptedData.isNotEmpty) {
+        final jsonData = utf8.decode(base64.decode(encryptedData));
+        data = jsonDecode(jsonData) as Map<String, dynamic>;
+      } else {
+        // Create new data structure if none exists
+        data = {
+          'plates': existingPlates,
+          'version': '1.0',
+        };
+      }
+
+      // Update primary plate
+      data['primaryPlate'] = normalizedPlate;
+      data['lastUpdated'] = DateTime.now().toIso8601String();
+      data['checksum'] = _calculateChecksum(existingPlates);
+
+      // Save updated data
+      final jsonString = jsonEncode(data);
+      final newEncryptedData = base64.encode(utf8.encode(jsonString));
+      await prefs.setString(_storageKey, newEncryptedData);
+
+      if (kDebugMode) {
+        print('✅ Primary plate set to: $normalizedPlate');
+      }
+
+    } catch (e) {
+      if (e is PlateStorageException) rethrow;
+      throw PlateStorageException('Failed to set primary plate: $e');
+    }
   }
 
   /// Export plates for backup (encrypted)

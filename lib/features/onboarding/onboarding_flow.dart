@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 import '../../core/theme/premium_theme.dart';
@@ -86,13 +87,24 @@ class _OnboardingFlowState extends State<OnboardingFlow>
     );
   }
 
-  void _completeOnboarding() {
+  Future<void> _completeOnboarding() async {
+    // Mark onboarding as completed BEFORE going to plate registration
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_completed', true);
+      print('✅ Onboarding marked as completed in onboarding flow');
+    } catch (e) {
+      print('❌ Failed to mark onboarding as completed: $e');
+    }
+
     // After onboarding, go to license plate registration as the final setup step
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const PlateRegistrationScreen(isOnboarding: true),
-      ),
-    );
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const PlateRegistrationScreen(isOnboarding: true),
+        ),
+      );
+    }
   }
 
   @override
@@ -764,9 +776,11 @@ class _RespectfulCommunityPage extends StatelessWidget {
                 borderRadius: PremiumTheme.mediumRadius,
                 boxShadow: PremiumTheme.subtleShadow,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   _CommunityPrinciple(
                     emoji: '🤝',
                     title: 'Respectful Communication',
@@ -791,6 +805,7 @@ class _RespectfulCommunityPage extends StatelessWidget {
                     description: 'Automated systems prevent abuse',
                   ),
                 ],
+                ),
               ),
             ),
           ),

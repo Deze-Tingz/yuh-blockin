@@ -49,9 +49,80 @@ class PremiumYuhBlockinApp extends StatelessWidget {
             title: PremiumConfig.appName,
             debugShowCheckedModeBanner: false,
             theme: themeNotifier.currentTheme,
-            home: const OnboardingFlow(),
+            home: const AppInitializer(),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Determines the initial route based on user's onboarding status
+class AppInitializer extends StatefulWidget {
+  const AppInitializer({super.key});
+
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    print('🔍 AppInitializer: Checking onboarding status...');
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompletedOnboarding = prefs.getBool('onboarding_completed') ?? false;
+      final userId = prefs.getString('user_id');
+      final hasUserId = userId != null;
+
+      print('🔍 AppInitializer: hasCompletedOnboarding = $hasCompletedOnboarding');
+      print('🔍 AppInitializer: hasUserId = $hasUserId (userId = $userId)');
+
+      if (!mounted) return;
+
+      if (hasCompletedOnboarding && hasUserId) {
+        print('✅ AppInitializer: User has completed onboarding - going to home screen');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const PremiumHomeScreen(),
+          ),
+        );
+      } else {
+        print('🔄 AppInitializer: First time user or incomplete setup - going to onboarding');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const OnboardingFlow(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ AppInitializer: Error checking status: $e');
+      // On error, default to onboarding
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const OnboardingFlow(),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Simple loading screen while checking status
+    return Scaffold(
+      backgroundColor: PremiumTheme.backgroundColor,
+      body: Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(PremiumTheme.accentColor),
+        ),
       ),
     );
   }
@@ -395,52 +466,27 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         children: [
           // Main content
           SafeArea(
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 80.0 : 32.0,
-                vertical: isTablet ? 60.0 : 50.0,
-              ),
-              child: Column(
-                children: [
-                  // Subtle app identity
-                  _buildAppHeader(theme, isTablet),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Check if we need to use scroll view on smaller screens
+                final useScrollView = constraints.maxHeight < 600;
 
-                  SizedBox(height: isTablet ? 32 : 24),
-
-                  // Premium user stats counters
-                  _buildStatsCounters(isTablet),
-
-                  // Adaptive flexible space - reduced when vehicle display is present
-                  Expanded(
-                    flex: _primaryPlate != null ? 1 : 2,
-                    child: const SizedBox(),
+                final content = Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 80.0 : 32.0,
+                    vertical: isTablet ? 60.0 : (useScrollView ? 20.0 : 50.0),
                   ),
+                  child: useScrollView ? _buildScrollableContent(theme, isTablet) : _buildStaticContent(theme, isTablet),
+                );
 
-                  // Hero button - the centerpiece
-                  _buildHeroButton(theme, isTablet),
-
-                  // Active vehicle display (conditional)
-                  if (_primaryPlate != null) ...[
-                    const SizedBox(height: 16),
-                    _buildActiveVehicleDisplay(isTablet),
-                  ],
-
-                  // Adaptive flexible space below
-                  Expanded(
-                    flex: _primaryPlate != null ? 1 : 2,
-                    child: const SizedBox(),
-                  ),
-
-                  // Minimal footer
-                  _buildFooter(theme),
-
-                  SizedBox(height: isTablet ? 24 : 16),
-
-                  // Settings access - dual buttons
-                  _buildSettingsRow(),
-                ],
-              ),
+                return useScrollView
+                    ? SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: content,
+                      )
+                    : content;
+              },
             ),
           ),
 
@@ -1085,6 +1131,91 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           ],
         ),
       ),
+    );
+  }
+
+  /// Build content for larger screens (with Expanded widgets)
+  Widget _buildStaticContent(ThemeData theme, bool isTablet) {
+    return Column(
+      children: [
+        // Subtle app identity
+        _buildAppHeader(theme, isTablet),
+
+        SizedBox(height: isTablet ? 32 : 24),
+
+        // Premium user stats counters
+        _buildStatsCounters(isTablet),
+
+        // Adaptive flexible space - reduced when vehicle display is present
+        Expanded(
+          flex: _primaryPlate != null ? 1 : 2,
+          child: const SizedBox(),
+        ),
+
+        // Hero button - the centerpiece
+        _buildHeroButton(theme, isTablet),
+
+        // Active vehicle display (conditional)
+        if (_primaryPlate != null) ...[
+          const SizedBox(height: 16),
+          _buildActiveVehicleDisplay(isTablet),
+        ],
+
+        // Adaptive flexible space below
+        Expanded(
+          flex: _primaryPlate != null ? 1 : 2,
+          child: const SizedBox(),
+        ),
+
+        // Minimal footer
+        _buildFooter(theme),
+
+        SizedBox(height: isTablet ? 24 : 16),
+
+        // Settings access - dual buttons
+        _buildSettingsRow(),
+      ],
+    );
+  }
+
+  /// Build content for smaller screens (scrollable, no Expanded widgets)
+  Widget _buildScrollableContent(ThemeData theme, bool isTablet) {
+    return Column(
+      children: [
+        // Subtle app identity
+        _buildAppHeader(theme, isTablet),
+
+        SizedBox(height: isTablet ? 32 : 16),
+
+        // Premium user stats counters
+        _buildStatsCounters(isTablet),
+
+        // Fixed space instead of Expanded
+        SizedBox(height: _primaryPlate != null ? 24 : 48),
+
+        // Hero button - the centerpiece
+        _buildHeroButton(theme, isTablet),
+
+        // Active vehicle display (conditional)
+        if (_primaryPlate != null) ...[
+          const SizedBox(height: 16),
+          _buildActiveVehicleDisplay(isTablet),
+        ],
+
+        // Fixed space instead of Expanded
+        SizedBox(height: _primaryPlate != null ? 24 : 48),
+
+        // Minimal footer
+        _buildFooter(theme),
+
+        SizedBox(height: isTablet ? 24 : 12),
+
+        // Settings access - dual buttons
+        _buildSettingsRow(),
+
+        // Extra bottom padding for scroll
+        const SizedBox(height: 24),
+      ],
     );
   }
 

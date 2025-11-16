@@ -195,7 +195,8 @@ class SimpleAlertService {
         .from('alerts')
         .stream(primaryKey: ['id'])
         .eq('receiver_id', userId)
-        .map((data) => Alert.fromJson(data.first));
+        .expand((data) => data) // Flatten the list of alerts
+        .map((item) => Alert.fromJson(item)); // Convert each item to Alert
   }
 
   /// Mark alert as read
