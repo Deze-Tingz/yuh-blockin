@@ -2,17 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'dart:math';
 
 import '../../core/theme/premium_theme.dart';
 import '../../config/premium_config.dart';
 import '../plate_registration/plate_registration_screen.dart';
 import '../../main_premium.dart';
 
-/// Premium Onboarding Flow
-///
-/// Emphasizes security transparency while creating comfort and trust
-/// Features step-by-step education about our privacy-first approach
+/// Compact Onboarding Flow - No Scrolling Required
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({super.key});
 
@@ -20,34 +16,15 @@ class OnboardingFlow extends StatefulWidget {
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-class _OnboardingFlowState extends State<OnboardingFlow>
-    with TickerProviderStateMixin {
+class _OnboardingFlowState extends State<OnboardingFlow> {
   late PageController _pageController;
-  late AnimationController _fadeController;
-  late AnimationController _sparkleController;
-
   int _currentPage = 0;
-  final int _totalPages = 5;
+  final int _totalPages = 3;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-
-    _fadeController = AnimationController(
-      duration: PremiumTheme.mediumDuration,
-      vsync: this,
-    );
-
-    _sparkleController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    );
-
-    _fadeController.forward();
-    _sparkleController.repeat();
-
-    // Remove splash screen after UI is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FlutterNativeSplash.remove();
     });
@@ -56,8 +33,6 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   @override
   void dispose() {
     _pageController.dispose();
-    _fadeController.dispose();
-    _sparkleController.dispose();
     super.dispose();
   }
 
@@ -66,7 +41,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       _currentPage++;
       _pageController.animateToPage(
         _currentPage,
-        duration: PremiumTheme.mediumDuration,
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
       HapticFeedback.lightImpact();
@@ -78,7 +53,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       _currentPage--;
       _pageController.animateToPage(
         _currentPage,
-        duration: PremiumTheme.mediumDuration,
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
       HapticFeedback.lightImpact();
@@ -87,23 +62,18 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
   void _skipToMainApp() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const PremiumHomeScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const PremiumHomeScreen()),
     );
   }
 
   Future<void> _completeOnboarding() async {
-    // Mark onboarding as completed BEFORE going to plate registration
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_completed', true);
-      print('✅ Onboarding marked as completed in onboarding flow');
     } catch (e) {
-      print('❌ Failed to mark onboarding as completed: $e');
+      debugPrint('Failed to save onboarding state: $e');
     }
 
-    // After onboarding, go to license plate registration as the final setup step
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -118,38 +88,25 @@ class _OnboardingFlowState extends State<OnboardingFlow>
     return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeController,
-          child: Column(
-            children: [
-              // Header with skip option
-              _buildHeader(),
-
-              // Main content
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                    HapticFeedback.selectionClick();
-                  },
-                  children: [
-                    _WelcomePage(sparkleController: _sparkleController),
-                    _SecurityTransparencyPage(),
-                    _PrivacyFirstPage(),
-                    _RespectfulCommunityPage(),
-                    _ReadyToStartPage(
-                      onComplete: _completeOnboarding,
-                      onSkip: _skipToMainApp,
-                    ),
-                  ],
-                ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() => _currentPage = index);
+                  HapticFeedback.selectionClick();
+                },
+                children: [
+                  _WelcomePage(),
+                  _SecurityPage(),
+                  _ReadyPage(onComplete: _completeOnboarding, onSkip: _skipToMainApp),
+                ],
               ),
-
-              // Navigation footer
-              _buildNavigationFooter(),
-            ],
-          ),
+            ),
+            _buildFooter(),
+          ],
         ),
       ),
     );
@@ -157,11 +114,10 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Progress indicator
           Row(
             children: List.generate(_totalPages, (index) {
               final isActive = index <= _currentPage;
@@ -170,33 +126,21 @@ class _OnboardingFlowState extends State<OnboardingFlow>
                 width: isActive ? 24 : 8,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? PremiumTheme.accentColor
-                      : PremiumTheme.dividerColor,
+                  color: isActive ? PremiumTheme.accentColor : PremiumTheme.dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               );
             }),
           ),
-
-          // Skip button
           if (_currentPage < _totalPages - 1)
             GestureDetector(
               onTap: _skipToMainApp,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: PremiumTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: PremiumTheme.subtleShadow,
-                ),
-                child: Text(
-                  'Skip',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: PremiumTheme.secondaryTextColor,
-                  ),
+              child: Text(
+                'Skip',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: PremiumTheme.secondaryTextColor,
                 ),
               ),
             ),
@@ -205,614 +149,218 @@ class _OnboardingFlowState extends State<OnboardingFlow>
     );
   }
 
-  Widget _buildNavigationFooter() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      child: _currentPage == 0
-          ?
-          // First page - center the Get Started button
-          Center(
-            child: SizedBox(
-              width: 200, // Fixed width for centered button
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          if (_currentPage > 0)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _previousPage,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Back'),
+              ),
+            ),
+          if (_currentPage > 0 && _currentPage < _totalPages - 1)
+            const SizedBox(width: 12),
+          if (_currentPage < _totalPages - 1)
+            Expanded(
               child: ElevatedButton(
                 onPressed: _nextPage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PremiumTheme.accentColor,
                   foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: Text(
-                  'Get Started',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text(_currentPage == 0 ? 'Get Started' : 'Continue'),
               ),
             ),
-          )
-          :
-          // Other pages - use row layout with Previous/Continue buttons
-          Row(
-            children: [
-              // Previous button
-              if (_currentPage > 0)
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _previousPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumTheme.surfaceColor,
-                      foregroundColor: PremiumTheme.primaryTextColor,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: PremiumTheme.dividerColor,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      'Previous',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (_currentPage > 0 && _currentPage < _totalPages - 1)
-                const SizedBox(width: 16),
-
-              // Continue button
-              if (_currentPage < _totalPages - 1)
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _nextPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Continue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+        ],
+      ),
     );
   }
 }
 
-/// Welcome page with premium branding
+/// Page 1: Welcome
 class _WelcomePage extends StatelessWidget {
-  final AnimationController sparkleController;
-
-  const _WelcomePage({required this.sparkleController});
-
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 60.0 : 24.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-
-            // Premium car vector icon - clean and professional
-            Container(
-              width: isTablet ? 120 : 100,
-              height: isTablet ? 120 : 100,
-              decoration: BoxDecoration(
-                gradient: PremiumTheme.heroGradient,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(0.15),
-                    blurRadius: 32,
-                    spreadRadius: 8,
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.directions_car_outlined,
-                size: isTablet ? 50 : 42,
-                color: Colors.white,
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Enhanced welcome message with premium typography - single line
-            Column(
-              children: [
-                Text(
-                  'Let\'s get that car out your way!',
-                  style: TextStyle(
-                    fontSize: isTablet ? 32 : 24,
-                    fontWeight: FontWeight.w300,
-                    color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 0.5,
-                    height: 1.3,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        PremiumTheme.surfaceColor,
-                        PremiumTheme.surfaceColor.withOpacity(0.9),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: PremiumTheme.accentColor.withOpacity(0.3),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: PremiumTheme.accentColor.withOpacity(0.1),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    PremiumConfig.appName,
-                    style: TextStyle(
-                      fontSize: isTablet ? 22 : 18,
-                      fontWeight: FontWeight.w600,
-                      color: PremiumTheme.accentColor,
-                      letterSpacing: 0.8,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'The respectful way to solve parking conflicts',
-                style: TextStyle(
-                  fontSize: isTablet ? 24 : 18,
-                  fontWeight: FontWeight.w500,
-                  color: PremiumTheme.primaryTextColor,
-                  height: 1.4,
-                  letterSpacing: 0.3,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Key features preview - made more compact
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: PremiumTheme.surfaceColor,
-                borderRadius: PremiumTheme.largeRadius,
-                boxShadow: PremiumTheme.subtleShadow,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FeatureRow(
-                    icon: Icons.security_rounded,
-                    title: 'Privacy-First Security',
-                    subtitle: 'Your data is encrypted and never shared',
-                  ),
-                  const SizedBox(height: 12),
-                  _FeatureRow(
-                    icon: Icons.people_rounded,
-                    title: 'Respectful Community',
-                    subtitle: 'Building better parking etiquette together',
-                  ),
-                  const SizedBox(height: 12),
-                  _FeatureRow(
-                    icon: Icons.auto_fix_high_rounded,
-                    title: 'Effortless Experience',
-                    subtitle: 'Simple, elegant, and effective',
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Security transparency page
-class _SecurityTransparencyPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-
-          // Security icon
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green.shade400, Colors.green.shade600],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.verified_user_rounded,
-              size: 40,
-              color: Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Text(
-            'Complete Security\nTransparency',
-            style: TextStyle(
-              fontSize: isTablet ? 32 : 28,
-              fontWeight: FontWeight.w200,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.8,
-              height: 1.2,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          const SizedBox(height: 24),
-
-          Text(
-            'We believe you should know exactly how your data is protected. Here\'s our complete security approach:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: PremiumTheme.secondaryTextColor,
-              height: 1.6,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 32),
-
-          // Security measures
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: PremiumTheme.mediumRadius,
-              boxShadow: PremiumTheme.subtleShadow,
-            ),
-            child: Column(
-              children: [
-                _SecurityFeature(
-                  icon: Icons.enhanced_encryption_rounded,
-                  title: 'HMAC-SHA256 Encryption',
-                  description: 'Your license plates are hashed with military-grade encryption before storage',
-                  isComforting: true,
-                ),
-                const SizedBox(height: 16),
-                _SecurityFeature(
-                  icon: Icons.local_fire_department_rounded,
-                  title: 'Zero Raw Data Storage',
-                  description: 'We never store your actual license plate number anywhere',
-                  isComforting: true,
-                ),
-                const SizedBox(height: 16),
-                _SecurityFeature(
-                  icon: Icons.visibility_off_rounded,
-                  title: 'Anonymous by Design',
-                  description: 'No names, addresses, or personal info required',
-                  isComforting: true,
-                ),
-                const SizedBox(height: 16),
-                _SecurityFeature(
-                  icon: Icons.devices_rounded,
-                  title: 'Local-First Storage',
-                  description: 'Your data stays on your device, encrypted in secure local storage',
-                  isComforting: true,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Privacy-first approach page
-class _PrivacyFirstPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-
-          // Privacy shield
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade400, Colors.blue.shade600],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.privacy_tip_rounded,
-              size: 40,
-              color: Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Text(
-            'Privacy by Design\nNot by Accident',
-            style: TextStyle(
-              fontSize: isTablet ? 32 : 28,
-              fontWeight: FontWeight.w200,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.8,
-              height: 1.2,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 24),
-
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: PremiumTheme.mediumRadius,
-              border: Border.all(
-                color: Colors.blue.shade200,
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.psychology_rounded,
-                  size: 32,
-                  color: Colors.blue.shade600,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'How it works',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue.shade800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'When you enter "ABC 123", we immediately convert it to an irreversible hash like "a7b2c8d4e1f9". Only you know the original plate number.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.blue.shade700,
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // What this means for you
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: PremiumTheme.mediumRadius,
-              boxShadow: PremiumTheme.subtleShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'What this means for you:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: PremiumTheme.primaryTextColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _PrivacyBenefit('✅ Even we can\'t see your license plate'),
-                _PrivacyBenefit('✅ No data breaches can expose your info'),
-                _PrivacyBenefit('✅ Complete anonymity in the system'),
-                _PrivacyBenefit('✅ You control all your data'),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _PrivacyBenefit(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: PremiumTheme.secondaryTextColor,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-/// Respectful community page
-class _RespectfulCommunityPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: isTablet ? 60.0 : 24.0,
-        vertical: 20.0,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Community icon
           Container(
-            width: isTablet ? 80 : 60,
-            height: isTablet ? 80 : 60,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.orange.shade400, Colors.orange.shade600],
-              ),
+              gradient: PremiumTheme.heroGradient,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.group_rounded,
-              size: isTablet ? 40 : 30,
-              color: Colors.white,
+            child: const Icon(Icons.directions_car_outlined, size: 40, color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            PremiumConfig.appName,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.accentColor,
             ),
           ),
-
-          SizedBox(height: isTablet ? 32 : 24),
-
+          const SizedBox(height: 8),
           Text(
-            'Building a Respectful\nParking Community',
+            'The respectful way to solve parking conflicts',
             style: TextStyle(
-              fontSize: isTablet ? 32 : 24,
-              fontWeight: FontWeight.w200,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.8,
-              height: 1.2,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          SizedBox(height: isTablet ? 24 : 16),
-
-          Text(
-            'Together, we\'re creating a culture of mutual respect and understanding around parking.',
-            style: TextStyle(
-              fontSize: isTablet ? 16 : 14,
-              fontWeight: FontWeight.w400,
+              fontSize: 16,
               color: PremiumTheme.secondaryTextColor,
-              height: 1.5,
             ),
             textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
           ),
+          const SizedBox(height: 32),
+          _CompactFeature(Icons.security_rounded, 'Privacy-First', 'Your data is encrypted'),
+          const SizedBox(height: 12),
+          _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
+          const SizedBox(height: 12),
+          _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
+        ],
+      ),
+    );
+  }
+}
 
-          SizedBox(height: isTablet ? 32 : 20),
+/// Page 2: Security & Privacy Combined
+class _SecurityPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified_user_rounded, size: 35, color: Colors.white),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Your Privacy Protected',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.primaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: PremiumTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                _SecurityItem(Icons.enhanced_encryption, 'Military-grade encryption'),
+                const SizedBox(height: 10),
+                _SecurityItem(Icons.visibility_off, 'We never see your plate number'),
+                const SizedBox(height: 10),
+                _SecurityItem(Icons.person_off, 'No personal info required'),
+                const SizedBox(height: 10),
+                _SecurityItem(Icons.phone_android, 'Data stays on your device'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Your plate is converted to a secure hash that even we cannot reverse.',
+            style: TextStyle(
+              fontSize: 13,
+              color: PremiumTheme.secondaryTextColor,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-          // Community principles - flexible container
-          Flexible(
-            child: Container(
-              padding: EdgeInsets.all(isTablet ? 20 : 16),
-              decoration: BoxDecoration(
-                color: PremiumTheme.surfaceColor,
-                borderRadius: PremiumTheme.mediumRadius,
-                boxShadow: PremiumTheme.subtleShadow,
+/// Page 3: Ready to Start
+class _ReadyPage extends StatelessWidget {
+  final VoidCallback onComplete;
+  final VoidCallback onSkip;
+
+  const _ReadyPage({required this.onComplete, required this.onSkip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_rounded, size: 45, color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'You\'re All Set!',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.primaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Register your license plate to receive alerts when someone needs you to move your car.',
+            style: TextStyle(
+              fontSize: 15,
+              color: PremiumTheme.secondaryTextColor,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onComplete,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PremiumTheme.accentColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                  _CommunityPrinciple(
-                    emoji: '🤝',
-                    title: 'Respectful Communication',
-                    description: 'All alerts are polite and constructive',
-                  ),
-                  SizedBox(height: isTablet ? 16 : 12),
-                  _CommunityPrinciple(
-                    emoji: '⚡',
-                    title: 'Quick Responses',
-                    description: 'Most people move their car within 5 minutes',
-                  ),
-                  SizedBox(height: isTablet ? 16 : 12),
-                  _CommunityPrinciple(
-                    emoji: '🌟',
-                    title: 'Positive Reputation',
-                    description: 'Build your community standing through helpfulness',
-                  ),
-                  SizedBox(height: isTablet ? 16 : 12),
-                  _CommunityPrinciple(
-                    emoji: '🛡️',
-                    title: 'Zero Tolerance for Harassment',
-                    description: 'Automated systems prevent abuse',
-                  ),
-                ],
-                ),
+              child: const Text(
+                'Register License Plate',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onSkip,
+            child: Text(
+              'Skip for now',
+              style: TextStyle(color: PremiumTheme.secondaryTextColor),
             ),
           ),
         ],
@@ -821,435 +369,77 @@ class _RespectfulCommunityPage extends StatelessWidget {
   }
 }
 
-/// Ready to start page
-class _ReadyToStartPage extends StatelessWidget {
-  final VoidCallback onComplete;
-  final VoidCallback onSkip;
+/// Compact feature row
+class _CompactFeature extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
-  const _ReadyToStartPage({
-    required this.onComplete,
-    required this.onSkip,
-  });
+  const _CompactFeature(this.icon, this.title, this.subtitle);
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.all(isTablet ? 60.0 : 32.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-
-          // Success checkmark
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green.shade400, Colors.green.shade600],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.check_rounded,
-              size: 50,
-              color: Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Text(
-            'You\'re All Set!',
-            style: TextStyle(
-              fontSize: isTablet ? 36 : 32,
-              fontWeight: FontWeight.w200,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.8,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 24),
-
-          Text(
-            'You now understand how ${PremiumConfig.appName} protects your privacy while fostering respectful parking solutions.',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: PremiumTheme.secondaryTextColor,
-              height: 1.6,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
-          // Quick start actions
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: PremiumTheme.largeRadius,
-              boxShadow: PremiumTheme.subtleShadow,
-            ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 24, color: PremiumTheme.accentColor),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ready to start?',
+                  title,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // Register plates button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: onComplete,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Register Your License Plates',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Skip to main app
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: onSkip,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(
-                      'Skip for now, go to main app',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: PremiumTheme.secondaryTextColor,
-                      ),
-                    ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: PremiumTheme.secondaryTextColor,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 60),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-// Helper widgets
-
-class _FeatureRow extends StatelessWidget {
+/// Security item row
+class _SecurityItem extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String text;
 
-  const _FeatureRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _SecurityItem(this.icon, this.text);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: PremiumTheme.accentColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: PremiumTheme.accentColor,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: PremiumTheme.primaryTextColor,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: PremiumTheme.secondaryTextColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SecurityFeature extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isComforting;
-
-  const _SecurityFeature({
-    required this.icon,
-    required this.title,
-    required this.description,
-    this.isComforting = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: isComforting
-                ? Colors.green.withOpacity(0.1)
-                : PremiumTheme.accentColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: isComforting ? Colors.green : PremiumTheme.accentColor,
-          ),
-        ),
+        Icon(icon, size: 20, color: Colors.green),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: PremiumTheme.primaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: PremiumTheme.secondaryTextColor,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CommunityPrinciple extends StatelessWidget {
-  final String emoji;
-  final String title;
-  final String description;
-
-  const _CommunityPrinciple({
-    required this.emoji,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: PremiumTheme.backgroundColor,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              emoji,
-              style: TextStyle(fontSize: 16),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: PremiumTheme.primaryTextColor,
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: PremiumTheme.primaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: PremiumTheme.secondaryTextColor,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
-}
-
-// Simple, clean car painter - much better than the overly complex version
-class _PremiumCarPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Clean car body
-    final bodyPaint = Paint()
-      ..color = PremiumTheme.accentColor.withOpacity(0.8)
-      ..style = PaintingStyle.fill;
-
-    final strokePaint = Paint()
-      ..color = PremiumTheme.accentColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    // Simple car silhouette
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.1,
-        size.height * 0.3,
-        size.width * 0.8,
-        size.height * 0.4,
-      ),
-      Radius.circular(size.height * 0.1),
-    );
-
-    // Draw car body
-    canvas.drawRRect(bodyRect, bodyPaint);
-    canvas.drawRRect(bodyRect, strokePaint);
-
-    // Simple wheels
-    final wheelPaint = Paint()
-      ..color = PremiumTheme.accentColor
-      ..style = PaintingStyle.fill;
-
-    final wheelRadius = size.height * 0.12;
-
-    // Left wheel
-    canvas.drawCircle(
-      Offset(size.width * 0.25, size.height * 0.8),
-      wheelRadius,
-      wheelPaint,
-    );
-
-    // Right wheel
-    canvas.drawCircle(
-      Offset(size.width * 0.75, size.height * 0.8),
-      wheelRadius,
-      wheelPaint,
-    );
-
-    // Simple windows
-    final windowPaint = Paint()
-      ..color = PremiumTheme.accentColor.withOpacity(0.6)
-      ..style = PaintingStyle.fill;
-
-    final windowRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.2,
-        size.height * 0.35,
-        size.width * 0.6,
-        size.height * 0.25,
-      ),
-      Radius.circular(size.height * 0.05),
-    );
-
-    canvas.drawRRect(windowRect, windowPaint);
-  }
-
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
-
-// Motion lines painter for playful movement effect
-class _MotionLinesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    // Three motion lines of varying lengths
-    canvas.drawLine(
-      Offset(0, size.height * 0.2),
-      Offset(size.width * 0.6, size.height * 0.2),
-      paint,
-    );
-
-    canvas.drawLine(
-      Offset(0, size.height * 0.5),
-      Offset(size.width * 0.8, size.height * 0.5),
-      paint,
-    );
-
-    canvas.drawLine(
-      Offset(0, size.height * 0.8),
-      Offset(size.width * 0.7, size.height * 0.8),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
