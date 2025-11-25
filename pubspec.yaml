@@ -50,22 +50,15 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/images/app_icon.png"
 
-# Flutter Native Splash configuration
+# Flutter Native Splash - Simple and effective
 flutter_native_splash:
   color: "#FFFFFF"
   image: assets/images/splash_logo.png
-  image_dark: assets/images/splash_logo.png
   android: true
   ios: true
-  fullscreen: true
-
-  # Android 12+ - use app icon for the centered icon, full logo as branding
   android_12:
     color: "#FFFFFF"
-    image: assets/images/app_icon.png
-    icon_background_color: "#FFFFFF"
-    branding: assets/images/splash_logo.png
-    branding_mode: bottom
+    image: assets/images/splash_logo.png
 
 # Flutter-specific configuration
 flutter:

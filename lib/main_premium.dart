@@ -1253,41 +1253,16 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 stops: const [0.0, 0.5, 1.0],
               ),
               boxShadow: [
-                // Main shadow - smaller when pressed
+                // Single optimized shadow for performance
                 BoxShadow(
-                  color: PremiumTheme.accentColor.withOpacity(_isPressed ? 0.15 : 0.25),
-                  blurRadius: _isPressed ? 16 : 32,
-                  offset: Offset(0, _isPressed ? 8 : 16),
-                  spreadRadius: _isPressed ? 0 : 8,
-                ),
-                // Subtle glow effect
-                BoxShadow(
-                  color: PremiumTheme.accentColor
-                      .withOpacity(0.15), // Static glow for better performance
-                  blurRadius: _isPressed ? 30 : 60,
+                  color: PremiumTheme.accentColor.withOpacity(0.3),
+                  blurRadius: 16,
                   offset: const Offset(0, 8),
-                  spreadRadius: _isPressed ? 5 : 20,
                 ),
               ],
             ),
             child: Stack(
               children: [
-                // Inner highlight for premium depth effect
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.center,
-                        colors: [
-                          Colors.white.withOpacity(0.15),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
                 // Button content
                 Center(
                   child: Column(
@@ -3373,27 +3348,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   ),
                   padding: EdgeInsets.all(isTablet ? 24.0 : 20.0),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        PremiumTheme.accentColor,
-                        PremiumTheme.accentColor.withOpacity(0.9),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
+                    color: PremiumTheme.accentColor,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: PremiumTheme.accentColor.withOpacity(0.3),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                        spreadRadius: 0,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 16,
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 8,
                         offset: const Offset(0, 4),
-                        spreadRadius: 0,
                       ),
                     ],
                   ),
