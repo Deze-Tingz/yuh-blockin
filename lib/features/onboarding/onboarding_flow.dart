@@ -62,7 +62,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _skipToMainApp() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const PremiumHomeScreen()),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const PremiumHomeScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+      ),
     );
   }
 
@@ -76,8 +82,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const PlateRegistrationScreen(isOnboarding: true),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const PlateRegistrationScreen(isOnboarding: true),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 200),
         ),
       );
     }
