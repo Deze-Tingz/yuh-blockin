@@ -37,40 +37,23 @@ void main() {
     height: iconHeight,
   );
 
-  // Create a square canvas - icon fills 85% of space, properly centered
+  // Create a square canvas - icon fills entire space
   final int outputSize = 1024;
 
   // Create white background
   final output = img.Image(width: outputSize, height: outputSize);
   img.fill(output, color: img.ColorRgb8(255, 255, 255));
 
-  // Make icon fill 85% of the canvas
-  final int targetSize = (outputSize * 0.85).round();
-
-  // Resize to fit - maintain aspect ratio
-  final double aspectRatio = croppedIcon.width / croppedIcon.height;
-  int newWidth, newHeight;
-
-  if (aspectRatio > 1) {
-    newWidth = targetSize;
-    newHeight = (targetSize / aspectRatio).round();
-  } else {
-    newHeight = targetSize;
-    newWidth = (targetSize * aspectRatio).round();
-  }
-
+  // Stretch icon to fill the entire canvas (100%)
   final resized = img.copyResize(
     croppedIcon,
-    width: newWidth,
-    height: newHeight,
+    width: outputSize,
+    height: outputSize,
     interpolation: img.Interpolation.cubic,
   );
 
-  // Center the icon on the canvas
-  final int offsetX = (outputSize - resized.width) ~/ 2;
-  final int offsetY = (outputSize - resized.height) ~/ 2;
-
-  img.compositeImage(output, resized, dstX: offsetX, dstY: offsetY);
+  // Place at origin (0,0) - fills entire canvas
+  img.compositeImage(output, resized, dstX: 0, dstY: 0);
 
   // Save the app icon
   final outputFile = File('assets/images/app_icon.png');

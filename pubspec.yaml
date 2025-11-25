@@ -60,10 +60,10 @@ flutter_native_splash:
   ios: true
   fullscreen: true
 
-  # Android 12+ uses adaptive icon system - use branding for full logo
+  # Android 12+ - use app icon for the centered icon, full logo as branding
   android_12:
     color: "#FFFFFF"
-    image: assets/images/logo_transparent.png
+    image: assets/images/app_icon.png
     icon_background_color: "#FFFFFF"
     branding: assets/images/splash_logo.png
     branding_mode: bottom

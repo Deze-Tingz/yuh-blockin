@@ -109,7 +109,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       // Send simple emoji alert
       final result = await _alertService.sendAlert(
         targetPlateNumber: widget.plateNumber,
-        senderUserId: userId!,
+        senderUserId: userId,
         message: widget.selectedEmoji.unicode, // Just send the emoji character
       );
 
