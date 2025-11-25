@@ -408,27 +408,27 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                           // Title and description (more compact)
                           _buildTitle(),
 
-                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
+                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
 
                           // License plate input
                           _buildPlateInput(),
 
-                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
+                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
 
                           // Urgency selection
                           _buildUrgencySelection(),
 
-                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
+                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
 
                           // Emoji expression selection
                           _buildEmojiSelector(),
 
-                          SizedBox(height: isVerySmallScreen ? 12.0 : 16.0),
+                          SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
 
                           // Send alert button
                           _buildSendButton(),
 
-                          SizedBox(height: isVerySmallScreen ? 12.0 : 20.0),
+                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
                         ],
                       ),
                     ),
@@ -494,7 +494,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   Widget _buildVehicleContextBadge() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -571,100 +571,67 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 
   Widget _buildTitle() {
-    return Column(
-      children: [
-        // Compact title with premium styling
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                PremiumTheme.surfaceColor,
-                PremiumTheme.surfaceColor.withOpacity(0.9),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            PremiumTheme.surfaceColor,
+            PremiumTheme.surfaceColor.withOpacity(0.9),
+          ],
+        ),
+        borderRadius: PremiumTheme.mediumRadius,
+        boxShadow: [
+          BoxShadow(
+            color: PremiumTheme.accentColor.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Premium title with rich text styling
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w300,
+                color: PremiumTheme.primaryTextColor,
+                letterSpacing: 0.5,
+                height: 1.1,
+              ),
+              children: [
+                TextSpan(text: 'Send '),
+                TextSpan(
+                  text: 'Respectful',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: PremiumTheme.accentColor,
+                  ),
+                ),
+                TextSpan(text: ' Alert'),
               ],
             ),
-            borderRadius: PremiumTheme.mediumRadius,
-            boxShadow: [
-              BoxShadow(
-                color: PremiumTheme.accentColor.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-                spreadRadius: 0,
-              ),
-            ],
           ),
-          child: Column(
-            children: [
-              // Premium title with rich text styling
-              RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w300,
-                    color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 0.5,
-                    height: 1.1,
-                  ),
-                  children: [
-                    TextSpan(text: 'Send '),
-                    TextSpan(
-                      text: 'Respectful',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: PremiumTheme.accentColor,
-                      ),
-                    ),
-                    TextSpan(text: ' Alert'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Subtle accent line
-              Container(
-                width: 50,
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      PremiumTheme.accentColor.withOpacity(0.6),
-                      Colors.transparent,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Compact description
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: PremiumTheme.accentColor.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
+          const SizedBox(height: 4),
+          // Compact description inline
+          Text(
             'Let someone know their car needs to be moved',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w400,
               color: PremiumTheme.secondaryTextColor,
-              height: 1.4,
-              letterSpacing: 0.2,
+              letterSpacing: 0.1,
             ),
             textAlign: TextAlign.center,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -675,14 +642,14 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         Text(
           'License Plate Number',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
             letterSpacing: 0.1,
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
         Container(
           decoration: BoxDecoration(
@@ -713,8 +680,8 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 fontWeight: FontWeight.w400,
               ),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 20,
+                horizontal: 20,
+                vertical: 16,
               ),
               border: InputBorder.none,
             ),

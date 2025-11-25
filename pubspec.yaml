@@ -18,6 +18,7 @@ dependencies:
   audioplayers: ^6.0.0
   provider: ^6.1.1
   supabase_flutter: ^2.5.6
+  flutter_native_splash: ^2.4.0
 
   # Optional: Keep these only if you want advanced state management
   # hooks_riverpod: ^2.5.1
@@ -30,6 +31,42 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  image: ^4.2.0
+  flutter_launcher_icons: ^0.13.1
+
+# App Icon configuration
+# NOTE: Create app_icon.png by cropping the top-right icon from logo.PNG
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  # iOS specific
+  ios_content_mode: scaleAspectFit
+  # Web favicon
+  web:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+
+# Flutter Native Splash configuration
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/splash_logo.png
+  image_dark: assets/images/splash_logo.png
+  android: true
+  ios: true
+  fullscreen: true
+
+  # Android 12+ uses adaptive icon system - use branding for full logo
+  android_12:
+    color: "#FFFFFF"
+    image: assets/images/logo_transparent.png
+    icon_background_color: "#FFFFFF"
+    branding: assets/images/splash_logo.png
+    branding_mode: bottom
 
 # Flutter-specific configuration
 flutter:

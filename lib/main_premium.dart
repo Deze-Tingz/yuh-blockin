@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 
 import 'core/theme/premium_theme.dart';
@@ -23,6 +25,8 @@ import 'features/theme_settings/theme_settings_screen.dart';
 /// Inspired by Uber, Airbnb, Apple Human Interface guidelines
 /// Minimal, elegant, professional with subtle 2025 motion signature
 void main() {
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   runApp(const PremiumYuhBlockinApp());
 }
 
@@ -93,6 +97,9 @@ class _AppInitializerState extends State<AppInitializer> {
 
       if (!mounted) return;
 
+      // Remove splash screen before navigation
+      FlutterNativeSplash.remove();
+
       if (hasCompletedOnboarding && hasUserId) {
         print(
             '✅ AppInitializer: User has completed onboarding - going to home screen');
@@ -114,6 +121,7 @@ class _AppInitializerState extends State<AppInitializer> {
       print('❌ AppInitializer: Error checking status: $e');
       // On error, default to onboarding
       if (mounted) {
+        FlutterNativeSplash.remove();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const OnboardingFlow(),
@@ -150,6 +158,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   late Animation<double> _breathingAnimation;
   late Animation<double> _glowAnimation;
   bool _isPressed = false;
+
+  // Entrance animations for premium feel
+  late AnimationController _entranceController;
+  late Animation<double> _buttonRiseAnimation;
+  late Animation<double> _buttonFadeAnimation;
+  late Animation<double> _iconsSlideAnimation;
+  late Animation<double> _iconsFadeAnimation;
+  bool _showTagline = false;
 
   final PlateStorageService _plateStorageService = PlateStorageService();
   final UserStatsService _statsService = UserStatsService();
@@ -220,7 +236,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       curve: Curves.easeInOut,
     ));
 
-    _breathingController.repeat(reverse: true);
+    // Disabled continuous animation for better performance
+    // _breathingController.repeat(reverse: true);
 
     // Initialize shake animation for alert banner
     _shakeController = AnimationController(
@@ -235,6 +252,56 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       parent: _shakeController,
       curve: Curves.elasticIn,
     ));
+
+    // Initialize entrance animations for premium page load effect
+    _entranceController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    // Button rises up from below with bounce
+    _buttonRiseAnimation = Tween<double>(
+      begin: 20,
+      end: 0,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOutBack,
+    ));
+
+    // Button fades in
+    _buttonFadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    ));
+
+    // Icons slide up with slight delay
+    _iconsSlideAnimation = Tween<double>(
+      begin: 15,
+      end: 0,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.2, 1.0, curve: Curves.easeOutBack),
+    ));
+
+    // Icons fade in with delay
+    _iconsFadeAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
+    ));
+
+    // Start entrance animation
+    _entranceController.forward();
+
+    // Delayed tagline reveal
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _showTagline = true);
+    });
 
     // CRITICAL: Ensure user exists FIRST before any other operations
     _initializeApp();
@@ -351,6 +418,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // Dispose animation controllers
     _breathingController.dispose();
     _shakeController.dispose();
+    _entranceController.dispose();
 
     // Dispose audio player
     _alertAudioPlayer.dispose();
@@ -932,19 +1000,49 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         backgroundColor: PremiumTheme.backgroundColor,
         body: Stack(
           children: [
+            // Premium background gradient layer
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0xFFF8FBFF), // Very light blue tint at top
+                    PremiumTheme.backgroundColor,
+                    PremiumTheme.backgroundColor,
+                  ],
+                  stops: const [0.0, 0.3, 1.0],
+                ),
+              ),
+            ),
+
+            // Ghosted car icon for brand reinforcement
+            Positioned(
+              right: -40,
+              bottom: 100,
+              child: Opacity(
+                opacity: 0.02, // Very subtle - 2% opacity
+                child: Icon(
+                  Icons.directions_car,
+                  size: 200,
+                  color: PremiumTheme.accentColor,
+                ),
+              ),
+            ),
+
             // Main content
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   // Check if we need to use scroll view on smaller screens
-                  // Increased threshold to handle Samsung S7 and similar devices better
-                  final useScrollView = constraints.maxHeight < 750;
+                  // Higher threshold to prevent overflow on more devices
+                  final useScrollView = constraints.maxHeight < 800;
 
                   final content = Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(
                       horizontal: isTablet ? 80.0 : 32.0,
-                      vertical: isTablet ? 60.0 : (useScrollView ? 20.0 : 50.0),
+                      vertical: isTablet ? 60.0 : (useScrollView ? 16.0 : 40.0),
                     ),
                     child: useScrollView
                         ? _buildScrollableContent(theme, isTablet)
@@ -971,49 +1069,126 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   Widget _buildAppHeader(ThemeData theme, bool isTablet) {
-    return IntrinsicHeight(
-      child: Stack(
-        children: [
-          // Main app header content (centered with proper spacing)
-          Column(
-            children: [
-              // Minimal top spacing
-              SizedBox(height: isTablet ? 24 : 20),
+    // Get the ThemeNotifier to pass to navigated screens
+    final themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
 
-              // Enhanced app wordmark with premium styling
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      PremiumTheme.surfaceColor,
-                      PremiumTheme.surfaceColor.withOpacity(0.8),
-                    ],
+    return Padding(
+      padding: EdgeInsets.only(top: isTablet ? 16 : 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Logo on the left
+          Image.asset(
+            'assets/images/logo_transparent.png',
+            height: isTablet ? 64 : 52,
+            fit: BoxFit.contain,
+          ),
+          // Menu button on the right
+          PopupMenuButton<String>(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: PremiumTheme.surfaceColor.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: PremiumTheme.accentColor.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.menu_rounded,
+                color: PremiumTheme.accentColor,
+                size: isTablet ? 24 : 22,
+              ),
+            ),
+            offset: const Offset(0, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: PremiumTheme.surfaceColor,
+            elevation: 8,
+            onSelected: (value) async {
+              HapticFeedback.lightImpact();
+              if (value == 'themes') {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        ChangeNotifierProvider.value(
+                      value: themeNotifier,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(-1.0, 0.0),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: PremiumTheme.standardCurve,
+                        )),
+                        child: const ThemeSettingsScreen(),
+                      ),
+                    ),
+                    transitionDuration: PremiumTheme.mediumDuration,
                   ),
-                  borderRadius: PremiumTheme.mediumRadius,
-                  boxShadow: [
-                    BoxShadow(
-                      color: PremiumTheme.accentColor.withOpacity(0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                      spreadRadius: 0,
+                );
+              } else if (value == 'vehicles') {
+                await Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1.0, 0.0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: PremiumTheme.standardCurve,
+                      )),
+                      child: const PlateRegistrationScreen(),
+                    ),
+                    transitionDuration: PremiumTheme.mediumDuration,
+                  ),
+                );
+                await _refreshAllData();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'themes',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.palette_outlined,
+                      color: PremiumTheme.accentColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Themes',
+                      style: TextStyle(
+                        color: PremiumTheme.primaryTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
-                child: Text(
-                  PremiumConfig.appName,
-                  style: TextStyle(
-                    fontSize: isTablet ? 32 : 28,
-                    fontWeight:
-                        FontWeight.w200, // Ultra-light for premium elegance
-                    color: PremiumTheme.primaryTextColor,
-                    letterSpacing:
-                        1.2, // Increased letter spacing for premium feel
-                    height: 1.1,
-                  ),
+              ),
+              PopupMenuItem<String>(
+                value: 'vehicles',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.directions_car_outlined,
+                      color: PremiumTheme.accentColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'My Vehicles',
+                      style: TextStyle(
+                        color: PremiumTheme.primaryTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1026,80 +1201,127 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Widget _buildHeroButton(ThemeData theme, bool isTablet) {
     final buttonSize = isTablet ? 280.0 : 240.0;
 
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _isPressed = true);
-        HapticFeedback.mediumImpact();
-      },
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        _handleAlertTap();
-      },
-      onTapCancel: () {
-        setState(() => _isPressed = false);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        width: buttonSize,
-        height: buttonSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              PremiumTheme.accentColor,
-              PremiumTheme.accentColor.withOpacity(0.8),
-            ],
+    return AnimatedBuilder(
+      animation: _entranceController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _buttonRiseAnimation.value),
+          child: Opacity(
+            opacity: _buttonFadeAnimation.value,
+            child: child,
           ),
-          boxShadow: [
-            // Main shadow
-            BoxShadow(
-              color: PremiumTheme.accentColor.withOpacity(0.25),
-              blurRadius: 32,
-              offset: const Offset(0, 16),
-              spreadRadius: _isPressed ? 2 : 8,
-            ),
-            // Subtle glow effect
-            BoxShadow(
-              color: PremiumTheme.accentColor
-                  .withOpacity(0.1 + (_glowAnimation.value * 0.15)),
-              blurRadius: 60,
-              offset: const Offset(0, 8),
-              spreadRadius: _isPressed ? 10 : 20,
-            ),
-          ],
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon with subtle animation
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                transform: Matrix4.identity()
-                  ..translate(0.0, _isPressed ? 2.0 : 0.0),
-                child: Icon(
-                  Icons.notifications_outlined,
-                  size: isTablet ? 48 : 40,
-                  color: Colors.white,
-                ),
+        );
+      },
+      child: GestureDetector(
+        onTapDown: (_) {
+          setState(() => _isPressed = true);
+          HapticFeedback.mediumImpact();
+        },
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          _handleAlertTap();
+        },
+        onTapCancel: () {
+          setState(() => _isPressed = false);
+        },
+        child: AnimatedScale(
+          scale: _isPressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            width: buttonSize,
+            height: buttonSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // Premium radial gradient for depth - darken when pressed
+              gradient: RadialGradient(
+                center: const Alignment(-0.3, -0.3), // Offset for 3D depth
+                radius: 1.2,
+                colors: _isPressed
+                    ? [
+                        const Color(0xFF1565C0), // Darker when pressed
+                        const Color(0xFF1565C0),
+                        const Color(0xFF0D47A1),
+                      ]
+                    : [
+                        const Color(0xFF1A73E8), // Bright blue highlight
+                        PremiumTheme.accentColor, // Standard accent
+                        const Color(0xFF1662CE), // Deeper blue
+                      ],
+                stops: const [0.0, 0.5, 1.0],
               ),
-
-              const SizedBox(height: 12),
-
-              // Button text
-              Text(
-                'Send Alert',
-                style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
+              boxShadow: [
+                // Main shadow - smaller when pressed
+                BoxShadow(
+                  color: PremiumTheme.accentColor.withOpacity(_isPressed ? 0.15 : 0.25),
+                  blurRadius: _isPressed ? 16 : 32,
+                  offset: Offset(0, _isPressed ? 8 : 16),
+                  spreadRadius: _isPressed ? 0 : 8,
                 ),
-              ),
-            ],
+                // Subtle glow effect
+                BoxShadow(
+                  color: PremiumTheme.accentColor
+                      .withOpacity(0.15), // Static glow for better performance
+                  blurRadius: _isPressed ? 30 : 60,
+                  offset: const Offset(0, 8),
+                  spreadRadius: _isPressed ? 5 : 20,
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Inner highlight for premium depth effect
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.center,
+                        colors: [
+                          Colors.white.withOpacity(0.15),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Button content
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Megaphone icon - bold, action-oriented
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        transform: Matrix4.identity()
+                          ..translate(0.0, _isPressed ? 4.0 : 0.0),
+                        child: Icon(
+                          Icons.campaign_rounded,
+                          size: isTablet ? 52 : 44,
+                          color: _isPressed ? Colors.white.withOpacity(0.9) : Colors.white,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Button text
+                      Text(
+                        'Send Alert',
+                        style: TextStyle(
+                          fontSize: isTablet ? 20 : 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1107,35 +1329,213 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   Widget _buildFooter(ThemeData theme) {
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildBranding() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Elegant minimal status indicator
-        Container(
-          height: 2,
-          width: 32,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                PremiumTheme.accentColor.withOpacity(0.0),
-                PremiumTheme.accentColor.withOpacity(0.4),
-                PremiumTheme.accentColor.withOpacity(0.0),
-              ],
+        // Animated tagline
+        AnimatedOpacity(
+          opacity: _showTagline ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 500),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Move with respect.',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: PremiumTheme.tertiaryTextColor.withOpacity(0.7),
+                letterSpacing: 0.8,
+                fontStyle: FontStyle.italic,
+              ),
             ),
-            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
+        // Copyright - more subtle
+        Text(
+          'DezeTingz © 2026',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w300,
+            color: PremiumTheme.tertiaryTextColor.withOpacity(0.5),
+            letterSpacing: 0.8,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBranding() {
-    return Text(
-      'DezeTingz © 2026',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: PremiumTheme.tertiaryTextColor,
-        letterSpacing: 0.5,
+  /// Helper widget for labeled icons
+  Widget _buildLabeledIcon({
+    required Widget icon,
+    required String label,
+    required bool isTablet,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: PremiumTheme.secondaryTextColor,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Floating glass bottom bar with premium styling
+  Widget _buildFloatingBottomBar(bool isTablet) {
+    // Get the ThemeNotifier to pass to navigated screens
+    final themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: isTablet ? 40 : 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: isTablet ? 24 : 12,
+            vertical: isTablet ? 16 : 12,
+          ),
+          decoration: BoxDecoration(
+            color: PremiumTheme.surfaceColor.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: PremiumTheme.accentColor.withOpacity(0.08),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: PremiumTheme.accentColor.withOpacity(0.05),
+                blurRadius: 40,
+                offset: const Offset(0, 4),
+                spreadRadius: -4,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: _buildBottomBarButton(
+                  icon: Icons.palette_outlined,
+                  label: 'Themes',
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            ChangeNotifierProvider.value(
+                          value: themeNotifier,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(-1.0, 0.0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: PremiumTheme.standardCurve,
+                            )),
+                            child: const ThemeSettingsScreen(),
+                          ),
+                        ),
+                        transitionDuration: PremiumTheme.mediumDuration,
+                      ),
+                    );
+                  },
+                  isTablet: isTablet,
+                ),
+              ),
+              Container(
+                height: 24,
+                width: 1,
+                color: PremiumTheme.dividerColor,
+              ),
+              Flexible(
+                child: _buildBottomBarButton(
+                  icon: Icons.directions_car_outlined,
+                  label: 'Vehicles',
+                  onTap: () async {
+                    HapticFeedback.lightImpact();
+                    await Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(1.0, 0.0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: PremiumTheme.standardCurve,
+                          )),
+                          child: const PlateRegistrationScreen(),
+                        ),
+                        transitionDuration: PremiumTheme.mediumDuration,
+                      ),
+                    );
+                    await _refreshAllData();
+                  },
+                  isTablet: isTablet,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Bottom bar button helper
+  Widget _buildBottomBarButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isTablet,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 16 : 10,
+          vertical: 4,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: PremiumTheme.accentColor,
+              size: isTablet ? 22 : 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isTablet ? 15 : 13,
+                fontWeight: FontWeight.w500,
+                color: PremiumTheme.accentColor,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1143,7 +1543,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Widget _buildActiveVehicleDisplay(bool isTablet) {
     return Padding(
       padding: EdgeInsets.symmetric(
-        vertical: isTablet ? 32.0 : 24.0,
+        vertical: isTablet ? 16.0 : 8.0,
       ),
       child: Container(
         constraints: BoxConstraints(
@@ -1257,6 +1657,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   Widget _buildSettingsRow() {
+    // Get the ThemeNotifier to pass to navigated screens
+    final themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -1267,15 +1670,18 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             Navigator.of(context).push(
               PageRouteBuilder(
                 pageBuilder: (context, animation, secondaryAnimation) =>
-                    SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(-1.0, 0.0),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: PremiumTheme.standardCurve,
-                  )),
-                  child: const ThemeSettingsScreen(),
+                    ChangeNotifierProvider.value(
+                  value: themeNotifier,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(-1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: PremiumTheme.standardCurve,
+                    )),
+                    child: const ThemeSettingsScreen(),
+                  ),
                 ),
                 transitionDuration: PremiumTheme.mediumDuration,
               ),
@@ -2717,51 +3123,58 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
-        // Adaptive flexible space - reduced when vehicle display is present
-        Expanded(
-          flex: _primaryPlate != null ? 1 : 2,
-          child: const SizedBox(),
-        ),
+        // Flexible space above - more space to push content down
+        const Expanded(flex: 3, child: SizedBox()),
 
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
 
-        // Stats and notification icons - right below send alert button
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCompactStatsIcon(isTablet),
-            const SizedBox(width: 24),
-            _buildCompactNotificationIcon(isTablet),
-          ],
+        // Stats and notification icons with labels - animated entrance
+        SizedBox(height: isTablet ? 28 : 24),
+        AnimatedBuilder(
+          animation: _entranceController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _iconsSlideAnimation.value),
+              child: Opacity(
+                opacity: _iconsFadeAnimation.value,
+                child: child,
+              ),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLabeledIcon(
+                icon: _buildCompactStatsIcon(isTablet),
+                label: 'History',
+                isTablet: isTablet,
+              ),
+              const SizedBox(width: 32),
+              _buildLabeledIcon(
+                icon: _buildCompactNotificationIcon(isTablet),
+                label: 'Alerts',
+                isTablet: isTablet,
+              ),
+            ],
+          ),
         ),
 
-        // Adaptive flexible space below
-        Expanded(
-          flex: 2,
-          child: const SizedBox(),
-        ),
+        // Active vehicle display OR setup hint
+        SizedBox(height: isTablet ? 24 : 20),
+        if (_primaryPlate != null)
+          _buildActiveVehicleDisplay(isTablet)
+        else
+          _buildSetupHint(isTablet),
 
-        // Minimal footer
-        _buildFooter(theme),
-
-        // Active vehicle display (conditional) - moved below footer
-        if (_primaryPlate != null) ...[
-          SizedBox(height: isTablet ? 20 : 16),
-          _buildActiveVehicleDisplay(isTablet),
-        ],
-
-        SizedBox(height: isTablet ? 20 : 16),
-
-        // Settings access - dual buttons (moved to bottom)
-        _buildSettingsRow(),
-
-        SizedBox(height: isTablet ? 20 : 16),
+        // Flexible space below - less space to keep content lower
+        const Expanded(flex: 2, child: SizedBox()),
 
         // DezeTingz branding at the very bottom
         _buildBranding(),
+
+        SizedBox(height: isTablet ? 8 : 6),
       ],
     );
   }
@@ -2773,49 +3186,149 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
-        // Fixed space instead of Expanded
-        SizedBox(height: _primaryPlate != null ? 32 : 64),
+        // Space above button - push content down
+        SizedBox(height: isTablet ? 120 : 100),
 
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
 
-        // Stats and notification icons - right below send alert button
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCompactStatsIcon(isTablet),
-            const SizedBox(width: 24),
-            _buildCompactNotificationIcon(isTablet),
-          ],
+        // Stats and notification icons with labels - animated entrance
+        SizedBox(height: isTablet ? 28 : 24),
+        AnimatedBuilder(
+          animation: _entranceController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _iconsSlideAnimation.value),
+              child: Opacity(
+                opacity: _iconsFadeAnimation.value,
+                child: child,
+              ),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLabeledIcon(
+                icon: _buildCompactStatsIcon(isTablet),
+                label: 'History',
+                isTablet: isTablet,
+              ),
+              const SizedBox(width: 32),
+              _buildLabeledIcon(
+                icon: _buildCompactNotificationIcon(isTablet),
+                label: 'Alerts',
+                isTablet: isTablet,
+              ),
+            ],
+          ),
         ),
 
-        // Fixed space instead of Expanded
-        const SizedBox(height: 48),
-
-        // Minimal footer
-        _buildFooter(theme),
-
-        // Active vehicle display (conditional) - moved below footer
-        if (_primaryPlate != null) ...[
-          SizedBox(height: isTablet ? 20 : 16),
-          _buildActiveVehicleDisplay(isTablet),
-        ],
-
-        SizedBox(height: isTablet ? 24 : 16),
-
-        // Settings access - dual buttons (moved to bottom)
-        _buildSettingsRow(),
-
+        // Active vehicle display OR setup hint
         SizedBox(height: isTablet ? 20 : 16),
+        if (_primaryPlate != null)
+          _buildActiveVehicleDisplay(isTablet)
+        else
+          _buildSetupHint(isTablet),
+
+        SizedBox(height: isTablet ? 24 : 20),
 
         // DezeTingz branding at the very bottom
         _buildBranding(),
 
         // Extra bottom padding for scroll
-        const SizedBox(height: 24),
+        SizedBox(height: isTablet ? 12 : 8),
       ],
+    );
+  }
+
+  /// Subtle setup hint for new users who haven't added a vehicle yet
+  Widget _buildSetupHint(bool isTablet) {
+    return GestureDetector(
+      onTap: () async {
+        HapticFeedback.lightImpact();
+        // Navigate to My Vehicles
+        await Navigator.of(context).push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: PremiumTheme.standardCurve,
+              )),
+              child: const PlateRegistrationScreen(),
+            ),
+            transitionDuration: PremiumTheme.mediumDuration,
+          ),
+        );
+        await _refreshAllData();
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 20 : 16,
+          vertical: isTablet ? 14 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: PremiumTheme.accentColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: PremiumTheme.accentColor.withOpacity(0.12),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                color: PremiumTheme.accentColor,
+                size: isTablet ? 20 : 18,
+              ),
+            ),
+            SizedBox(width: isTablet ? 14 : 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Add your vehicle',
+                  style: TextStyle(
+                    fontSize: isTablet ? 15 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: PremiumTheme.primaryTextColor,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'to start receiving alerts',
+                  style: TextStyle(
+                    fontSize: isTablet ? 13 : 12,
+                    fontWeight: FontWeight.w400,
+                    color: PremiumTheme.secondaryTextColor,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(width: isTablet ? 12 : 10),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: PremiumTheme.accentColor.withOpacity(0.6),
+              size: isTablet ? 16 : 14,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

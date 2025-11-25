@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:math';
 
 import '../../core/theme/premium_theme.dart';
@@ -45,6 +46,11 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
     _fadeController.forward();
     _sparkleController.repeat();
+
+    // Remove splash screen after UI is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FlutterNativeSplash.remove();
+    });
   }
 
   @override
