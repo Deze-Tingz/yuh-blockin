@@ -216,7 +216,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
     // Subtle breathing animation for hero button
     _breathingController = AnimationController(
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 2),
       vsync: this,
     );
 
@@ -241,7 +241,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
     // Initialize shake animation for alert banner
     _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
@@ -255,7 +255,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
     // Initialize entrance animations for premium page load effect
     _entranceController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
@@ -1928,46 +1928,32 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     required Color color,
     required bool isTablet,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Small icon
-        Icon(
-          icon,
-          color: color.withOpacity(0.7),
-          size: isTablet ? 16 : 14,
-        ),
-
-        SizedBox(width: isTablet ? 6 : 4),
-
-        // Count and label
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: isTablet ? 18 : 16,
-                fontWeight: FontWeight.w700,
-                color: PremiumTheme.primaryTextColor,
-                letterSpacing: 0.3,
-                height: 1.0,
-              ),
+    return SizedBox(
+      width: isTablet ? 80 : 70,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: isTablet ? 18 : 16),
+          const SizedBox(height: 4),
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: isTablet ? 18 : 16,
+              fontWeight: FontWeight.w700,
+              color: PremiumTheme.primaryTextColor,
             ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: isTablet ? 10 : 9,
-                fontWeight: FontWeight.w500,
-                color: color.withOpacity(0.8),
-                letterSpacing: 0.2,
-                height: 1.0,
-              ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTablet ? 10 : 9,
+              fontWeight: FontWeight.w500,
+              color: color,
             ),
-          ],
-        ),
-      ],
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1978,47 +1964,32 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     required Color color,
     required bool isTablet,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Premium emoji
-        Text(
-          emoji,
-          style: TextStyle(
-            fontSize: isTablet ? 16 : 14,
+    return SizedBox(
+      width: isTablet ? 80 : 70,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: TextStyle(fontSize: isTablet ? 18 : 16)),
+          const SizedBox(height: 4),
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: isTablet ? 18 : 16,
+              fontWeight: FontWeight.w700,
+              color: PremiumTheme.primaryTextColor,
+            ),
           ),
-        ),
-
-        SizedBox(width: isTablet ? 6 : 4),
-
-        // Count and label
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              count.toString(),
-              style: TextStyle(
-                fontSize: isTablet ? 18 : 16,
-                fontWeight: FontWeight.w700,
-                color: PremiumTheme.primaryTextColor,
-                letterSpacing: 0.3,
-                height: 1.0,
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTablet ? 10 : 9,
+              fontWeight: FontWeight.w500,
+              color: color,
             ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: isTablet ? 10 : 9,
-                fontWeight: FontWeight.w500,
-                color: color.withOpacity(0.8),
-                letterSpacing: 0.2,
-                height: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ],
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -3330,8 +3301,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       math.sin(_shakeController.value * 2 * math.pi * 4),
                   0),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.elasticOut,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
                 transform: Matrix4.translationValues(
                   0,
                   _showingAlertBanner

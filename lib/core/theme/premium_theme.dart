@@ -344,13 +344,13 @@ class PremiumTheme {
   // MARK: - Motion Constants
 
   /// Standard duration for micro-interactions
-  static const Duration fastDuration = Duration(milliseconds: 200);
+  static const Duration fastDuration = Duration(milliseconds: 150);
 
   /// Standard duration for transitions
-  static const Duration mediumDuration = Duration(milliseconds: 350);
+  static const Duration mediumDuration = Duration(milliseconds: 200);
 
   /// Standard duration for page transitions
-  static const Duration slowDuration = Duration(milliseconds: 500);
+  static const Duration slowDuration = Duration(milliseconds: 250);
 
   /// Breathing animation duration for hero elements
   static const Duration breathingDuration = Duration(seconds: 4);
