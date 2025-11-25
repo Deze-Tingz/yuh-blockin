@@ -3,13 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:audioplayers/audioplayers.dart';
 
 import 'core/theme/premium_theme.dart';
 import 'core/services/plate_storage_service.dart';
 import 'core/services/user_stats_service.dart';
 import 'core/services/simple_alert_service.dart';
+import 'core/services/unacknowledged_alert_service.dart';
+import 'core/services/user_alias_service.dart';
 import 'config/premium_config.dart';
 import 'features/premium_alert/alert_workflow_screen.dart';
+import 'features/premium_alert/alert_history_screen.dart';
 import 'features/plate_registration/plate_registration_screen.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/theme_settings/theme_settings_screen.dart';
@@ -77,24 +82,28 @@ class _AppInitializerState extends State<AppInitializer> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final hasCompletedOnboarding = prefs.getBool('onboarding_completed') ?? false;
+      final hasCompletedOnboarding =
+          prefs.getBool('onboarding_completed') ?? false;
       final userId = prefs.getString('user_id');
       final hasUserId = userId != null;
 
-      print('🔍 AppInitializer: hasCompletedOnboarding = $hasCompletedOnboarding');
+      print(
+          '🔍 AppInitializer: hasCompletedOnboarding = $hasCompletedOnboarding');
       print('🔍 AppInitializer: hasUserId = $hasUserId (userId = $userId)');
 
       if (!mounted) return;
 
       if (hasCompletedOnboarding && hasUserId) {
-        print('✅ AppInitializer: User has completed onboarding - going to home screen');
+        print(
+            '✅ AppInitializer: User has completed onboarding - going to home screen');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const PremiumHomeScreen(),
           ),
         );
       } else {
-        print('🔄 AppInitializer: First time user or incomplete setup - going to onboarding');
+        print(
+            '🔄 AppInitializer: First time user or incomplete setup - going to onboarding');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const OnboardingFlow(),
@@ -136,7 +145,7 @@ class PremiumHomeScreen extends StatefulWidget {
 }
 
 class _PremiumHomeScreenState extends State<PremiumHomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _breathingController;
   late Animation<double> _breathingAnimation;
   late Animation<double> _glowAnimation;
@@ -145,18 +154,49 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   final PlateStorageService _plateStorageService = PlateStorageService();
   final UserStatsService _statsService = UserStatsService();
   final SimpleAlertService _alertService = SimpleAlertService();
+  final UnacknowledgedAlertService _unacknowledgedAlertService =
+      UnacknowledgedAlertService();
+  final UserAliasService _aliasService = UserAliasService();
   String? _primaryPlate;
-  UserStats _userStats = UserStats(carsFreed: 0, situationsResolved: 0);
+  UserStats _userStats = UserStats(
+    carsFreed: 0,
+    situationsResolved: 0,
+    alertsSent: 0,
+    alertsReceived: 0,
+  );
 
   // Alert notification system
   String? _currentUserId;
   StreamSubscription<Alert>? _alertStreamSubscription;
+  StreamSubscription<List<Alert>>?
+      _sentAlertsStreamSubscription; // For monitoring acknowledgments
   Alert? _currentIncomingAlert;
+  String? _currentSenderAlias;
+  String? _currentAlertEmoji; // Store emoji from alert message
   bool _showingAlertBanner = false;
+
+  // Unacknowledged alerts tracking
+  int _unacknowledgedAlertsCount = 0;
+
+  // Track which alert IDs have been shown to prevent re-showing
+  final Set<String> _shownAlertIds = {};
+
+  // Track which alert IDs have been marked as acknowledged to prevent duplicate processing
+  final Set<String> _acknowledgedAlertIds = {};
+
+  // Audio player for alert sound
+  final AudioPlayer _alertAudioPlayer = AudioPlayer();
+
+  // Animation controller for shake effect
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Add lifecycle observer for app state changes
+    WidgetsBinding.instance.addObserver(this);
 
     // Subtle breathing animation for hero button
     _breathingController = AnimationController(
@@ -182,6 +222,20 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
     _breathingController.repeat(reverse: true);
 
+    // Initialize shake animation for alert banner
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+
+    _shakeAnimation = Tween<double>(
+      begin: 0,
+      end: 10,
+    ).animate(CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.elasticIn,
+    ));
+
     // CRITICAL: Ensure user exists FIRST before any other operations
     _initializeApp();
   }
@@ -198,6 +252,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // Step 2: Load other data after user is confirmed to exist
     _loadPrimaryPlate();
     _loadUserStats();
+    _loadUnacknowledgedAlertsCount();
 
     // Step 3: Initialize alert system (user ID is now guaranteed to exist)
     _initializeAlertSystem();
@@ -206,13 +261,27 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   // Load user's primary license plate
   Future<void> _loadPrimaryPlate() async {
     try {
+      print('🔍 MainPremium: Loading primary plate...');
+      final previousPlate = _primaryPlate;
       final primaryPlate = await _plateStorageService.getPrimaryPlate();
+
+      print('🔍 MainPremium: Previous plate: $previousPlate');
+      print('🔍 MainPremium: New plate: $primaryPlate');
+
       if (mounted) {
         setState(() {
           _primaryPlate = primaryPlate;
         });
+
+        if (previousPlate != primaryPlate) {
+          print(
+              '✅ MainPremium: Primary plate changed from "$previousPlate" to "$primaryPlate" - UI updated');
+        } else {
+          print('ℹ️ MainPremium: Primary plate unchanged: "$primaryPlate"');
+        }
       }
     } catch (e) {
+      print('❌ MainPremium: Error loading primary plate: $e');
       // Handle error silently - primary plate is optional for this feature
     }
   }
@@ -229,6 +298,68 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     } catch (e) {
       // Handle error silently - stats are optional for display
     }
+  }
+
+  // Load unacknowledged alerts count
+  Future<void> _loadUnacknowledgedAlertsCount() async {
+    try {
+      final count = await _unacknowledgedAlertService.getUnacknowledgedCount();
+      if (mounted) {
+        setState(() {
+          _unacknowledgedAlertsCount = count;
+        });
+      }
+    } catch (e) {
+      // Handle error silently - count is optional for display
+    }
+  }
+
+  /// Refresh all home screen data - call when returning from other screens
+  Future<void> _refreshAllData() async {
+    try {
+      print('🔄 MainPremium: Starting complete data refresh...');
+
+      // Refresh primary plate, stats, and unacknowledged alerts concurrently
+      await Future.wait([
+        _loadPrimaryPlate(),
+        _loadUserStats(),
+        _loadUnacknowledgedAlertsCount(),
+      ]);
+
+      print('✅ MainPremium: All data refreshed successfully');
+    } catch (e) {
+      print('❌ MainPremium: Error during data refresh: $e');
+    }
+  }
+
+  /// App lifecycle method - refresh data when app becomes active
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      print('🔄 MainPremium: App resumed - refreshing all data...');
+      _refreshAllData();
+    }
+  }
+
+  @override
+  void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+
+    // Dispose animation controllers
+    _breathingController.dispose();
+    _shakeController.dispose();
+
+    // Dispose audio player
+    _alertAudioPlayer.dispose();
+
+    // Cancel alert stream subscriptions
+    _alertStreamSubscription?.cancel();
+    _sentAlertsStreamSubscription?.cancel();
+
+    super.dispose();
   }
 
   /// Ensure user exists in database before accessing any features
@@ -278,6 +409,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       // Start listening for incoming alerts
       _startListeningForAlerts();
 
+      // Start monitoring sent alerts for acknowledgments
+      _startMonitoringSentAlerts();
+
       print('📱 Alert system initialized for user: $_currentUserId');
     } catch (e) {
       print('❌ Failed to initialize alert system: $e');
@@ -289,12 +423,23 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     if (_currentUserId == null) return;
 
     try {
-      _alertStreamSubscription = _alertService
-          .getAlertsStream(_currentUserId!)
-          .listen(
+      _alertStreamSubscription =
+          _alertService.getAlertsStream(_currentUserId!).listen(
         (alert) {
           print('🔔 Received incoming alert: ${alert.id}');
-          _handleIncomingAlert(alert);
+
+          // Only show alerts that:
+          // 1. Haven't been shown before
+          // 2. Haven't been read yet
+          // 3. Haven't been responded to
+          if (!_shownAlertIds.contains(alert.id) &&
+              alert.readAt == null &&
+              alert.response == null) {
+            _handleIncomingAlert(alert);
+            _shownAlertIds.add(alert.id); // Mark as shown
+          } else {
+            print('ℹ️ Alert ${alert.id} already shown, read, or responded to - skipping');
+          }
         },
         onError: (error) {
           print('❌ Alert stream error: $error');
@@ -305,31 +450,187 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     }
   }
 
+  /// Start monitoring sent alerts for acknowledgments
+  void _startMonitoringSentAlerts() {
+    if (_currentUserId == null) return;
+
+    try {
+      _sentAlertsStreamSubscription =
+          _alertService.getSentAlertsStream(_currentUserId!).listen(
+        (alerts) {
+          _processSentAlertsForAcknowledgments(alerts);
+        },
+        onError: (error) {
+          print('❌ Sent alerts stream error: $error');
+        },
+      );
+    } catch (e) {
+      print('❌ Failed to start sent alerts monitoring: $e');
+    }
+  }
+
+  /// Process sent alerts to mark acknowledged ones
+  void _processSentAlertsForAcknowledgments(List<Alert> alerts) {
+    bool needsRefresh = false;
+
+    for (final alert in alerts) {
+      // If alert has a response and hasn't been processed yet, mark it as acknowledged
+      if (alert.response != null &&
+          alert.responseAt != null &&
+          !_acknowledgedAlertIds.contains(alert.id)) {
+
+        // Mark this alert as processed to prevent duplicate marking
+        _acknowledgedAlertIds.add(alert.id);
+        needsRefresh = true;
+
+        _unacknowledgedAlertService.markAlertAcknowledged(alert.id).then((_) {
+          print('✅ Marked sent alert ${alert.id} as acknowledged');
+        }).catchError((error) {
+          print('⚠️ Failed to mark alert ${alert.id} as acknowledged: $error');
+          // Remove from set if marking failed, so we can retry
+          _acknowledgedAlertIds.remove(alert.id);
+        });
+      }
+    }
+
+    // Only refresh count if we marked any new alerts
+    if (needsRefresh) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _loadUnacknowledgedAlertsCount();
+        }
+      });
+    }
+  }
+
+  /// Sync unacknowledged alerts with database (call when viewing alert history)
+  Future<void> _syncUnacknowledgedAlerts() async {
+    if (_currentUserId == null) return;
+
+    try {
+      print('🔄 Syncing unacknowledged alerts with database...');
+
+      // Get all sent alerts from database
+      final sentAlerts = await _alertService.getSentAlerts(_currentUserId!);
+
+      // Process them to mark any with responses as acknowledged
+      for (final alert in sentAlerts) {
+        if (alert.response != null &&
+            alert.responseAt != null &&
+            !_acknowledgedAlertIds.contains(alert.id)) {
+
+          _acknowledgedAlertIds.add(alert.id);
+
+          await _unacknowledgedAlertService.markAlertAcknowledged(alert.id);
+          print('✅ Synced and marked alert ${alert.id} as acknowledged');
+        }
+      }
+
+      print('✅ Sync complete');
+    } catch (e) {
+      print('❌ Error syncing unacknowledged alerts: $e');
+    }
+  }
+
   /// Handle incoming alert with premium notification
-  void _handleIncomingAlert(Alert alert) {
+  void _handleIncomingAlert(Alert alert) async {
     if (!mounted) return;
+
+    // Get sender's alias
+    String senderAlias;
+    try {
+      senderAlias = await _aliasService.getAliasForUser(alert.senderId);
+    } catch (e) {
+      print('❌ Failed to get sender alias: $e');
+      senderAlias = 'Anonymous';
+    }
+
+    // Extract emoji from alert message (if present)
+    String? emoji;
+    if (alert.message != null && alert.message!.isNotEmpty) {
+      // Extract first emoji character from message
+      final emojiRegex = RegExp(
+          r'[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]',
+          unicode: true);
+      final match = emojiRegex.firstMatch(alert.message!);
+      if (match != null) {
+        emoji = match.group(0);
+      }
+    }
 
     setState(() {
       _currentIncomingAlert = alert;
+      _currentSenderAlias = senderAlias;
+      _currentAlertEmoji = emoji;
       _showingAlertBanner = true;
     });
 
-    // Premium haptic feedback
+    // Track alert received
+    _statsService.incrementAlertsReceived().then((_) {
+      _loadUserStats(); // Refresh stats display
+    });
+
+    // Sound effects disabled - no sound files in project
+    // Using haptic feedback only for user feedback
+
+    // Premium haptic feedback - phone vibration
+    HapticFeedback.heavyImpact();
+    // Additional vibration patterns for emphasis
+    await Future.delayed(const Duration(milliseconds: 100));
+    HapticFeedback.mediumImpact();
+    await Future.delayed(const Duration(milliseconds: 100));
     HapticFeedback.heavyImpact();
 
-    // Auto-hide banner after 10 seconds if not interacted with
-    Timer(const Duration(seconds: 10), () {
-      if (mounted && _showingAlertBanner && _currentIncomingAlert?.id == alert.id) {
-        setState(() {
-          _showingAlertBanner = false;
-        });
+    // Start shake animation for the banner
+    _shakeController.repeat(reverse: true);
+
+    // Stop shaking after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _shakeController.isAnimating) {
+        _shakeController.stop();
+        _shakeController.reset();
       }
     });
+
+    // Alert will stay active until user makes a decision
+  }
+
+  /// Dismiss current alert without responding
+  Future<void> _dismissCurrentAlert() async {
+    if (_currentIncomingAlert == null) return;
+
+    print('🔕 Dismissing alert: ${_currentIncomingAlert!.id}');
+
+    try {
+      // Mark alert as read in the database
+      await _alertService.markAlertRead(_currentIncomingAlert!.id);
+
+      setState(() {
+        _showingAlertBanner = false;
+        _currentIncomingAlert = null;
+        _currentSenderAlias = null;
+        _currentAlertEmoji = null;
+      });
+
+      // Stop shake animation
+      if (_shakeController.isAnimating) {
+        _shakeController.stop();
+        _shakeController.reset();
+      }
+
+      HapticFeedback.lightImpact();
+      print('✅ Alert dismissed and marked as read');
+    } catch (e) {
+      print('❌ Failed to dismiss alert: $e');
+    }
   }
 
   /// Respond to alert with acknowledgment
   Future<void> _respondToAlert(String response) async {
     if (_currentIncomingAlert == null) return;
+
+    print(
+        '🔄 Attempting to respond to alert: ${_currentIncomingAlert!.id} with response: $response');
 
     try {
       // Send response via alert service (this will also mark as read)
@@ -349,22 +650,28 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           _userStats = updatedStats;
           _showingAlertBanner = false;
           _currentIncomingAlert = null;
+          _currentSenderAlias = null;
+          _currentAlertEmoji = null;
         });
 
-        print('✅ Responded to alert: $response');
+        // Stop shake animation
+        if (_shakeController.isAnimating) {
+          _shakeController.stop();
+          _shakeController.reset();
+        }
 
-        // Show confirmation snackbar with better response text
+        print('✅ Responded to alert: $response');
+        print(
+            '📡 Response should now appear on sender\'s device via real-time stream');
+
+        // Show premium confirmation snackbar with enhanced animations
         if (mounted) {
           final responseText = _getResponseDisplayText(response);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Response sent: $responseText'),
-              backgroundColor: PremiumTheme.accentColor,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          _showPremiumSnackBar(
+            message: 'Response sent: $responseText',
+            isSuccess: true,
+            duration: const Duration(seconds: 1),
+            icon: Icons.check_circle_outline,
           );
         }
       } else {
@@ -373,17 +680,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     } catch (e) {
       print('❌ Failed to respond to alert: $e');
 
-      // Show error snackbar
+      // Show premium error snackbar with enhanced animations
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to send response. Please try again.'),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        _showPremiumSnackBar(
+          message: 'Failed to send response. Please try again.',
+          isSuccess: false,
+          duration: const Duration(seconds: 1),
+          icon: Icons.error_outline,
         );
       }
     }
@@ -405,11 +708,174 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _breathingController.dispose();
-    _alertStreamSubscription?.cancel();
-    super.dispose();
+  /// Show premium animated SnackBar with enhanced visuals and animations
+  void _showPremiumSnackBar({
+    required String message,
+    bool isSuccess = true,
+    Duration? duration,
+    IconData? icon,
+  }) {
+    if (!mounted) return;
+
+    final screenSize = MediaQuery.of(context).size;
+    final isTablet = screenSize.width > 768;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isSuccess
+                  ? [
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withOpacity(0.9),
+                    ]
+                  : [
+                      Colors.red.shade600,
+                      Colors.red.shade700,
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(isTablet ? 16 : 14),
+            boxShadow: [
+              BoxShadow(
+                color: isSuccess
+                    ? PremiumTheme.accentColor.withOpacity(0.3)
+                    : Colors.red.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          padding: EdgeInsets.symmetric(
+            vertical: isTablet ? 16 : 14,
+            horizontal: isTablet ? 20 : 16,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: isTablet ? 18 : 16,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: isTablet ? 12 : 10),
+              ],
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: isTablet ? 15 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        margin: EdgeInsets.only(
+          bottom: isTablet ? 32 : 24,
+          left: isTablet ? 32 : 20,
+          right: isTablet ? 32 : 20,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 14),
+        ),
+        duration: duration ?? const Duration(seconds: 1),
+        dismissDirection: DismissDirection.none,
+        action: SnackBarAction(
+          label: '✕',
+          textColor: Colors.white.withOpacity(0.8),
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Show premium animated dialog with enhanced slide and fade transitions
+  Future<T?> _showPremiumDialog<T>({
+    required Widget child,
+    bool barrierDismissible = true,
+    Color? barrierColor,
+    Duration? transitionDuration,
+  }) {
+    return showGeneralDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: barrierColor ?? Colors.black.withOpacity(0.5),
+      transitionDuration:
+          transitionDuration ?? const Duration(milliseconds: 400),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        const curve = Curves.easeOutCubic;
+
+        // Slide up from bottom with fade
+        final slideAnimation = Tween<Offset>(
+          begin: const Offset(0.0, 0.3),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: curve,
+        ));
+
+        // Scale animation for subtle zoom effect
+        final scaleAnimation = Tween<double>(
+          begin: 0.95,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: curve,
+        ));
+
+        // Fade animation
+        final fadeAnimation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: curve,
+        ));
+
+        return SlideTransition(
+          position: slideAnimation,
+          child: ScaleTransition(
+            scale: scaleAnimation,
+            child: FadeTransition(
+              opacity: fadeAnimation,
+              child: child,
+            ),
+          ),
+        );
+      },
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+    );
   }
 
   @override
@@ -422,11 +888,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       canPop: false,
       onPopInvoked: (didPop) async {
         if (!didPop) {
-          final shouldExit = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
+          final shouldExit = await _showPremiumDialog<bool>(
+            child: AlertDialog(
               backgroundColor: PremiumTheme.surfaceColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               title: Text(
                 'Exit Yuh Blockin?',
                 style: TextStyle(
@@ -436,12 +902,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               ),
               content: Text(
                 'Are you sure you want to exit the app?',
-                style: TextStyle(color: PremiumTheme.primaryTextColor.withOpacity(0.8)),
+                style: TextStyle(
+                    color: PremiumTheme.primaryTextColor.withOpacity(0.8)),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text('Cancel', style: TextStyle(color: PremiumTheme.primaryTextColor)),
+                  child: Text('Cancel',
+                      style: TextStyle(color: PremiumTheme.primaryTextColor)),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -461,114 +929,97 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         }
       },
       child: Scaffold(
-      backgroundColor: PremiumTheme.backgroundColor,
-      body: Stack(
-        children: [
-          // Main content
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Check if we need to use scroll view on smaller screens
-                final useScrollView = constraints.maxHeight < 600;
+        backgroundColor: PremiumTheme.backgroundColor,
+        body: Stack(
+          children: [
+            // Main content
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Check if we need to use scroll view on smaller screens
+                  // Increased threshold to handle Samsung S7 and similar devices better
+                  final useScrollView = constraints.maxHeight < 750;
 
-                final content = Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isTablet ? 80.0 : 32.0,
-                    vertical: isTablet ? 60.0 : (useScrollView ? 20.0 : 50.0),
-                  ),
-                  child: useScrollView ? _buildScrollableContent(theme, isTablet) : _buildStaticContent(theme, isTablet),
-                );
+                  final content = Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isTablet ? 80.0 : 32.0,
+                      vertical: isTablet ? 60.0 : (useScrollView ? 20.0 : 50.0),
+                    ),
+                    child: useScrollView
+                        ? _buildScrollableContent(theme, isTablet)
+                        : _buildStaticContent(theme, isTablet),
+                  );
 
-                return useScrollView
-                    ? SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: content,
-                      )
-                    : content;
-              },
+                  return useScrollView
+                      ? SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: content,
+                        )
+                      : content;
+                },
+              ),
             ),
-          ),
 
-          // Premium incoming alert notification banner
-          if (_showingAlertBanner && _currentIncomingAlert != null)
-            _buildIncomingAlertBanner(isTablet),
-        ],
-      ), // closes Stack
-    ), // closes Scaffold
+            // Premium incoming alert notification banner
+            if (_showingAlertBanner && _currentIncomingAlert != null)
+              _buildIncomingAlertBanner(isTablet),
+          ],
+        ), // closes Stack
+      ), // closes Scaffold
     ); // closes PopScope
   }
 
   Widget _buildAppHeader(ThemeData theme, bool isTablet) {
-    return Column(
-      children: [
-        // Enhanced app wordmark with premium styling
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                PremiumTheme.surfaceColor,
-                PremiumTheme.surfaceColor.withOpacity(0.8),
-              ],
-            ),
-            borderRadius: PremiumTheme.mediumRadius,
-            boxShadow: [
-              BoxShadow(
-                color: PremiumTheme.accentColor.withOpacity(0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
+    return IntrinsicHeight(
+      child: Stack(
+        children: [
+          // Main app header content (centered with proper spacing)
+          Column(
+            children: [
+              // Minimal top spacing
+              SizedBox(height: isTablet ? 24 : 20),
+
+              // Enhanced app wordmark with premium styling
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      PremiumTheme.surfaceColor,
+                      PremiumTheme.surfaceColor.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: PremiumTheme.mediumRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.accentColor.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  PremiumConfig.appName,
+                  style: TextStyle(
+                    fontSize: isTablet ? 32 : 28,
+                    fontWeight:
+                        FontWeight.w200, // Ultra-light for premium elegance
+                    color: PremiumTheme.primaryTextColor,
+                    letterSpacing:
+                        1.2, // Increased letter spacing for premium feel
+                    height: 1.1,
+                  ),
+                ),
               ),
             ],
           ),
-          child: Text(
-            PremiumConfig.appName,
-            style: TextStyle(
-              fontSize: isTablet ? 32 : 28,
-              fontWeight: FontWeight.w200, // Ultra-light for premium elegance
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 1.2, // Increased letter spacing for premium feel
-              height: 1.1,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Premium tagline with enhanced blend
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                PremiumTheme.accentColor.withOpacity(0.03),
-                PremiumTheme.accentColor.withOpacity(0.06),
-                PremiumTheme.accentColor.withOpacity(0.03),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: PremiumTheme.accentColor.withOpacity(0.08),
-              width: 0.5,
-            ),
-          ),
-          child: Text(
-            'Respectful parking solutions',
-            style: TextStyle(
-              fontSize: isTablet ? 17 : 15,
-              fontWeight: FontWeight.w400,
-              color: PremiumTheme.secondaryTextColor.withOpacity(0.9),
-              letterSpacing: 0.5,
-              height: 1.2,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -587,79 +1038,70 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       onTapCancel: () {
         setState(() => _isPressed = false);
       },
-      child: AnimatedBuilder(
-        animation: _breathingAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _isPressed ? 0.97 : _breathingAnimation.value,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: buttonSize,
-              height: buttonSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    PremiumTheme.accentColor,
-                    PremiumTheme.accentColor.withOpacity(0.8),
-                  ],
-                ),
-                boxShadow: [
-                  // Main shadow
-                  BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(0.25),
-                    blurRadius: 32,
-                    offset: const Offset(0, 16),
-                    spreadRadius: _isPressed ? 2 : 8,
-                  ),
-                  // Subtle glow effect
-                  BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(
-                      0.1 + (_glowAnimation.value * 0.15)
-                    ),
-                    blurRadius: 60,
-                    offset: const Offset(0, 8),
-                    spreadRadius: _isPressed ? 10 : 20,
-                  ),
-                ],
-              ),
-              child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icon with subtle animation
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        transform: Matrix4.identity()
-                          ..translate(0.0, _isPressed ? 2.0 : 0.0),
-                        child: Icon(
-                          Icons.notifications_outlined,
-                          size: isTablet ? 48 : 40,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Button text
-                      Text(
-                        'Send Alert',
-                        style: TextStyle(
-                          fontSize: isTablet ? 20 : 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: buttonSize,
+        height: buttonSize,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              PremiumTheme.accentColor,
+              PremiumTheme.accentColor.withOpacity(0.8),
+            ],
+          ),
+          boxShadow: [
+            // Main shadow
+            BoxShadow(
+              color: PremiumTheme.accentColor.withOpacity(0.25),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+              spreadRadius: _isPressed ? 2 : 8,
+            ),
+            // Subtle glow effect
+            BoxShadow(
+              color: PremiumTheme.accentColor
+                  .withOpacity(0.1 + (_glowAnimation.value * 0.15)),
+              blurRadius: 60,
+              offset: const Offset(0, 8),
+              spreadRadius: _isPressed ? 10 : 20,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon with subtle animation
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                transform: Matrix4.identity()
+                  ..translate(0.0, _isPressed ? 2.0 : 0.0),
+                child: Icon(
+                  Icons.notifications_outlined,
+                  size: isTablet ? 48 : 40,
+                  color: Colors.white,
                 ),
               ),
-          );
-        },
+
+              const SizedBox(height: 12),
+
+              // Button text
+              Text(
+                'Send Alert',
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -682,20 +1124,19 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             borderRadius: BorderRadius.circular(1),
           ),
         ),
-
-        const SizedBox(height: 24),
-
-        // DezeTingz branding
-        Text(
-          'DezeTingz © 2026',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: PremiumTheme.tertiaryTextColor,
-            letterSpacing: 0.5,
-          ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildBranding() {
+    return Text(
+      'DezeTingz © 2026',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: PremiumTheme.tertiaryTextColor,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
@@ -789,6 +1230,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   void _handleAlertTap() {
+    // Check if user has a primary plate registered
+    if (_primaryPlate == null || _primaryPlate!.isEmpty) {
+      HapticFeedback.mediumImpact();
+      _showPlateRequiredDialog();
+      return;
+    }
+
     // Launch premium alert workflow
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -841,9 +1289,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
         // Plate Management Button
         _buildActionButton(
-          onTap: () {
+          onTap: () async {
             HapticFeedback.lightImpact();
-            Navigator.of(context).push(
+            print('🔄 MainPremium: Navigating to vehicle management...');
+
+            await Navigator.of(context).push(
               PageRouteBuilder(
                 pageBuilder: (context, animation, secondaryAnimation) =>
                     SlideTransition(
@@ -859,6 +1309,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 transitionDuration: PremiumTheme.mediumDuration,
               ),
             );
+
+            // CRITICAL: Refresh home screen when returning from vehicle management
+            print(
+                '🔄 MainPremium: Returned from vehicle management - refreshing all data...');
+            await _refreshAllData();
+            print('✅ MainPremium: Complete data refresh completed');
           },
           icon: Icons.directions_car_outlined,
           label: 'My Vehicles',
@@ -947,11 +1403,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Cars Freed Counter
+          // Times I moved my car when alerted
           _buildCompactStatCounterWithEmoji(
             count: _userStats.carsFreed,
-            label: 'Times Blocked',
-            emoji: '🤦‍♀️',
+            label: 'I Moved',
+            emoji: '🚗',
             color: PremiumTheme.accentColor,
             isTablet: isTablet,
           ),
@@ -963,13 +1419,121 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             color: PremiumTheme.accentColor.withOpacity(0.1),
           ),
 
-          // Situations Resolved Counter
+          // Times others moved for me when I sent alerts
           _buildCompactStatCounter(
             count: _userStats.situationsResolved,
-            label: 'Times Unblocked',
-            icon: Icons.check_circle_outline,
+            label: 'Others Moved',
+            icon: Icons.thumb_up_outlined,
             color: Colors.green.shade600,
             isTablet: isTablet,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationTracking(bool isTablet) {
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: isTablet ? 320 : 280,
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 20.0 : 16.0,
+        vertical: isTablet ? 16.0 : 14.0,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade50.withOpacity(0.3),
+            Colors.purple.shade50.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.purple.withOpacity(0.08),
+          width: 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Section header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.purple.withOpacity(0.15),
+                      Colors.purple.withOpacity(0.08),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.purple.shade600,
+                  size: isTablet ? 14 : 12,
+                ),
+              ),
+              SizedBox(width: isTablet ? 8 : 6),
+              Text(
+                'Notifications',
+                style: TextStyle(
+                  fontSize: isTablet ? 13 : 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.purple.shade700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: isTablet ? 14 : 12),
+
+          // Notification stats row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Alerts sent
+              _buildNotificationStat(
+                count: _userStats.alertsSent,
+                label: 'Sent',
+                icon: Icons.send_outlined,
+                color: Colors.blue.shade600,
+                isTablet: isTablet,
+              ),
+
+              // Subtle divider
+              Container(
+                width: 0.5,
+                height: isTablet ? 20 : 16,
+                color: Colors.purple.withOpacity(0.15),
+              ),
+
+              // Alerts received
+              _buildNotificationStat(
+                count: _userStats.alertsReceived,
+                label: 'Received',
+                icon: Icons.inbox_outlined,
+                color: Colors.orange.shade600,
+                isTablet: isTablet,
+              ),
+            ],
           ),
         ],
       ),
@@ -998,7 +1562,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Count and label
         Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               count.toString(),
@@ -1049,7 +1613,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Count and label
         Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               count.toString(),
@@ -1077,11 +1641,1022 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
+  Widget _buildNotificationStat({
+    required int count,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isTablet,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Notification icon
+        Container(
+          padding: EdgeInsets.all(isTablet ? 4 : 3),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: isTablet ? 12 : 10,
+          ),
+        ),
+
+        SizedBox(width: isTablet ? 6 : 5),
+
+        // Count and label
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              count.toString(),
+              style: TextStyle(
+                fontSize: isTablet ? 16 : 14,
+                fontWeight: FontWeight.w700,
+                color: PremiumTheme.primaryTextColor,
+                letterSpacing: 0.3,
+                height: 1.0,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isTablet ? 9 : 8,
+                fontWeight: FontWeight.w500,
+                color: color.withOpacity(0.8),
+                letterSpacing: 0.2,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Compact stats icon for header - premium style
+  Widget _buildCompactStatsIcon(bool isTablet) {
+    final totalImpact = _userStats.carsFreed + _userStats.situationsResolved;
+    final hasStats = totalImpact > 0;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _showStatsDialog();
+      },
+      child: Stack(
+        clipBehavior: Clip.none, // Allow badge to overflow
+        children: [
+          Container(
+            padding: EdgeInsets.all(isTablet ? 12 : 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: hasStats
+                    ? [
+                        Colors.green.shade500.withOpacity(0.15),
+                        Colors.green.shade600.withOpacity(0.08),
+                      ]
+                    : [
+                        PremiumTheme.surfaceColor.withOpacity(0.6),
+                        PremiumTheme.surfaceColor.withOpacity(0.4),
+                      ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: hasStats
+                    ? Colors.green.withOpacity(0.2)
+                    : PremiumTheme.accentColor.withOpacity(0.1),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: hasStats
+                      ? Colors.green.withOpacity(0.1)
+                      : PremiumTheme.accentColor.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.trending_up,
+              size: isTablet ? 20 : 18,
+              color: hasStats
+                  ? Colors.green.shade700
+                  : PremiumTheme.tertiaryTextColor,
+            ),
+          ),
+
+          // Badge positioned cleanly outside the icon at top-right corner
+          if (hasStats)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                constraints: BoxConstraints(
+                  minWidth: isTablet ? 22 : 20,
+                  minHeight: isTablet ? 22 : 20,
+                ),
+                padding: EdgeInsets.all(isTablet ? 5 : 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withOpacity(0.9),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: PremiumTheme.backgroundColor,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.accentColor.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    totalImpact > 99 ? '99+' : '$totalImpact',
+                    style: TextStyle(
+                      fontSize: isTablet ? 11 : 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.0,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Show stats in a premium dialog
+  void _showStatsDialog() {
+    final screenSize = MediaQuery.of(context).size;
+    final isTablet = screenSize.width > 768;
+    final isSmallScreen = screenSize.height < 600;
+
+    _showPremiumDialog(
+      barrierColor: Colors.black.withOpacity(0.4),
+      child: Dialog(
+        backgroundColor: PremiumTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: isTablet ? 420 : 340,
+            maxHeight: screenSize.height * 0.8,
+          ),
+          padding: EdgeInsets.all(isSmallScreen ? 20 : 28),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.green.withOpacity(0.15),
+                            Colors.green.withOpacity(0.08),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.trending_up,
+                        color: Colors.green.shade600,
+                        size: isSmallScreen ? 20 : 24,
+                      ),
+                    ),
+                    SizedBox(width: isSmallScreen ? 8 : 12),
+                    Flexible(
+                      child: Text(
+                        'Your Impact',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 16 : 18,
+                          fontWeight: FontWeight.w600,
+                          color: PremiumTheme.primaryTextColor,
+                          letterSpacing: 0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: isSmallScreen ? 16 : 20),
+
+                // Stats in a premium container
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.green.shade50.withOpacity(0.3),
+                        Colors.green.shade50.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // I Moved stats
+                        Expanded(
+                          child: _buildDialogStatCounter(
+                            count: _userStats.carsFreed,
+                            label: 'I Moved',
+                            emoji: '🚗',
+                            color: PremiumTheme.accentColor,
+                            isCompact: isSmallScreen,
+                          ),
+                        ),
+
+                        // Divider
+                        Container(
+                          width: 1,
+                          height: isSmallScreen ? 45 : 50,
+                          color: Colors.green.withOpacity(0.15),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+
+                        // Others Moved stats
+                        Expanded(
+                          child: _buildDialogStatCounter(
+                            count: _userStats.situationsResolved,
+                            label: 'Others Moved',
+                            icon: Icons.thumb_up_outlined,
+                            color: Colors.green.shade600,
+                            isCompact: isSmallScreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: isSmallScreen ? 12 : 16),
+
+                // Impact description
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.accentColor.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: PremiumTheme.accentColor.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    _userStats.impactDescription,
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      fontWeight: FontWeight.w500,
+                      color: PremiumTheme.primaryTextColor,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                SizedBox(height: isSmallScreen ? 12 : 16),
+
+                // Detailed insights section
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.blue.shade50.withOpacity(0.3),
+                        Colors.blue.shade50.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            size: isSmallScreen ? 14 : 16,
+                            color: Colors.blue.shade600,
+                          ),
+                          SizedBox(width: isSmallScreen ? 6 : 8),
+                          Text(
+                            'Your Impact Details',
+                            style: TextStyle(
+                              fontSize: isSmallScreen ? 12 : 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isSmallScreen ? 8 : 10),
+                      _buildInsightRow(
+                        icon: Icons.check_circle_outline,
+                        text: '${_userStats.carsFreed} times you helped others by moving',
+                        color: PremiumTheme.accentColor,
+                        isSmallScreen: isSmallScreen,
+                      ),
+                      SizedBox(height: isSmallScreen ? 6 : 8),
+                      _buildInsightRow(
+                        icon: Icons.people_outline,
+                        text: '${_userStats.situationsResolved} times others moved for you',
+                        color: Colors.green.shade600,
+                        isSmallScreen: isSmallScreen,
+                      ),
+                      if (_userStats.alertsSent > 0) ...[
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        _buildInsightRow(
+                          icon: Icons.send_outlined,
+                          text: '${_userStats.alertsSent} respectful alerts sent',
+                          color: Colors.orange.shade600,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ],
+                      if (_userStats.alertsReceived > 0) ...[
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        _buildInsightRow(
+                          icon: Icons.notifications_outlined,
+                          text: '${_userStats.alertsReceived} alerts received',
+                          color: Colors.purple.shade600,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: isSmallScreen ? 16 : 20),
+
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 16 : 20,
+                        vertical: isSmallScreen ? 10 : 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Got it',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show dialog requiring user to register a plate first
+  void _showPlateRequiredDialog() {
+    final screenSize = MediaQuery.of(context).size;
+    final isTablet = screenSize.width > 768;
+    final isSmallScreen = screenSize.height < 600;
+
+    _showPremiumDialog(
+      barrierColor: Colors.black.withOpacity(0.4),
+      child: Dialog(
+        backgroundColor: PremiumTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: isTablet ? 380 : 320,
+          ),
+          padding: EdgeInsets.all(isSmallScreen ? 20 : 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.orange.withOpacity(0.15),
+                      Colors.orange.withOpacity(0.08),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.directions_car_outlined,
+                  color: Colors.orange.shade600,
+                  size: isSmallScreen ? 32 : 40,
+                ),
+              ),
+
+              SizedBox(height: isSmallScreen ? 16 : 20),
+
+              // Title
+              Text(
+                'Register Your Vehicle',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : 20,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              SizedBox(height: isSmallScreen ? 12 : 16),
+
+              // Message
+              Text(
+                'Please add at least one license plate to your profile before sending alerts. This helps others know who\'s alerting them.',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 13 : 14,
+                  fontWeight: FontWeight.w400,
+                  color: PremiumTheme.secondaryTextColor,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              SizedBox(height: isSmallScreen ? 20 : 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 16 : 20,
+                          vertical: isSmallScreen ? 10 : 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: PremiumTheme.dividerColor,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 14 : 15,
+                          fontWeight: FontWeight.w500,
+                          color: PremiumTheme.secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: isSmallScreen ? 8 : 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // Navigate to plate registration
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(1.0, 0.0),
+                                end: Offset.zero,
+                              ).animate(CurvedAnimation(
+                                parent: animation,
+                                curve: PremiumTheme.standardCurve,
+                              )),
+                              child: const PlateRegistrationScreen(),
+                            ),
+                            transitionDuration: PremiumTheme.mediumDuration,
+                          ),
+                        ).then((_) async {
+                          // Refresh data after returning
+                          await _refreshAllData();
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.accentColor,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 16 : 20,
+                          vertical: isSmallScreen ? 10 : 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Add Vehicle',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 14 : 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Stats counter for dialog display (supports both emoji and icon)
+  Widget _buildDialogStatCounter({
+    required int count,
+    required String label,
+    String? emoji,
+    IconData? icon,
+    required Color color,
+    bool isCompact = false,
+  }) {
+    return Column(
+      children: [
+        if (emoji != null) ...[
+          Container(
+            padding: EdgeInsets.all(isCompact ? 8 : 12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              emoji,
+              style: TextStyle(fontSize: isCompact ? 20 : 24),
+            ),
+          ),
+        ] else if (icon != null) ...[
+          Container(
+            padding: EdgeInsets.all(isCompact ? 8 : 12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: isCompact ? 20 : 24,
+            ),
+          ),
+        ],
+        SizedBox(height: isCompact ? 8 : 12),
+        Text(
+          count.toString(),
+          style: TextStyle(
+            fontSize: isCompact ? 22 : 28,
+            fontWeight: FontWeight.w700,
+            color: PremiumTheme.primaryTextColor,
+            letterSpacing: 0.5,
+          ),
+        ),
+        SizedBox(height: isCompact ? 2 : 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isCompact ? 11 : 13,
+            fontWeight: FontWeight.w600,
+            color: color.withOpacity(0.8),
+            letterSpacing: 0.3,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  /// Helper to build insight row with icon and text
+  Widget _buildInsightRow({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required bool isSmallScreen,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: isSmallScreen ? 14 : 16,
+          color: color.withOpacity(0.8),
+        ),
+        SizedBox(width: isSmallScreen ? 6 : 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 11 : 12,
+              fontWeight: FontWeight.w500,
+              color: PremiumTheme.secondaryTextColor,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Compact notification icon for header - premium style
+  Widget _buildCompactNotificationIcon(bool isTablet) {
+    // Only show badge for actionable items: unacknowledged sent alerts
+    final hasUnacknowledgedAlerts = _unacknowledgedAlertsCount > 0;
+
+    // Badge should only show when there are unacknowledged alerts
+    final showingUrgent = hasUnacknowledgedAlerts;
+    final badgeCount = _unacknowledgedAlertsCount;
+    final shouldShowBadge = hasUnacknowledgedAlerts;
+
+    return GestureDetector(
+      onTap: () async {
+        HapticFeedback.lightImpact();
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => AlertHistoryScreen(
+              userId: _currentUserId!,
+            ),
+          ),
+        );
+        // Sync and refresh unacknowledged alerts after viewing alert history
+        if (mounted) {
+          // Force sync by fetching all sent alerts and marking acknowledged ones
+          await _syncUnacknowledgedAlerts();
+          await _loadUnacknowledgedAlertsCount();
+        }
+      },
+      child: Stack(
+        clipBehavior: Clip.none, // Allow badge to overflow
+        children: [
+          Container(
+            padding: EdgeInsets.all(isTablet ? 12 : 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: showingUrgent
+                    ? [
+                        Colors.orange.shade500.withOpacity(0.2),
+                        Colors.red.shade500.withOpacity(0.1),
+                      ]
+                    : [
+                        PremiumTheme.surfaceColor.withOpacity(0.6),
+                        PremiumTheme.surfaceColor.withOpacity(0.4),
+                      ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: showingUrgent
+                    ? Colors.orange.withOpacity(0.3)
+                    : PremiumTheme.accentColor.withOpacity(0.1),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: showingUrgent
+                      ? Colors.orange.withOpacity(0.15)
+                      : PremiumTheme.accentColor.withOpacity(0.05),
+                  blurRadius: showingUrgent ? 10 : 8,
+                  offset: const Offset(0, 2),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.notifications_outlined,
+              size: isTablet ? 20 : 18,
+              color: showingUrgent
+                  ? Colors.orange.shade700
+                  : PremiumTheme.tertiaryTextColor,
+            ),
+          ),
+
+          // Badge positioned cleanly outside the icon at top-right corner
+          if (shouldShowBadge)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                constraints: BoxConstraints(
+                  minWidth: isTablet ? 22 : 20,
+                  minHeight: isTablet ? 22 : 20,
+                ),
+                padding: EdgeInsets.all(isTablet ? 5 : 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withOpacity(0.9),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: PremiumTheme.backgroundColor,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.accentColor.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: TextStyle(
+                      fontSize: isTablet ? 11 : 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.0,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Show notification statistics in a premium dialog
+  void _showNotificationStats() {
+    final screenSize = MediaQuery.of(context).size;
+    final isTablet = screenSize.width > 768;
+    final isSmallScreen = screenSize.height < 600;
+
+    _showPremiumDialog(
+      barrierColor: Colors.black.withOpacity(0.4),
+      child: Dialog(
+        backgroundColor: PremiumTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: isTablet ? 400 : 320,
+            maxHeight: screenSize.height * 0.7,
+          ),
+          padding: EdgeInsets.all(isSmallScreen ? 20 : 28),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.purple.withOpacity(0.15),
+                            Colors.purple.withOpacity(0.08),
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.purple.shade600,
+                        size: isSmallScreen ? 20 : 24,
+                      ),
+                    ),
+                    SizedBox(width: isSmallScreen ? 8 : 12),
+                    Flexible(
+                      child: Text(
+                        'Notification Activity',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 16 : 18,
+                          fontWeight: FontWeight.w600,
+                          color: PremiumTheme.primaryTextColor,
+                          letterSpacing: 0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: isSmallScreen ? 16 : 20),
+
+                // Stats in a premium container
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.purple.shade50.withOpacity(0.3),
+                        Colors.purple.shade50.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.purple.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Alerts sent
+                        Expanded(
+                          child: _buildDialogNotificationStat(
+                            count: _userStats.alertsSent,
+                            label: 'Sent',
+                            icon: Icons.send_outlined,
+                            color: Colors.blue.shade600,
+                            isCompact: isSmallScreen,
+                          ),
+                        ),
+
+                        // Divider
+                        Container(
+                          width: 1,
+                          height: isSmallScreen ? 35 : 40,
+                          color: Colors.purple.withOpacity(0.15),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+
+                        // Alerts received
+                        Expanded(
+                          child: _buildDialogNotificationStat(
+                            count: _userStats.alertsReceived,
+                            label: 'Received',
+                            icon: Icons.inbox_outlined,
+                            color: Colors.orange.shade600,
+                            isCompact: isSmallScreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: isSmallScreen ? 16 : 20),
+
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 16 : 20,
+                        vertical: isSmallScreen ? 10 : 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Got it',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 14 : 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Notification stat for dialog display
+  Widget _buildDialogNotificationStat({
+    required int count,
+    required String label,
+    required IconData icon,
+    required Color color,
+    bool isCompact = false,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(isCompact ? 6 : 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: isCompact ? 16 : 20,
+          ),
+        ),
+        SizedBox(height: isCompact ? 6 : 8),
+        Text(
+          count.toString(),
+          style: TextStyle(
+            fontSize: isCompact ? 20 : 24,
+            fontWeight: FontWeight.w700,
+            color: PremiumTheme.primaryTextColor,
+            letterSpacing: 0.5,
+          ),
+        ),
+        SizedBox(height: isCompact ? 2 : 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isCompact ? 10 : 12,
+            fontWeight: FontWeight.w500,
+            color: color.withOpacity(0.8),
+            letterSpacing: 0.2,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
   void _showMinimalDialog() {
-    showDialog(
-      context: context,
+    _showPremiumDialog(
       barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => AlertDialog(
+      child: AlertDialog(
         backgroundColor: PremiumTheme.surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -1113,7 +2688,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 backgroundColor: PremiumTheme.accentColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1141,11 +2717,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
-        SizedBox(height: isTablet ? 32 : 24),
-
-        // Premium user stats counters
-        _buildStatsCounters(isTablet),
-
         // Adaptive flexible space - reduced when vehicle display is present
         Expanded(
           flex: _primaryPlate != null ? 1 : 2,
@@ -1155,25 +2726,42 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
 
-        // Active vehicle display (conditional)
-        if (_primaryPlate != null) ...[
-          const SizedBox(height: 16),
-          _buildActiveVehicleDisplay(isTablet),
-        ],
+        // Stats and notification icons - right below send alert button
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCompactStatsIcon(isTablet),
+            const SizedBox(width: 24),
+            _buildCompactNotificationIcon(isTablet),
+          ],
+        ),
 
         // Adaptive flexible space below
         Expanded(
-          flex: _primaryPlate != null ? 1 : 2,
+          flex: 2,
           child: const SizedBox(),
         ),
 
         // Minimal footer
         _buildFooter(theme),
 
-        SizedBox(height: isTablet ? 24 : 16),
+        // Active vehicle display (conditional) - moved below footer
+        if (_primaryPlate != null) ...[
+          SizedBox(height: isTablet ? 20 : 16),
+          _buildActiveVehicleDisplay(isTablet),
+        ],
 
-        // Settings access - dual buttons
+        SizedBox(height: isTablet ? 20 : 16),
+
+        // Settings access - dual buttons (moved to bottom)
         _buildSettingsRow(),
+
+        SizedBox(height: isTablet ? 20 : 16),
+
+        // DezeTingz branding at the very bottom
+        _buildBranding(),
       ],
     );
   }
@@ -1185,33 +2773,45 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
-        SizedBox(height: isTablet ? 32 : 16),
-
-        // Premium user stats counters
-        _buildStatsCounters(isTablet),
-
         // Fixed space instead of Expanded
-        SizedBox(height: _primaryPlate != null ? 24 : 48),
+        SizedBox(height: _primaryPlate != null ? 32 : 64),
 
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
 
-        // Active vehicle display (conditional)
-        if (_primaryPlate != null) ...[
-          const SizedBox(height: 16),
-          _buildActiveVehicleDisplay(isTablet),
-        ],
+        // Stats and notification icons - right below send alert button
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCompactStatsIcon(isTablet),
+            const SizedBox(width: 24),
+            _buildCompactNotificationIcon(isTablet),
+          ],
+        ),
 
         // Fixed space instead of Expanded
-        SizedBox(height: _primaryPlate != null ? 24 : 48),
+        const SizedBox(height: 48),
 
         // Minimal footer
         _buildFooter(theme),
 
-        SizedBox(height: isTablet ? 24 : 12),
+        // Active vehicle display (conditional) - moved below footer
+        if (_primaryPlate != null) ...[
+          SizedBox(height: isTablet ? 20 : 16),
+          _buildActiveVehicleDisplay(isTablet),
+        ],
 
-        // Settings access - dual buttons
+        SizedBox(height: isTablet ? 24 : 16),
+
+        // Settings access - dual buttons (moved to bottom)
         _buildSettingsRow(),
+
+        SizedBox(height: isTablet ? 20 : 16),
+
+        // DezeTingz branding at the very bottom
+        _buildBranding(),
 
         // Extra bottom padding for scroll
         const SizedBox(height: 24),
@@ -1221,180 +2821,216 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
   /// Premium incoming alert notification banner
   Widget _buildIncomingAlertBanner(bool isTablet) {
+    // Calculate top offset to avoid blocking header icons
+    final iconSpaceHeight = isTablet ? 56 : 48;
+    final additionalMargin = isTablet ? 8 : 6;
+    final topOffset = (iconSpaceHeight + additionalMargin).toDouble();
+
     return Positioned(
-      top: 0,
+      top: topOffset,
       left: 0,
       right: 0,
       child: SafeArea(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.elasticOut,
-          transform: Matrix4.translationValues(
-            0,
-            _showingAlertBanner ? 0 : -200,
-            0,
-          ),
-          child: Container(
-            margin: EdgeInsets.symmetric(
-              horizontal: isTablet ? 40.0 : 16.0,
-              vertical: 16.0,
-            ),
-            padding: EdgeInsets.all(isTablet ? 24.0 : 20.0),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  PremiumTheme.accentColor,
-                  PremiumTheme.accentColor.withOpacity(0.9),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: PremiumTheme.accentColor.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                  spreadRadius: 0,
+        top:
+            false, // Don't add extra safe area since we're manually positioning
+        child: AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(
+                  _shakeAnimation.value *
+                      math.sin(_shakeController.value * 2 * math.pi * 4),
+                  0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.elasticOut,
+                transform: Matrix4.translationValues(
+                  0,
+                  _showingAlertBanner
+                      ? 0
+                      : -250, // Increased slide distance for smoother animation
+                  0,
                 ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with notification icon and close button
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.notifications_active,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Yuh Blockin\' Alert!',
-                        style: TextStyle(
-                          fontSize: isTablet ? 18 : 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        setState(() {
-                          _showingAlertBanner = false;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Alert message
-                Text(
-                  'Someone needs you to move your car',
-                  style: TextStyle(
-                    fontSize: isTablet ? 16 : 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withOpacity(0.9),
-                    height: 1.3,
+                child: Container(
+                  margin: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 40.0 : 16.0,
+                    vertical: isTablet
+                        ? 12.0
+                        : 8.0, // Reduced vertical margin since we have top spacing
                   ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Response options
-                Row(
-                  children: [
-                    // Primary response - Moving now
-                    Expanded(
-                      child: _buildResponseButton(
-                        label: 'Moving now',
-                        icon: Icons.directions_run,
-                        isPrimary: true,
-                        onTap: () => _respondToAlert('moving_now'),
-                        isTablet: isTablet,
-                      ),
+                  padding: EdgeInsets.all(isTablet ? 24.0 : 20.0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        PremiumTheme.accentColor,
+                        PremiumTheme.accentColor.withOpacity(0.9),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    // Secondary response - Give me 5 min
-                    Expanded(
-                      child: _buildResponseButton(
-                        label: '5 minutes',
-                        icon: Icons.schedule,
-                        isPrimary: false,
-                        onTap: () => _respondToAlert('5_minutes'),
-                        isTablet: isTablet,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: PremiumTheme.accentColor.withOpacity(0.3),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                        spreadRadius: 0,
                       ),
-                    ),
-                  ],
-                ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with notification icon and close button
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.notifications_active,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                // Display emoji if available
+                                if (_currentAlertEmoji != null) ...[
+                                  Text(
+                                    _currentAlertEmoji!,
+                                    style: TextStyle(
+                                      fontSize: isTablet ? 24 : 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    'Yuh Blockin\' Alert!',
+                                    style: TextStyle(
+                                      fontSize: isTablet ? 18 : 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Close button to dismiss alert
+                          GestureDetector(
+                            onTap: _dismissCurrentAlert,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
 
-                const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
-                // Tertiary options row
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildResponseButton(
-                        label: 'Can\'t right now',
-                        icon: Icons.cancel_outlined,
-                        isPrimary: false,
-                        onTap: () => _respondToAlert('cant_move'),
-                        isTablet: isTablet,
+                      // Alert message
+                      Text(
+                        _currentSenderAlias != null
+                            ? '${_aliasService.formatAliasForDisplay(_currentSenderAlias!)} needs you to move your car'
+                            : 'Someone needs you to move your car',
+                        style: TextStyle(
+                          fontSize: isTablet ? 16 : 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.3,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildResponseButton(
-                        label: 'Wrong car',
-                        icon: Icons.error_outline,
-                        isPrimary: false,
-                        onTap: () => _respondToAlert('wrong_car'),
-                        isTablet: isTablet,
+
+                      const SizedBox(height: 20),
+
+                      // Response options
+                      Row(
+                        children: [
+                          // Primary response - Moving now
+                          Expanded(
+                            child: _buildResponseButton(
+                              label: 'Moving now',
+                              icon: Icons.directions_run,
+                              isPrimary: true,
+                              onTap: () => _respondToAlert('moving_now'),
+                              isTablet: isTablet,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Secondary response - Give me 5 min
+                          Expanded(
+                            child: _buildResponseButton(
+                              label: '5 minutes',
+                              icon: Icons.schedule,
+                              isPrimary: false,
+                              onTap: () => _respondToAlert('5_minutes'),
+                              isTablet: isTablet,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+
+                      const SizedBox(height: 12),
+
+                      // Tertiary options row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildResponseButton(
+                              label: 'Can\'t right now',
+                              icon: Icons.cancel_outlined,
+                              isPrimary: false,
+                              onTap: () => _respondToAlert('cant_move'),
+                              isTablet: isTablet,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildResponseButton(
+                              label: 'Wrong car',
+                              icon: Icons.error_outline,
+                              isPrimary: false,
+                              onTap: () => _respondToAlert('wrong_car'),
+                              isTablet: isTablet,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ), // Closes Container
+              ), // Closes AnimatedContainer
+            ); // Closes Transform.translate and return statement
+          }, // Closes builder function
+        ), // Closes AnimatedBuilder
+      ), // Closes SafeArea
+    ); // Closes Positioned
   }
 
-  /// Response button for the alert banner
+  /// Response button for the alert banner with visual feedback
   Widget _buildResponseButton({
     required String label,
     required IconData icon,
@@ -1402,56 +3038,60 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     required VoidCallback onTap,
     required bool isTablet,
   }) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        onTap();
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: isTablet ? 12.0 : 10.0,
-          horizontal: isTablet ? 16.0 : 12.0,
-        ),
-        decoration: BoxDecoration(
-          color: isPrimary
-              ? Colors.white
-              : Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: !isPrimary
-              ? Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
-                )
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isPrimary
-                  ? PremiumTheme.accentColor
-                  : Colors.white,
-              size: isTablet ? 16 : 14,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: isTablet ? 13 : 12,
-                  fontWeight: FontWeight.w600,
-                  color: isPrimary
-                      ? PremiumTheme.accentColor
-                      : Colors.white,
-                  letterSpacing: 0.2,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(12),
+        splashColor: isPrimary
+            ? PremiumTheme.accentColor.withOpacity(0.2)
+            : Colors.white.withOpacity(0.2),
+        highlightColor: isPrimary
+            ? PremiumTheme.accentColor.withOpacity(0.1)
+            : Colors.white.withOpacity(0.1),
+        child: Ink(
+          padding: EdgeInsets.symmetric(
+            vertical: isTablet ? 12.0 : 10.0,
+            horizontal: isTablet ? 16.0 : 12.0,
+          ),
+          decoration: BoxDecoration(
+            color: isPrimary ? Colors.white : Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: !isPrimary
+                ? Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isPrimary ? PremiumTheme.accentColor : Colors.white,
+                size: isTablet ? 16 : 14,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isTablet ? 13 : 12,
+                    fontWeight: FontWeight.w600,
+                    color: isPrimary ? PremiumTheme.accentColor : Colors.white,
+                    letterSpacing: 0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

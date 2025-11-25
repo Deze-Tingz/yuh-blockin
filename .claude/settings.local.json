@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -Command \"Test-Path ''C:\\flutter\\bin\\flutter.bat''\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

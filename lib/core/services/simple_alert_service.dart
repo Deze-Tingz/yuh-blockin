@@ -146,6 +146,7 @@ class SimpleAlertService {
           success: true,
           recipients: result['recipients'] ?? 0,
           error: null,
+          alertId: result['alert_id']?.toString(),
         );
       } else {
         return AlertResult(
@@ -253,6 +254,28 @@ class SimpleAlertService {
         .map((data) => data.map((item) => Alert.fromJson(item)).toList());
   }
 
+  /// Get snapshot of alerts I've sent (useful for syncing acknowledgments)
+  Future<List<Alert>> getSentAlerts(String userId) async {
+    _ensureInitialized();
+
+    try {
+      final response = await _supabase
+          .from('alerts')
+          .select()
+          .eq('sender_id', userId)
+          .order('created_at', ascending: false);
+
+      return (response as List<dynamic>)
+          .map((item) => Alert.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error getting sent alerts: $e');
+      }
+      return [];
+    }
+  }
+
   /// Delete a registered plate
   Future<void> deletePlate({
     required String plateNumber,
@@ -294,11 +317,13 @@ class AlertResult {
   final bool success;
   final int recipients;
   final String? error;
+  final String? alertId; // Added for unacknowledged alert tracking
 
   AlertResult({
     required this.success,
     required this.recipients,
     this.error,
+    this.alertId,
   });
 }
 

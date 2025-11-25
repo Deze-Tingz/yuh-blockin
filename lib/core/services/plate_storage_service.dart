@@ -191,6 +191,7 @@ class PlateStorageService {
   /// Get the user's designated primary license plate
   /// Returns null if no plates are registered or no primary plate is set
   Future<String?> getPrimaryPlate() async {
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final encryptedData = prefs.getString(_storageKey);
@@ -214,15 +215,14 @@ class PlateStorageService {
       }
 
       // If no valid primary plate, return the first plate as fallback
-      return platesList.isNotEmpty ? platesList.first : null;
+      final fallbackPlate = platesList.isNotEmpty ? platesList.first : null;
+      return fallbackPlate;
 
     } catch (e) {
-      if (kDebugMode) {
-        print('Error reading primary plate: $e');
-      }
       // Fallback to first plate from getRegisteredPlates
       final plates = await getRegisteredPlates();
-      return plates.isNotEmpty ? plates.first : null;
+      final fallbackPlate = plates.isNotEmpty ? plates.first : null;
+      return fallbackPlate;
     }
   }
 
@@ -263,9 +263,6 @@ class PlateStorageService {
       final newEncryptedData = base64.encode(utf8.encode(jsonString));
       await prefs.setString(_storageKey, newEncryptedData);
 
-      if (kDebugMode) {
-        print('✅ Primary plate set to: $normalizedPlate');
-      }
 
     } catch (e) {
       if (e is PlateStorageException) rethrow;

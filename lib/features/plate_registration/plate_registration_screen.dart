@@ -46,6 +46,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   final SimpleAlertService _alertService = SimpleAlertService();
 
   List<String> _registeredPlates = [];
+  String? _primaryPlate;
   bool _isValidPlate = false;
   bool _isRegistering = false;
   int _sparkleIndex = 0;
@@ -148,15 +149,48 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   Future<void> _loadExistingPlates() async {
     try {
       final plates = await _storageService.getRegisteredPlates();
+      final primaryPlate = await _storageService.getPrimaryPlate();
       setState(() {
         _registeredPlates = plates;
+        _primaryPlate = primaryPlate;
       });
       if (kDebugMode) {
         print('✅ Loaded ${plates.length} registered plates from local storage');
+        print('✅ Primary plate: ${primaryPlate ?? "none set"}');
       }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Failed to load existing plates: $e');
+      }
+    }
+  }
+
+  Future<void> _setPrimaryPlate(String plate) async {
+    try {
+      await _storageService.setPrimaryPlate(plate);
+      setState(() {
+        _primaryPlate = plate;
+      });
+
+      print('✅ Set $plate as primary vehicle');
+
+      // Show confirmation
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$plate set as primary vehicle'),
+            backgroundColor: PremiumTheme.accentColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting primary plate: $e');
       }
     }
   }
@@ -294,6 +328,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             SnackBar(
               content: Text('Failed to create user profile. Please check your internet connection and try again.'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
             ),
           );
           return; // Don't continue if user creation failed
@@ -323,6 +358,14 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         });
         if (kDebugMode) {
           print('🔧 ONBOARDING FIX: Added plate $plateNumber to list');
+        }
+      }
+
+      // Auto-set as primary if it's the first vehicle
+      if (_primaryPlate == null || _registeredPlates.length == 1) {
+        await _setPrimaryPlate(plateNumber);
+        if (kDebugMode) {
+          print('✅ Auto-set $plateNumber as primary (first vehicle)');
         }
       }
 
@@ -361,6 +404,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         content: Text(message),
         backgroundColor: Colors.green.shade400,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -404,6 +448,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         content: Text('Registration failed: $error'),
         backgroundColor: Colors.red.shade400,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -531,6 +576,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             content: Text('Vehicle deleted successfully'),
             backgroundColor: Colors.green.shade400,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(milliseconds: 1500),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
@@ -541,6 +587,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
           content: Text('Failed to delete vehicle: $e'),
           backgroundColor: Colors.red.shade400,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
@@ -726,7 +773,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 },
               ),
 
-              // Dynamic header based on context - properly constrained
+              // Clear header that reflects vehicle management focus
               Container(
                 constraints: BoxConstraints(
                   maxWidth: isTablet ? 600 : 340,
@@ -734,7 +781,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 child: Text(
                   widget.isOnboarding
                       ? 'Vehicle Registry'
-                      : 'Enter the plate of the car blocking you',
+                      : 'My Vehicles',
                   style: TextStyle(
                     fontSize: isTablet ? 32 : 24, // Match onboarding welcome text size
                     fontWeight: FontWeight.w300,
@@ -1121,60 +1168,137 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             ),
           ),
 
-          Text(
-            'Registered Vehicles',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w200,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: -0.2,
-            ),
+          Column(
+            children: [
+              Text(
+                'Registered Vehicles',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w200,
+                  color: PremiumTheme.primaryTextColor,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Tap any vehicle to set it as your primary',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: PremiumTheme.secondaryTextColor,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 24),
 
-          ..._registeredPlates.map((plate) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: PremiumTheme.dividerColor.withOpacity(0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                  spreadRadius: 0,
+          ..._registeredPlates.map((plate) => GestureDetector(
+            onTap: () => _setPrimaryPlate(plate),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: _primaryPlate == plate
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          PremiumTheme.accentColor.withOpacity(0.1),
+                          PremiumTheme.accentColor.withOpacity(0.05),
+                        ],
+                      )
+                    : null,
+                color: _primaryPlate != plate ? PremiumTheme.surfaceColor : null,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _primaryPlate == plate
+                      ? PremiumTheme.accentColor.withOpacity(0.3)
+                      : PremiumTheme.dividerColor.withOpacity(0.2),
+                  width: _primaryPlate == plate ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _primaryPlate == plate
+                        ? PremiumTheme.accentColor.withOpacity(0.08)
+                        : Colors.black.withOpacity(0.02),
+                    blurRadius: _primaryPlate == plate ? 12 : 8,
+                    offset: Offset(0, _primaryPlate == plate ? 4 : 2),
+                    spreadRadius: 0,
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    plate,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: PremiumTheme.primaryTextColor,
-                      letterSpacing: 2.0,
-                      fontFamily: 'monospace',
+              child: Row(
+                children: [
+                  // Primary indicator
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _primaryPlate == plate
+                          ? PremiumTheme.accentColor.withOpacity(0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: _primaryPlate == plate
+                          ? Border.all(
+                              color: PremiumTheme.accentColor.withOpacity(0.3),
+                              width: 1,
+                            )
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _primaryPlate == plate ? Icons.star : Icons.star_border,
+                          color: _primaryPlate == plate
+                              ? PremiumTheme.accentColor
+                              : PremiumTheme.tertiaryTextColor,
+                          size: 16,
+                        ),
+                        if (_primaryPlate == plate) ...[
+                          SizedBox(width: 4),
+                          Text(
+                            'PRIMARY',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: PremiumTheme.accentColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          plate,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: _primaryPlate == plate ? FontWeight.w600 : FontWeight.w400,
+                            color: PremiumTheme.primaryTextColor,
+                            letterSpacing: 2.0,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        if (_primaryPlate != plate)
+                          Text(
+                            'Tap to set as primary',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: PremiumTheme.tertiaryTextColor,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 // Delete button
                 GestureDetector(
                   onTap: () => _confirmDeletePlate(plate),
@@ -1191,7 +1315,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           )).toList(),
         ],

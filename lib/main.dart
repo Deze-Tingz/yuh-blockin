@@ -178,13 +178,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               // Flexible space below
               const Expanded(flex: 2, child: SizedBox()),
 
-              // Minimal footer
-              _buildFooter(theme),
+              // Settings access - dual buttons
+              _buildSettingsRow(),
 
               const SizedBox(height: 24),
 
-              // Settings access - dual buttons
-              _buildSettingsRow(),
+              // Minimal footer
+              _buildFooter(theme),
             ],
           ),
         ),
@@ -204,13 +204,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               end: Alignment.bottomRight,
               colors: [
                 PremiumTheme.surfaceColor,
-                PremiumTheme.surfaceColor.withOpacity(0.8),
+                PremiumTheme.surfaceColor.withValues(alpha: 0.8),
               ],
             ),
             borderRadius: PremiumTheme.mediumRadius,
             boxShadow: [
               BoxShadow(
-                color: PremiumTheme.accentColor.withOpacity(0.08),
+                color: PremiumTheme.accentColor.withValues(alpha: 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -239,14 +239,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                PremiumTheme.accentColor.withOpacity(0.03),
-                PremiumTheme.accentColor.withOpacity(0.06),
-                PremiumTheme.accentColor.withOpacity(0.03),
+                PremiumTheme.accentColor.withValues(alpha: 0.03),
+                PremiumTheme.accentColor.withValues(alpha: 0.06),
+                PremiumTheme.accentColor.withValues(alpha: 0.03),
               ],
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: PremiumTheme.accentColor.withOpacity(0.08),
+              color: PremiumTheme.accentColor.withValues(alpha: 0.08),
               width: 0.5,
             ),
           ),
@@ -255,7 +255,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             style: TextStyle(
               fontSize: isTablet ? 17 : 15,
               fontWeight: FontWeight.w400,
-              color: PremiumTheme.secondaryTextColor.withOpacity(0.9),
+              color: PremiumTheme.secondaryTextColor.withValues(alpha: 0.9),
               letterSpacing: 0.5,
               height: 1.2,
             ),
@@ -297,21 +297,21 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     PremiumTheme.accentColor,
-                    PremiumTheme.accentColor.withOpacity(0.8),
+                    PremiumTheme.accentColor.withValues(alpha: 0.8),
                   ],
                 ),
                 boxShadow: [
                   // Main shadow
                   BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(0.25),
+                    color: PremiumTheme.accentColor.withValues(alpha: 0.25),
                     blurRadius: 32,
                     offset: const Offset(0, 16),
                     spreadRadius: _isPressed ? 2 : 8,
                   ),
                   // Subtle glow effect
                   BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(
-                      0.1 + (_glowAnimation.value * 0.15)
+                    color: PremiumTheme.accentColor.withValues(
+                      alpha: 0.1 + (_glowAnimation.value * 0.15)
                     ),
                     blurRadius: 60,
                     offset: const Offset(0, 8),
@@ -326,9 +326,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.1),
+                      Colors.white.withValues(alpha: 0.1),
                       Colors.transparent,
-                      Colors.black.withOpacity(0.05),
+                      Colors.black.withValues(alpha: 0.05),
                     ],
                     stops: const [0.0, 0.5, 1.0],
                   ),
@@ -341,7 +341,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         transform: Matrix4.identity()
-                          ..translate(0.0, _isPressed ? 2.0 : 0.0),
+                          ..setTranslationRaw(0.0, _isPressed ? 2.0 : 0.0, 0.0),
                         child: Icon(
                           Icons.notifications_outlined,
                           size: isTablet ? 48 : 40,
@@ -382,9 +382,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                PremiumTheme.accentColor.withOpacity(0.0),
-                PremiumTheme.accentColor.withOpacity(0.4),
-                PremiumTheme.accentColor.withOpacity(0.0),
+                PremiumTheme.accentColor.withValues(alpha: 0.0),
+                PremiumTheme.accentColor.withValues(alpha: 0.4),
+                PremiumTheme.accentColor.withValues(alpha: 0.0),
               ],
             ),
             borderRadius: BorderRadius.circular(1),
@@ -423,17 +423,17 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             end: Alignment.bottomRight,
             colors: [
               PremiumTheme.surfaceColor,
-              PremiumTheme.surfaceColor.withOpacity(0.9),
+              PremiumTheme.surfaceColor.withValues(alpha: 0.9),
             ],
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: PremiumTheme.accentColor.withOpacity(0.15),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.15),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: PremiumTheme.accentColor.withOpacity(0.08),
+              color: PremiumTheme.accentColor.withValues(alpha: 0.08),
               blurRadius: 16,
               offset: const Offset(0, 4),
               spreadRadius: 0,
@@ -451,8 +451,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    PremiumTheme.accentColor.withOpacity(0.1),
-                    PremiumTheme.accentColor.withOpacity(0.05),
+                    PremiumTheme.accentColor.withValues(alpha: 0.1),
+                    PremiumTheme.accentColor.withValues(alpha: 0.05),
                   ],
                 ),
                 shape: BoxShape.circle,
@@ -589,7 +589,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: PremiumTheme.accentColor.withOpacity(0.1),
+              color: PremiumTheme.accentColor.withValues(alpha: 0.1),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -634,18 +634,18 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            PremiumTheme.surfaceColor.withOpacity(0.6),
-            PremiumTheme.surfaceColor.withOpacity(0.4),
+            PremiumTheme.surfaceColor.withValues(alpha: 0.6),
+            PremiumTheme.surfaceColor.withValues(alpha: 0.4),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: PremiumTheme.accentColor.withOpacity(0.06),
+          color: PremiumTheme.accentColor.withValues(alpha: 0.06),
           width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: PremiumTheme.accentColor.withOpacity(0.03),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
@@ -668,7 +668,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           Container(
             width: 0.5,
             height: isTablet ? 24 : 20,
-            color: PremiumTheme.accentColor.withOpacity(0.1),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.1),
           ),
 
           // Situations Resolved Counter
@@ -697,7 +697,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Small icon
         Icon(
           icon,
-          color: color.withOpacity(0.7),
+          color: color.withValues(alpha: 0.7),
           size: isTablet ? 16 : 14,
         ),
 
@@ -723,7 +723,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               style: TextStyle(
                 fontSize: isTablet ? 10 : 9,
                 fontWeight: FontWeight.w500,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 letterSpacing: 0.2,
                 height: 1.0,
               ),
@@ -774,7 +774,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               style: TextStyle(
                 fontSize: isTablet ? 10 : 9,
                 fontWeight: FontWeight.w500,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 letterSpacing: 0.2,
                 height: 1.0,
               ),
@@ -782,63 +782,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           ],
         ),
       ],
-    );
-  }
-
-  void _showMinimalDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => AlertDialog(
-        backgroundColor: PremiumTheme.surfaceColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        contentPadding: const EdgeInsets.all(32),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Alert Workflow',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: PremiumTheme.primaryTextColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'This will launch the premium alert experience with Manim comedic animations.',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: PremiumTheme.secondaryTextColor,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: PremiumTheme.accentColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Got it',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

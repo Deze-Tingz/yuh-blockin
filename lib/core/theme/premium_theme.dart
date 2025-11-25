@@ -179,6 +179,16 @@ class PremiumTheme {
       useMaterial3: true,
       fontFamily: fontFamily,
 
+      // Font fallbacks for emoji support across all platforms
+      // This prevents the "missing Noto fonts" error for emoji characters
+      fontFamilyFallback: const <String>[
+        'Noto Color Emoji',
+        'Apple Color Emoji',
+        'Segoe UI Emoji',
+        'Segoe UI Symbol',
+        'Noto Sans Symbols',
+      ],
+
       // Color Scheme
       colorScheme: ColorScheme.fromSeed(
         seedColor: accentColor,

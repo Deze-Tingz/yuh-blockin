@@ -53,12 +53,12 @@ class UserStatsService {
   /// Increment cars freed counter (when user responds to an alert by moving their car)
   Future<void> incrementCarsFreed() async {
     try {
-      final currentCarsFreed = await getCarsFreed();
-      final currentSituationsResolved = await getSituationsResolved();
-
+      final currentStats = await getStats();
       await _saveStatsData(
-        carsFreed: currentCarsFreed + 1,
-        situationsResolved: currentSituationsResolved,
+        carsFreed: currentStats.carsFreed + 1,
+        situationsResolved: currentStats.situationsResolved,
+        alertsSent: currentStats.alertsSent,
+        alertsReceived: currentStats.alertsReceived,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -70,12 +70,12 @@ class UserStatsService {
   /// Increment situations resolved counter (when user sends an alert)
   Future<void> incrementSituationsResolved() async {
     try {
-      final currentCarsFreed = await getCarsFreed();
-      final currentSituationsResolved = await getSituationsResolved();
-
+      final currentStats = await getStats();
       await _saveStatsData(
-        carsFreed: currentCarsFreed,
-        situationsResolved: currentSituationsResolved + 1,
+        carsFreed: currentStats.carsFreed,
+        situationsResolved: currentStats.situationsResolved + 1,
+        alertsSent: currentStats.alertsSent,
+        alertsReceived: currentStats.alertsReceived,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -84,21 +84,72 @@ class UserStatsService {
     }
   }
 
-  /// Get both stats in a single call
+  /// Get all stats in a single call
   Future<UserStats> getStats() async {
     try {
-      final carsFreed = await getCarsFreed();
-      final situationsResolved = await getSituationsResolved();
+      final prefs = await SharedPreferences.getInstance();
+      final statsData = prefs.getString(_statsDataKey);
 
+      if (statsData == null) {
+        return UserStats(
+          carsFreed: 0,
+          situationsResolved: 0,
+          alertsSent: 0,
+          alertsReceived: 0,
+        );
+      }
+
+      final data = jsonDecode(statsData) as Map<String, dynamic>;
       return UserStats(
-        carsFreed: carsFreed,
-        situationsResolved: situationsResolved,
+        carsFreed: data['carsFreed'] as int? ?? 0,
+        situationsResolved: data['situationsResolved'] as int? ?? 0,
+        alertsSent: data['alertsSent'] as int? ?? 0,
+        alertsReceived: data['alertsReceived'] as int? ?? 0,
       );
     } catch (e) {
       if (kDebugMode) {
         print('Error getting user stats: $e');
       }
-      return UserStats(carsFreed: 0, situationsResolved: 0);
+      return UserStats(
+        carsFreed: 0,
+        situationsResolved: 0,
+        alertsSent: 0,
+        alertsReceived: 0,
+      );
+    }
+  }
+
+  /// Increment alerts sent counter
+  Future<void> incrementAlertsSent() async {
+    try {
+      final currentStats = await getStats();
+      await _saveStatsData(
+        carsFreed: currentStats.carsFreed,
+        situationsResolved: currentStats.situationsResolved,
+        alertsSent: currentStats.alertsSent + 1,
+        alertsReceived: currentStats.alertsReceived,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error incrementing alerts sent: $e');
+      }
+    }
+  }
+
+  /// Increment alerts received counter
+  Future<void> incrementAlertsReceived() async {
+    try {
+      final currentStats = await getStats();
+      await _saveStatsData(
+        carsFreed: currentStats.carsFreed,
+        situationsResolved: currentStats.situationsResolved,
+        alertsSent: currentStats.alertsSent,
+        alertsReceived: currentStats.alertsReceived + 1,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error incrementing alerts received: $e');
+      }
     }
   }
 
@@ -106,11 +157,15 @@ class UserStatsService {
   Future<void> _saveStatsData({
     required int carsFreed,
     required int situationsResolved,
+    int? alertsSent,
+    int? alertsReceived,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final data = {
       'carsFreed': carsFreed,
       'situationsResolved': situationsResolved,
+      'alertsSent': alertsSent ?? 0,
+      'alertsReceived': alertsReceived ?? 0,
       'lastUpdated': DateTime.now().toIso8601String(),
     };
     await prefs.setString(_statsDataKey, jsonEncode(data));
@@ -127,10 +182,14 @@ class UserStatsService {
 class UserStats {
   final int carsFreed;
   final int situationsResolved;
+  final int alertsSent;
+  final int alertsReceived;
 
   UserStats({
     required this.carsFreed,
     required this.situationsResolved,
+    this.alertsSent = 0,
+    this.alertsReceived = 0,
   });
 
   /// Get total positive impact count

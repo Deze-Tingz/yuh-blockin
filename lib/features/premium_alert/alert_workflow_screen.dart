@@ -4,11 +4,14 @@ import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 import '../../core/theme/premium_theme.dart';
 import '../../config/premium_config.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
+import '../../core/services/user_stats_service.dart';
+import '../../core/services/unacknowledged_alert_service.dart';
 import 'alert_confirmation_screen.dart';
 import 'premium_emoji_system.dart';
 
@@ -161,7 +164,7 @@ class AlertWorkflowScreen extends StatefulWidget {
 }
 
 class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _slideController;
   late AnimationController _scaleController;
   late Animation<Offset> _slideAnimation;
@@ -172,22 +175,22 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   final FocusNode _plateFocusNode = FocusNode();
   final PlateStorageService _plateStorageService = PlateStorageService();
   final SimpleAlertService _alertService = SimpleAlertService();
+  final UserStatsService _statsService = UserStatsService();
+  final UnacknowledgedAlertService _unacknowledgedAlertService = UnacknowledgedAlertService();
 
   String _urgencyLevel = 'Normal';
   PremiumEmojiExpression? _selectedEmoji;
   bool _isValidPlate = false;
   bool _isLoading = false;
   String? _primaryPlate;
+  bool _hasLoadedDependencies = false;
+  Timer? _primaryPlateRefreshTimer;
+  List<DateTime> _paymentTierAlertTimes = []; // Track alert timing for payment tier limits
 
   // Emoji pack selection
-  String _selectedEmojiPack = 'GenZ'; // 'GenZ' or 'Classic'
+  String _selectedEmojiPack = 'Classic'; // 'Classic' or 'GenZ'
 
   // Enhanced emoji selection state
-  bool _showingCinematicConfirmation = false;
-  late AnimationController _cinematicController;
-  late Animation<double> _zoomAnimation;
-  late Animation<double> _backgroundFadeAnimation;
-  late Animation<double> _buttonSlideAnimation;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -220,11 +223,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       vsync: this,
     );
 
-    // Cinematic emoji confirmation animation
-    _cinematicController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.0, 1.0),
@@ -250,37 +248,23 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       curve: Curves.easeIn,
     ));
 
-    // Cinematic animations with enhanced curves
-    _zoomAnimation = Tween<double>(
-      begin: 1.0,
-      end: 3.5,
-    ).animate(CurvedAnimation(
-      parent: _cinematicController,
-      // Custom curve: easeOutCubic on expansion, easeInElastic on compression
-      curve: _EnhancedPulseCurve(),
-    ));
 
-    _backgroundFadeAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.1,
-    ).animate(CurvedAnimation(
-      parent: _cinematicController,
-      curve: Curves.easeOut,
-    ));
-
-    _buttonSlideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _cinematicController,
-      curve: Interval(0.6, 1.0, curve: Curves.elasticOut),
-    ));
+    // Add lifecycle observer for app state changes
+    WidgetsBinding.instance.addObserver(this);
 
     // Start entrance animation
     _slideController.forward();
 
-    // Load primary license plate
+    // Load primary license plate immediately and after short delay to ensure services are ready
     _loadPrimaryPlate();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadPrimaryPlate(); // Reload to ensure we have the latest primary plate
+      }
+    });
+
+    // Start periodic refresh of primary plate (every 3 seconds while screen is visible)
+    _startPrimaryPlateRefresh();
 
     // Auto-focus plate input after animation
     Future.delayed(PremiumTheme.mediumDuration, () {
@@ -303,6 +287,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   Future<void> _loadPrimaryPlate() async {
     try {
       final primaryPlate = await _plateStorageService.getPrimaryPlate();
+
       if (mounted) {
         setState(() {
           _primaryPlate = primaryPlate;
@@ -313,11 +298,50 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     }
   }
 
+  /// Start periodic refresh of primary plate while screen is visible
+  void _startPrimaryPlateRefresh() {
+    _primaryPlateRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted) {
+        _loadPrimaryPlate();
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Only refresh on first load or when returning to screen
+    if (!_hasLoadedDependencies) {
+      _hasLoadedDependencies = true;
+      print('🔄 AlertWorkflow: Initial dependencies loaded');
+    } else {
+      // User returned to screen, refresh primary plate
+      print('🔄 AlertWorkflow: Dependencies changed, likely returned to screen - refreshing primary plate...');
+      _loadPrimaryPlate();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Refresh primary plate when app becomes active
+    if (state == AppLifecycleState.resumed) {
+      print('🔄 AlertWorkflow: App resumed, refreshing primary plate...');
+      _loadPrimaryPlate();
+    }
+  }
+
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _primaryPlateRefreshTimer?.cancel();
     _slideController.dispose();
     _scaleController.dispose();
-    _cinematicController.dispose();
     _plateController.dispose();
     _plateFocusNode.dispose();
     _audioPlayer.dispose();
@@ -338,6 +362,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             SnackBar(
               content: Text('Please wait, sending alert...'),
               backgroundColor: PremiumTheme.accentColor,
+              duration: const Duration(milliseconds: 1500),
             ),
           );
         }
@@ -351,24 +376,25 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             position: _slideAnimation,
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child: AnimatedBuilder(
-                animation: _backgroundFadeAnimation,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _backgroundFadeAnimation.value.clamp(0.0, 1.0),
-                    child: SafeArea(
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 80.0 : 32.0,
-                vertical: 40.0,
-              ),
-              child: Column(
-                children: [
+              child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Check if we need to use responsive layout for very small screens
+                final isVerySmallScreen = constraints.maxHeight < 600;
+                final isExtremelySmallScreen = constraints.maxHeight < 550;
+
+                return Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isVerySmallScreen ? 20.0 : 24.0,
+                    vertical: isVerySmallScreen ? 12.0 : 20.0,
+                  ),
+                  child: Column(
+                    children: [
                   // Header with back action
                   _buildHeader(context),
 
-                  const SizedBox(height: 40),
+                  SizedBox(height: isVerySmallScreen ? 12.0 : 20.0),
 
                   // Main scrollable content for mobile
                   Expanded(
@@ -376,53 +402,48 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                       physics: const BouncingScrollPhysics(),
                       child: Column(
                         children: [
-                          // User vehicle context badge
+                          // User vehicle context badge (more compact)
                           if (_primaryPlate != null) _buildVehicleContextBadge(),
 
-                          // Title and description
+                          // Title and description (more compact)
                           _buildTitle(),
 
-                          const SizedBox(height: 24),
+                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
 
                           // License plate input
                           _buildPlateInput(),
 
-                          const SizedBox(height: 20),
+                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
 
                           // Urgency selection
                           _buildUrgencySelection(),
 
-                          const SizedBox(height: 20),
+                          SizedBox(height: isVerySmallScreen ? 10.0 : 16.0),
 
                           // Emoji expression selection
                           _buildEmojiSelector(),
 
-                          const SizedBox(height: 20),
+                          SizedBox(height: isVerySmallScreen ? 12.0 : 16.0),
 
                           // Send alert button
                           _buildSendButton(),
 
-                          const SizedBox(height: 40),
+                          SizedBox(height: isVerySmallScreen ? 12.0 : 20.0),
                         ],
                       ),
                     ),
                   ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
-
-          // Cinematic emoji confirmation overlay
-          if (_showingCinematicConfirmation)
-            _buildCinematicConfirmation(),
+            ),
+          ),
         ],
       ),
-        ),
+    ),
     );
   }
 
@@ -473,41 +494,74 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   Widget _buildVehicleContextBadge() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
+              PremiumTheme.accentColor.withOpacity(0.12),
               PremiumTheme.accentColor.withOpacity(0.08),
-              PremiumTheme.accentColor.withOpacity(0.04),
             ],
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: PremiumTheme.accentColor.withOpacity(0.2),
-            width: 1,
+            color: PremiumTheme.accentColor.withOpacity(0.3),
+            width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: PremiumTheme.accentColor.withOpacity(0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
+            ),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.directions_car_rounded,
-              size: 14,
-              color: PremiumTheme.accentColor,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Your Vehicle: $_primaryPlate',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentColor.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.directions_car_rounded,
+                size: 16,
                 color: PremiumTheme.accentColor,
-                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'From your vehicle:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: PremiumTheme.accentColor.withOpacity(0.8),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _primaryPlate!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: PremiumTheme.accentColor,
+                      letterSpacing: 1.5,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -519,9 +573,9 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   Widget _buildTitle() {
     return Column(
       children: [
-        // Enhanced title with premium styling
+        // Compact title with premium styling
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -531,12 +585,12 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 PremiumTheme.surfaceColor.withOpacity(0.9),
               ],
             ),
-            borderRadius: PremiumTheme.largeRadius,
+            borderRadius: PremiumTheme.mediumRadius,
             boxShadow: [
               BoxShadow(
-                color: PremiumTheme.accentColor.withOpacity(0.1),
-                blurRadius: 24,
-                offset: const Offset(0, 6),
+                color: PremiumTheme.accentColor.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
                 spreadRadius: 0,
               ),
             ],
@@ -548,7 +602,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 textAlign: TextAlign.center,
                 text: TextSpan(
                   style: TextStyle(
-                    fontSize: 30,
+                    fontSize: 24,
                     fontWeight: FontWeight.w300,
                     color: PremiumTheme.primaryTextColor,
                     letterSpacing: 0.5,
@@ -561,13 +615,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.accentColor,
-                        shadows: [
-                          Shadow(
-                            color: PremiumTheme.accentColor.withOpacity(0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
                       ),
                     ),
                     TextSpan(text: ' Alert'),
@@ -575,11 +622,11 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Subtle accent line
               Container(
-                width: 60,
+                width: 50,
                 height: 2,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -596,22 +643,22 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
-        // Enhanced description with subtle container
+        // Compact description
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: PremiumTheme.accentColor.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'Let someone know their car needs to be moved.\nYour message will be polite and respectful.',
+            'Let someone know their car needs to be moved',
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
               color: PremiumTheme.secondaryTextColor,
-              height: 1.6,
+              height: 1.4,
               letterSpacing: 0.2,
             ),
             textAlign: TextAlign.center,
@@ -824,25 +871,29 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 
   Widget _buildEmojiSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Choose Expression',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
 
-        const SizedBox(height: 12),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose Expression',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: PremiumTheme.primaryTextColor,
+                letterSpacing: 0.1,
+              ),
+            ),
 
-        // Alert preview with emoji and signature message
-        Container(
+            SizedBox(height: isVerySmallScreen ? 6.0 : 10.0),
+
+            // Compact alert preview
+            Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(isVerySmallScreen ? 12.0 : 14.0),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -854,7 +905,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                   PremiumTheme.accentColor.withOpacity(0.05),
               ],
             ),
-            borderRadius: PremiumTheme.largeRadius,
+            borderRadius: PremiumTheme.mediumRadius,
             border: Border.all(
               color: _selectedEmoji?.accentColor.withOpacity(0.2) ??
                 PremiumTheme.accentColor.withOpacity(0.2),
@@ -864,8 +915,8 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               BoxShadow(
                 color: _selectedEmoji?.accentColor.withOpacity(0.1) ??
                   PremiumTheme.accentColor.withOpacity(0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -873,67 +924,69 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             children: [
               // Preview label
               Text(
-                'Your Alert Preview',
+                'Preview',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: _selectedEmoji?.accentColor ?? PremiumTheme.accentColor,
                   letterSpacing: 0.3,
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
               // Alert content - centered layout
-              Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (_selectedEmoji != null) ...[
                     AnimatedEmojiWidget(
                       expression: _selectedEmoji!,
                       isSelected: true,
                       isPlaying: true,
-                      size: 48,
+                      size: 32,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(width: 10),
                   ],
                   Text(
                     'Yuh Blockin!',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: PremiumTheme.primaryTextColor,
                       letterSpacing: 0.5,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Expression description
               if (_selectedEmoji != null)
                 Text(
                   _selectedEmoji!.description,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: PremiumTheme.secondaryTextColor,
-                    height: 1.4,
+                    height: 1.3,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
             ],
           ),
         ),
 
-        const SizedBox(height: 20),
+        SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
 
         // Enhanced emoji grid selector
         _buildEnhancedEmojiGrid(),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -942,6 +995,8 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     final availableEmojis = _selectedEmojiPack == 'GenZ'
         ? GenZIslandEmojiPack.expressions
         : PremiumEmojiPack.expressions;
+
+    final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
 
     return Container(
       decoration: BoxDecoration(
@@ -963,7 +1018,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
           // Emoji Grid
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isVerySmallScreen ? 12.0 : 16.0),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 // Calculate optimal height for the grid
@@ -977,11 +1032,11 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                   height: totalHeight,
                   child: GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       childAspectRatio: 1.1,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                      crossAxisSpacing: isVerySmallScreen ? 8.0 : 12.0,
+                      mainAxisSpacing: isVerySmallScreen ? 8.0 : 12.0,
                     ),
                     itemCount: availableEmojis.length,
                     itemBuilder: (context, index) {
@@ -1062,16 +1117,18 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   /// Build emoji pack tabs (Gen Z and Classic)
   Widget _buildEmojiTabs() {
+    final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isVerySmallScreen ? 8.0 : 12.0),
       child: Row(
         children: [
           Expanded(
-            child: _buildTabButton('GenZ', '🏝️ Gen Z'),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
             child: _buildTabButton('Classic', '✨ Classic'),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildTabButton('GenZ', '🏝️ Gen Z'),
           ),
         ],
       ),
@@ -1080,6 +1137,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   Widget _buildTabButton(String packId, String label) {
     final isSelected = _selectedEmojiPack == packId;
+    final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
 
     return GestureDetector(
       onTap: () {
@@ -1091,12 +1149,15 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       },
       child: AnimatedContainer(
         duration: PremiumTheme.fastDuration,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: EdgeInsets.symmetric(
+          vertical: isVerySmallScreen ? 8.0 : 10.0,
+          horizontal: isVerySmallScreen ? 10.0 : 12.0
+        ),
         decoration: BoxDecoration(
           color: isSelected
               ? PremiumTheme.accentColor.withOpacity(0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected
                 ? PremiumTheme.accentColor
@@ -1136,393 +1197,26 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   void _selectEmojiWithAnimation(PremiumEmojiExpression emoji) async {
     setState(() {
       _selectedEmoji = emoji;
-      _showingCinematicConfirmation = true;
     });
 
     HapticFeedback.mediumImpact();
 
-    // Play appropriate sound effect
-    await _playEmojiSound(emoji);
-
-    // Start cinematic zoom animation
-    _cinematicController.forward();
+    // Do NOT auto-send - user must explicitly press Send button
+    // This gives users control over when the alert is actually sent
   }
 
   /// Play sound effect appropriate to the emoji
   Future<void> _playEmojiSound(PremiumEmojiExpression emoji) async {
-    try {
-      // Map emoji types to sound effects (you'll need to add these assets)
-      String soundAsset;
-
-      switch (emoji.animationType) {
-        case EmojiAnimationType.gentle:
-          soundAsset = 'sounds/gentle_chime.mp3';
-          break;
-        case EmojiAnimationType.playful:
-          soundAsset = 'sounds/playful_pop.mp3';
-          break;
-        case EmojiAnimationType.pulse:
-          soundAsset = 'sounds/pulse_beep.mp3';
-          break;
-        case EmojiAnimationType.urgent:
-          soundAsset = 'sounds/urgent_alert.mp3';
-          break;
-        case EmojiAnimationType.apologetic:
-          soundAsset = 'sounds/soft_bell.mp3';
-          break;
-        case EmojiAnimationType.celebration:
-          soundAsset = 'sounds/celebration_chime.mp3';
-          break;
-      }
-
-      await _audioPlayer.play(AssetSource(soundAsset));
-    } catch (e) {
-      // Gracefully handle missing sound files
-      print('Sound effect not available: $e');
-    }
+    // Sound effects disabled - no sound files in project
+    // Haptic feedback is used instead for user feedback
   }
 
-  /// Cinematic emoji confirmation overlay
-  Widget _buildCinematicConfirmation() {
-    if (_selectedEmoji == null) return const SizedBox();
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        _zoomAnimation,
-        _buttonSlideAnimation,
-      ]),
-      builder: (context, child) {
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.black.withOpacity(0.8),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Enhanced emoji with unified pulse/glow system
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Trailing glow halo (lags 120-200ms behind pulse)
-                    AnimatedBuilder(
-                      animation: _zoomAnimation,
-                      builder: (context, child) {
-                        // Calculate lagging glow scale
-                        double glowScale = 0.8 + (_zoomAnimation.value - 1) * 0.7;
-                        glowScale = glowScale.clamp(0.8, 2.0);
-
-                        return Transform.scale(
-                          scale: glowScale,
-                          child: Container(
-                            width: 240,
-                            height: 240,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  _selectedEmoji!.accentColor.withOpacity(0.15),
-                                  _selectedEmoji!.accentColor.withOpacity(0.08),
-                                  Colors.transparent,
-                                ],
-                                stops: [0.0, 0.6, 1.0],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Main circular pulse with enhanced shadow + rim light
-                    AnimatedBuilder(
-                      animation: _zoomAnimation,
-                      builder: (context, child) {
-                        // easeOutCubic on expansion, easeInElastic on compression
-                        double pulseScale = _zoomAnimation.value;
-                        double shadowBlur = 20 + (pulseScale - 1) * 15; // +30-45% increase
-                        double shadowOpacity = 0.3 - (pulseScale - 1) * 0.1; // Reduce slightly
-
-                        return Transform.scale(
-                          scale: pulseScale,
-                          child: Container(
-                            width: 180,
-                            height: 180,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  _selectedEmoji!.accentColor.withOpacity(0.25),
-                                  _selectedEmoji!.accentColor.withOpacity(0.15),
-                                  _selectedEmoji!.accentColor.withOpacity(0.05),
-                                ],
-                                stops: [0.0, 0.7, 1.0],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _selectedEmoji!.accentColor.withOpacity(shadowOpacity),
-                                  blurRadius: shadowBlur,
-                                  offset: const Offset(0, 8),
-                                  spreadRadius: 4,
-                                ),
-                              ],
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  width: 2,
-                                  // Blue-to-warm rim light gradient effect
-                                  color: _selectedEmoji!.accentColor.withOpacity(0.4),
-                                ),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.blue.withOpacity(0.1),
-                                    Colors.transparent,
-                                    Colors.orange.withOpacity(0.1),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Emoji with gel stretch + enhanced motion
-                    AnimatedBuilder(
-                      animation: _zoomAnimation,
-                      builder: (context, child) {
-                        // 2-4% vertical gel stretch before pulse expansion
-                        double verticalStretch = 1.0;
-                        if (_zoomAnimation.value > 1.0 && _zoomAnimation.value < 1.2) {
-                          verticalStretch = 1.0 + ((_zoomAnimation.value - 1.0) * 0.03);
-                        }
-
-                        return Transform.scale(
-                          scaleY: verticalStretch,
-                          scaleX: 1.0,
-                          child: Transform.scale(
-                            scale: _zoomAnimation.value,
-                            child: AnimatedEmojiWidget(
-                              expression: _selectedEmoji!,
-                              isSelected: true,
-                              isPlaying: true,
-                              size: 120,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    // "Yuh Blockin!" text inside circular zone with glass capsule
-                    AnimatedBuilder(
-                      animation: _zoomAnimation,
-                      builder: (context, child) {
-                        // Text follows pulse by 150-220ms and scales +3% to +5%
-                        double textScale = 1.0 + ((_zoomAnimation.value - 1.0) * 0.04);
-                        double textOpacity = _zoomAnimation.value > 1.1 ? 1.0 : 0.0;
-                        double slideOffset = textOpacity < 1.0 ? 20.0 : 0.0;
-
-                        return Positioned(
-                          bottom: 20,
-                          child: Transform.translate(
-                            offset: Offset(0, slideOffset),
-                            child: Opacity(
-                              opacity: textOpacity,
-                              child: Transform.scale(
-                                scale: textScale,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    // Translucent glass capsule
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(20), // Organically curved
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                      width: 1,
-                                    ),
-                                    // Blur effect simulation
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.white.withOpacity(0.1),
-                                        blurRadius: 15,
-                                        spreadRadius: 0,
-                                      ),
-                                    ],
-                                  ),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                                    child: Text(
-                                      'Yuh Blockin!',
-                                      style: TextStyle(
-                                        fontFamily: 'SF Pro', // SF Rounded/Inter SemiBold
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                        letterSpacing: -0.5, // -1% to -3% negative spacing
-                                        shadows: [
-                                          Shadow(
-                                            color: _selectedEmoji!.accentColor.withOpacity(0.3),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 1),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-
-                // Slide-up Send button
-                Transform.translate(
-                  offset: Offset(0, (1 - _buttonSlideAnimation.value) * 100),
-                  child: Opacity(
-                    opacity: _buttonSlideAnimation.value.clamp(0.0, 1.0),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 120),
-
-                        // Send button
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Cancel button
-                            GestureDetector(
-                              onTap: _cancelCinematicConfirmation,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  'Cancel',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white.withOpacity(0.8),
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 20),
-
-                            // Send button
-                            GestureDetector(
-                              onTap: _confirmAndSendAlert,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 40,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      _selectedEmoji!.accentColor,
-                                      _selectedEmoji!.accentColor.withOpacity(0.8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(30),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: _selectedEmoji!.accentColor.withOpacity(0.4),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.send,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Send',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Cancel cinematic confirmation and return to selection
-  void _cancelCinematicConfirmation() {
-    _cinematicController.reverse().then((_) {
-      setState(() {
-        _showingCinematicConfirmation = false;
-      });
-    });
-    HapticFeedback.lightImpact();
-  }
-
-  /// Confirm emoji selection and proceed to send alert
-  void _confirmAndSendAlert() {
-    if (_selectedEmoji == null || !_isValidPlate || _isLoading) return;
-
-    HapticFeedback.heavyImpact();
-
-    // Close cinematic confirmation
-    setState(() {
-      _showingCinematicConfirmation = false;
-    });
-    _cinematicController.reset();
-
-    // Proceed with sending alert
-    _sendAlert();
-  }
 
   Widget _buildSendButton() {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
           onPressed: _isValidPlate && !_isLoading && _selectedEmoji != null ? _sendAlert : null,
           onLongPress: _isValidPlate ? _onButtonPress : null,
           style: ElevatedButton.styleFrom(
@@ -1561,7 +1255,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                   ],
                 ),
         ),
-      ),
     );
   }
 
@@ -1677,10 +1370,25 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   Future<void> _sendAlert() async {
     if (!_isValidPlate || _isLoading) return;
 
+    // CRITICAL: Check if user has at least one registered license plate
+    if (_primaryPlate == null || _primaryPlate!.isEmpty) {
+      _showErrorDialog(
+        'Please register at least one license plate before sending alerts.\n\n'
+        'Go to "My Vehicles" from the home screen to add your license plate.'
+      );
+      return;
+    }
+
     // Check spam protection first
     final spamMessage = _checkSpamProtection();
     if (spamMessage != null) {
       _showErrorDialog(spamMessage);
+      return;
+    }
+
+    // Check payment tier limits
+    if (_hasExceededTierLimits()) {
+      _showErrorDialog(_getTierCooldownMessage());
       return;
     }
 
@@ -1716,6 +1424,24 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         if (result.success) {
           print('✅ Alert sent successfully to ${result.recipients} users');
 
+          // Record alert timing for payment tier limits
+          _paymentTierAlertTimes.add(DateTime.now());
+          // Keep only recent alerts (last hour for cleanup)
+          _paymentTierAlertTimes.removeWhere((time) => DateTime.now().difference(time).inHours > 1);
+
+          // Increment alerts sent counter in user stats
+          await _statsService.incrementAlertsSent();
+
+          // Track alert for unacknowledged monitoring
+          if (result.alertId != null) {
+            await _unacknowledgedAlertService.trackSentAlert(
+              alertId: result.alertId!,
+              targetPlateNumber: plateNumber,
+              urgencyLevel: _urgencyLevel,
+              message: '${_urgencyLevel} alert: ${_selectedEmoji?.description ?? 'Vehicle alert'}',
+            );
+          }
+
           // Navigate to alert confirmation
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
@@ -1732,15 +1458,18 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             ),
           );
         } else {
-          // Show error if alert failed
-          _showErrorDialog(result.error ?? 'Failed to send alert');
+          // Show detailed error message based on failure reason
+          final errorMessage = _getDetailedErrorMessage(result.error);
+          _showErrorDialog(errorMessage);
           setState(() => _isLoading = false);
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _showErrorDialog(e.toString());
+        // Show detailed network/connection error
+        final errorMessage = _getDetailedErrorMessage(e.toString(), isNetworkError: true);
+        _showErrorDialog(errorMessage);
       }
     }
   }
@@ -1806,6 +1535,94 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         ),
       ),
     );
+  }
+
+  /// Get detailed error message based on the failure reason
+  String _getDetailedErrorMessage(String? error, {bool isNetworkError = false}) {
+    if (isNetworkError) {
+      return 'Connection failed. Please check your internet connection and try again.';
+    }
+
+    if (error == null) {
+      return 'Alert failed to send. Please try again in a moment.';
+    }
+
+    final lowerError = error.toLowerCase();
+
+    // Check for specific error types
+    if (lowerError.contains('license plate not registered') || lowerError.contains('not registered')) {
+      return 'No users have registered this license plate. The owner needs to install Yuh Blockin to receive alerts.';
+    }
+
+    if (lowerError.contains('rate limit') || lowerError.contains('too many') || lowerError.contains('spam')) {
+      final isFreeTier = _getUserTier() == 'free';
+      if (isFreeTier) {
+        return 'Alert rate limit reached. Free users can send 1 alert per minute. Upgrade to Premium for faster alerts!';
+      } else {
+        return 'Alert rate limit reached. Premium users can send 1 alert every 10 seconds. Please wait before sending another alert.';
+      }
+    }
+
+    if (lowerError.contains('network') || lowerError.contains('connection') || lowerError.contains('timeout')) {
+      return 'Network connection failed. Please check your internet and try again.';
+    }
+
+    if (lowerError.contains('invalid') || lowerError.contains('format')) {
+      return 'Invalid license plate format. Please check the plate number and try again.';
+    }
+
+    if (lowerError.contains('user not found') || lowerError.contains('authentication')) {
+      return 'Account verification failed. Please restart the app and try again.';
+    }
+
+    if (lowerError.contains('server') || lowerError.contains('database')) {
+      return 'Service temporarily unavailable. Our team is working on it. Please try again shortly.';
+    }
+
+    // Default error with the original message for debugging
+    return 'Alert failed: $error';
+  }
+
+  /// Get user's payment tier (free or premium)
+  String _getUserTier() {
+    // TODO: Implement actual payment tier checking
+    // For now, everyone is on free tier
+    return 'free';
+  }
+
+  /// Check if user has exceeded payment tier limits
+  bool _hasExceededTierLimits() {
+    final userTier = _getUserTier();
+    final now = DateTime.now();
+
+    if (userTier == 'free') {
+      // Free tier: 1 alert per minute
+      for (final alertTime in _paymentTierAlertTimes) {
+        if (now.difference(alertTime).inMinutes < 1) {
+          return true;
+        }
+      }
+    } else {
+      // Premium tier: 1 alert per 10 seconds
+      for (final alertTime in _paymentTierAlertTimes) {
+        if (now.difference(alertTime).inSeconds < 10) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Get payment tier specific cooldown message
+  String _getTierCooldownMessage() {
+    final userTier = _getUserTier();
+
+    if (userTier == 'free') {
+      return 'Free users can send 1 alert per minute to prevent spam. Upgrade to Premium for faster alerts (1 every 10 seconds)!';
+    } else {
+      return 'Premium users can send 1 alert every 10 seconds. Please wait before sending another alert.';
+    }
   }
 }
 

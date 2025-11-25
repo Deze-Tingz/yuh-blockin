@@ -6,6 +6,7 @@ import 'dart:async';
 import '../../core/theme/premium_theme.dart';
 import '../../config/premium_config.dart';
 import '../../core/services/simple_alert_service.dart';
+import '../../core/services/unacknowledged_alert_service.dart';
 import '../manim_animations/manim_integration.dart';
 import 'premium_emoji_system.dart';
 
@@ -31,15 +32,13 @@ class AlertConfirmationScreen extends StatefulWidget {
 class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
-  late AnimationController _scaleController;
   late AnimationController _manimController;
 
   late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _breathingAnimation;
 
   final ManImAnimationController _manimAnimations = ManImAnimationController();
   final SimpleAlertService _alertService = SimpleAlertService();
+  final UnacknowledgedAlertService _unacknowledgedAlertService = UnacknowledgedAlertService();
 
   String _currentPhase = 'sending';  // sending -> delivered -> acknowledged -> resolved
   String _statusMessage = 'Sending respectful alert...';
@@ -67,12 +66,6 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       vsync: this,
     );
 
-    // Scale animation for interactions
-    _scaleController = AnimationController(
-      duration: PremiumTheme.fastDuration,
-      vsync: this,
-    );
-
     // Manim animation controller
     _manimController = AnimationController(
       duration: const Duration(seconds: 3),
@@ -87,26 +80,8 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       curve: Curves.easeInOut,
     ));
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.9,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.easeOut,
-    ));
-
-    _breathingAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _manimController,
-      curve: Curves.easeInOut,
-    ));
-
     // Start animations
     _fadeController.forward();
-    _scaleController.forward();
-    _manimController.repeat(reverse: true);
   }
 
   /// Initialize alert service and send real alert
@@ -131,11 +106,11 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       // Start progress animation
       _startProgressAnimation();
 
-      // Send actual alert
+      // Send simple emoji alert
       final result = await _alertService.sendAlert(
         targetPlateNumber: widget.plateNumber,
         senderUserId: userId!,
-        message: widget.selectedEmoji.description,
+        message: widget.selectedEmoji.unicode, // Just send the emoji character
       );
 
       if (result.success && result.recipients > 0) {
@@ -163,30 +138,78 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     });
   }
 
-  /// Listen for real-time responses
+  /// Listen for real-time responses with enhanced synchronization
   void _startListeningForResponses() {
     if (_currentUserId == null) return;
 
+    print('🔄 Starting to listen for real-time responses...');
+
     _alertResponseSubscription = _alertService
         .getSentAlertsStream(_currentUserId!)
-        .listen((alerts) {
-      if (alerts.isNotEmpty) {
-        final latestAlert = alerts.first;
+        .listen(
+          (alerts) {
+            print('📡 Received alerts update: ${alerts.length} alerts');
 
+            if (alerts.isNotEmpty) {
+              final latestAlert = alerts.first;
+
+              // Debug logging
+              print('🎯 Latest alert: ID=${latestAlert.id}, Response=${latestAlert.response}, Phase=$_currentPhase');
+
+              setState(() {
+                _currentAlert = latestAlert;
+              });
+
+              // Only handle response if we haven't already processed it and aren't resolved
+              if (latestAlert.hasResponse && _currentPhase != 'resolved' && _currentPhase != 'acknowledged') {
+                print('✅ Processing real response: ${latestAlert.response}');
+                _handleRealResponse(latestAlert);
+              } else if (latestAlert.hasResponse) {
+                print('ℹ️  Response already processed or alert resolved');
+              }
+            }
+          },
+          onError: (error) {
+            print('❌ Alert stream error: $error');
+            // Attempt to reconnect after delay
+            Timer(const Duration(seconds: 5), () {
+              if (mounted) {
+                print('🔄 Attempting to reconnect alert stream...');
+                _startListeningForResponses();
+              }
+            });
+          }
+        );
+
+    // Add timeout mechanism for unanswered alerts
+    _startAlertTimeout();
+  }
+
+  /// Add timeout mechanism for alerts that never receive a response
+  void _startAlertTimeout() {
+    // Set a reasonable timeout (10 minutes) for alerts
+    Timer(const Duration(minutes: 10), () {
+      if (mounted && _currentPhase == 'delivered') {
+        print('⏰ Alert timeout reached - no response received');
         setState(() {
-          _currentAlert = latestAlert;
+          _currentPhase = 'timeout';
+          _statusMessage = 'No response received. The recipient may not have seen the alert.';
         });
 
-        // Check for response
-        if (latestAlert.hasResponse && _currentPhase != 'resolved') {
-          _handleRealResponse(latestAlert);
-        }
+        // Auto-return to home after timeout notification
+        Timer(const Duration(seconds: 5), () {
+          if (mounted) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        });
       }
     });
   }
 
   /// Handle actual response from receiver
   void _handleRealResponse(Alert alert) {
+    print('✅ Real response received: ${alert.response} - ${alert.responseText}');
+
     setState(() {
       _currentPhase = 'acknowledged';
       _statusMessage = 'Response: ${alert.responseText}';
@@ -194,13 +217,85 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
     HapticFeedback.mediumImpact();
 
-    // Show Manim acknowledgment animation
-    _manimAnimations.playAcknowledgmentScene(
-      context: context,
-      onComplete: () {
+    // Mark alert as acknowledged in unacknowledged alerts service
+    _unacknowledgedAlertService.markAlertAcknowledged(alert.id).then((_) {
+      print('✅ Marked alert ${alert.id} as acknowledged in tracking service');
+    }).catchError((error) {
+      print('⚠️ Failed to mark alert as acknowledged: $error');
+    });
+
+    // Handle different response types appropriately
+    _processResponseType(alert.response ?? 'unknown', alert);
+  }
+
+  /// Process different response types with appropriate actions
+  void _processResponseType(String responseType, Alert alert) {
+    switch (responseType) {
+      case 'moving_now':
+        _handleMovingNowResponse(alert);
+        break;
+      case '5_minutes':
+        _handleDelayedResponse(alert, '5 minutes');
+        break;
+      case 'cant_move':
+        _handleCantMoveResponse(alert);
+        break;
+      case 'wrong_car':
+        _handleWrongCarResponse(alert);
+        break;
+      default:
+        _handleGenericResponse(alert);
+    }
+  }
+
+  /// Handle "moving now" response - transition to resolved
+  void _handleMovingNowResponse(Alert alert) {
+    // For "moving now", transition to resolved
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
         _transitionToResolved();
-      },
-    );
+      }
+    });
+  }
+
+  /// Handle delayed response - stay acknowledged, show countdown
+  void _handleDelayedResponse(Alert alert, String timeframe) {
+    setState(() {
+      _statusMessage = 'Owner will move in $timeframe. Thank you for your patience!';
+    });
+
+    // Stay in acknowledged state - don't auto-resolve for delayed responses
+    print('🕐 Waiting for actual movement...');
+  }
+
+  /// Handle "can't move" response
+  void _handleCantMoveResponse(Alert alert) {
+    setState(() {
+      _statusMessage = 'Owner cannot move right now. ${alert.responseMessage ?? "Consider alternative parking."}';
+    });
+
+    // Don't auto-resolve - user may need to take other action
+    print('🚫 Cannot move - alert remains active');
+  }
+
+  /// Handle "wrong car" response - transition to resolved
+  void _handleWrongCarResponse(Alert alert) {
+    setState(() {
+      _statusMessage = 'Wrong car identified. Sorry for the confusion!';
+    });
+
+    // Auto-resolve for wrong car
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        _transitionToResolved();
+      }
+    });
+  }
+
+  /// Handle generic/unknown response
+  void _handleGenericResponse(Alert alert) {
+    // Don't auto-resolve for unknown responses
+    print('❓ Unknown response type - staying in acknowledged state');
   }
 
   /// Handle alert sending failure
@@ -227,48 +322,11 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
     HapticFeedback.lightImpact();
 
-    // Start Manim comedic reveal animation
-    _manimAnimations.playComedyReveal(
-      context: context,
-      plateNumber: widget.plateNumber,
-      onComplete: () {
-        _scheduleAcknowledgment();
-      },
-    );
+    // Simple confirmation - alert delivered
+    print('🎯 Alert delivered. Waiting for genuine user response...');
   }
 
-  void _scheduleAcknowledgment() {
-    Timer(const Duration(seconds: 4), () {
-      if (mounted) {
-        _transitionToAcknowledged();
-      }
-    });
-  }
-
-  void _transitionToAcknowledged() {
-    setState(() {
-      _currentPhase = 'acknowledged';
-      _statusMessage = 'Owner acknowledged! Moving car now...';
-    });
-
-    HapticFeedback.mediumImpact();
-
-    // Manim acknowledgment animation
-    _manimAnimations.playAcknowledgmentScene(
-      context: context,
-      onComplete: () {
-        _scheduleResolution();
-      },
-    );
-  }
-
-  void _scheduleResolution() {
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        _transitionToResolved();
-      }
-    });
-  }
+  // Removed fake auto-confirmation timers - now waits for real user responses only
 
   void _transitionToResolved() {
     setState(() {
@@ -278,13 +336,8 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
     HapticFeedback.heavyImpact();
 
-    // Beautiful resolution animation
-    _manimAnimations.playResolutionAnimation(
-      context: context,
-      onComplete: () {
-        _showCompletionAndReturn();
-      },
-    );
+    // Simple completion
+    _showCompletionAndReturn();
   }
 
   void _showCompletionAndReturn() {
@@ -298,7 +351,6 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   @override
   void dispose() {
     _fadeController.dispose();
-    _scaleController.dispose();
     _manimController.dispose();
     _progressTimer?.cancel();
     _phaseTimer?.cancel();
@@ -317,38 +369,35 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 80.0 : 32.0,
-                vertical: 60.0,
-              ),
-              child: Column(
-                children: [
-                  // Header with close button
-                  _buildHeader(),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 80.0 : 32.0,
+              vertical: isTablet ? 60.0 : 40.0,
+            ),
+            child: Column(
+              children: [
+                // Header with close button
+                _buildHeader(),
 
-                  // Flexible space
-                  const Expanded(flex: 1, child: SizedBox()),
+                // Flexible space
+                const Expanded(flex: 1, child: SizedBox()),
 
-                  // Main content area
-                  _buildMainContent(isTablet),
+                // Main content area
+                _buildMainContent(isTablet),
 
-                  // Flexible space
-                  const Expanded(flex: 2, child: SizedBox()),
+                // Flexible space
+                const Expanded(flex: 2, child: SizedBox()),
 
-                  // Status information - wrapped to prevent overflow
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: _buildStatusInfo(),
-                    ),
+                // Status information - wrapped to prevent overflow
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: _buildStatusInfo(),
                   ),
+                ),
 
-                  const SizedBox(height: 60),
-                ],
-              ),
+                SizedBox(height: isTablet ? 60 : 40),
+              ],
             ),
           ),
         ),
@@ -396,39 +445,33 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   Widget _buildMainContent(bool isTablet) {
     return Column(
       children: [
-        // Animated progress ring with Manim breathing effect
-        AnimatedBuilder(
-          animation: _breathingAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _breathingAnimation.value,
-              child: Container(
-                width: isTablet ? 200 : 160,
-                height: isTablet ? 200 : 160,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Progress ring
-                    SizedBox(
-                      width: isTablet ? 200 : 160,
-                      height: isTablet ? 200 : 160,
-                      child: CircularProgressIndicator(
-                        value: _progressValue,
-                        strokeWidth: 8,
-                        backgroundColor: PremiumTheme.dividerColor,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          PremiumTheme.accentColor,
-                        ),
-                      ),
+        // Simple progress ring without zoom effects - centered
+        Center(
+          child: SizedBox(
+            width: isTablet ? 170 : 130,
+            height: isTablet ? 170 : 130,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Progress ring
+                SizedBox(
+                  width: isTablet ? 170 : 130,
+                  height: isTablet ? 170 : 130,
+                  child: CircularProgressIndicator(
+                    value: _progressValue,
+                    strokeWidth: 8,
+                    backgroundColor: PremiumTheme.dividerColor,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      PremiumTheme.accentColor,
                     ),
-
-                    // Center icon with phase-specific animation
-                    _buildCenterIcon(isTablet),
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+
+                // Center icon with phase-specific animation
+                _buildCenterIcon(isTablet),
+              ],
+            ),
+          ),
         ),
 
         const SizedBox(height: 40),
@@ -486,15 +529,34 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         iconData = Icons.celebration;
         iconColor = Colors.green;
         break;
+      case 'timeout':
+        iconData = Icons.schedule;
+        iconColor = Colors.orange;
+        break;
+      case 'failed':
+        iconData = Icons.error_outline;
+        iconColor = Colors.red;
+        break;
       default:
         iconData = Icons.send;
     }
 
-    return Icon(
-      iconData,
-      size: isTablet ? 60 : 48,
-      color: iconColor,
-    );
+    // Show emoji for main phases, icons for status phases
+    if (widget.selectedEmoji != null && (_currentPhase == 'delivered' || _currentPhase == 'acknowledged' || _currentPhase == 'sending')) {
+      return Text(
+        widget.selectedEmoji!.unicode,
+        style: TextStyle(
+          fontSize: isTablet ? 50 : 40,
+          height: 1.0,
+        ),
+      );
+    } else {
+      return Icon(
+        iconData,
+        size: isTablet ? 50 : 40,
+        color: iconColor,
+      );
+    }
   }
 
   Widget _buildStatusInfo() {
@@ -520,93 +582,35 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         // Phase indicators
         _buildPhaseIndicators(),
 
-        // Selected emoji + signature message display
+        // Simple alert content: Just the animated emoji
         const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                widget.selectedEmoji.accentColor.withOpacity(0.1),
-                widget.selectedEmoji.accentColor.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: PremiumTheme.largeRadius,
+            color: PremiumTheme.surfaceColor.withOpacity(0.7),
+            borderRadius: PremiumTheme.mediumRadius,
             border: Border.all(
-              color: widget.selectedEmoji.accentColor.withOpacity(0.3),
+              color: widget.selectedEmoji.accentColor.withOpacity(0.2),
               width: 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.selectedEmoji.accentColor.withOpacity(0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.send,
-                    size: 18,
-                    color: widget.selectedEmoji.accentColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Sending Alert',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: widget.selectedEmoji.accentColor,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
+              AnimatedEmojiWidget(
+                expression: widget.selectedEmoji,
+                isSelected: true,
+                isPlaying: true,
+                size: 32,
               ),
-
-              const SizedBox(height: 16),
-
-              // Alert content: Emoji + "Yuh Blockin'!"
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedEmojiWidget(
-                    expression: widget.selectedEmoji,
-                    isSelected: true,
-                    isPlaying: true,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Yuh Blockin!',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: PremiumTheme.primaryTextColor,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Expression description
+              const SizedBox(width: 12),
               Text(
-                widget.selectedEmoji.description,
+                'Alert sent',
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: PremiumTheme.secondaryTextColor,
-                  height: 1.4,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: PremiumTheme.primaryTextColor,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -619,58 +623,67 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     final phases = ['sending', 'delivered', 'acknowledged', 'resolved'];
     final phaseLabels = ['Sending', 'Delivered', 'Acknowledged', 'Resolved'];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: phases.asMap().entries.map((entry) {
-        final index = entry.key;
-        final phase = entry.value;
-        final label = phaseLabels[index];
-        final isActive = phases.indexOf(_currentPhase) >= index;
+    return Container(
+      width: double.infinity,
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: phases.asMap().entries.map((entry) {
+              final index = entry.key;
+              final phase = entry.value;
+              final label = phaseLabels[index];
+              final isActive = phases.indexOf(_currentPhase) >= index;
 
-        return Row(
-          children: [
-            Column(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? PremiumTheme.accentColor
-                        : PremiumTheme.dividerColor,
-                    shape: BoxShape.circle,
+              return Row(
+                children: [
+                  Column(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? PremiumTheme.accentColor
+                              : PremiumTheme.dividerColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: isActive
+                              ? PremiumTheme.accentColor
+                              : PremiumTheme.tertiaryTextColor,
+                          letterSpacing: 0.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: isActive
-                        ? PremiumTheme.accentColor
-                        : PremiumTheme.tertiaryTextColor,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-            if (index < phases.length - 1) ...[
-              const SizedBox(width: 8),
-              Container(
-                width: 20,
-                height: 1,
-                color: isActive && phases.indexOf(_currentPhase) > index
-                    ? PremiumTheme.accentColor
-                    : PremiumTheme.dividerColor,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
-        );
-      }).toList(),
+                  if (index < phases.length - 1) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 16,
+                      height: 1,
+                      color: isActive && phases.indexOf(_currentPhase) > index
+                          ? PremiumTheme.accentColor
+                          : PremiumTheme.dividerColor,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
   }

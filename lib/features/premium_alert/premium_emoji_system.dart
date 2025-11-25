@@ -510,18 +510,15 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
                   : null,
             ),
             child: Center(
-              child: Transform.scale(
-                scale: _selectionAnimation.value * _getAnimatedScale(),
-                child: Transform.translate(
-                  offset: _getAnimatedOffset(),
-                  child: Transform.rotate(
-                    angle: _getAnimatedRotation(),
-                    child: Text(
-                      widget.expression.unicode,
-                      style: TextStyle(
-                        fontSize: widget.size,
-                        height: 1.0,
-                      ),
+              child: Transform.translate(
+                offset: _getAnimatedOffset(),
+                child: Transform.rotate(
+                  angle: _getAnimatedRotation(),
+                  child: Text(
+                    widget.expression.unicode,
+                    style: TextStyle(
+                      fontSize: widget.size,
+                      height: 1.0,
                     ),
                   ),
                 ),
@@ -534,27 +531,8 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
   }
 
   double _getAnimatedScale() {
-    // Safety check for disposed controllers
-    if (!_primaryController.isAnimating && _primaryAnimation.status == AnimationStatus.dismissed) {
-      return 1.0;
-    }
-
-    final animationValue = _primaryAnimation.value.clamp(0.0, 1.0);
-
-    switch (widget.expression.animationType) {
-      case EmojiAnimationType.gentle:
-        return 1.0 + (math.sin(animationValue * 2 * math.pi) * 0.05);
-      case EmojiAnimationType.playful:
-        return 1.0 + (math.sin(animationValue * 4 * math.pi) * 0.1);
-      case EmojiAnimationType.pulse:
-        return 1.0 + (math.sin(animationValue * 2 * math.pi) * 0.15);
-      case EmojiAnimationType.urgent:
-        return 1.0 + (animationValue * 0.2);
-      case EmojiAnimationType.apologetic:
-        return 1.0 + (math.sin(animationValue * math.pi) * 0.05);
-      case EmojiAnimationType.celebration:
-        return 1.0 + (math.sin(animationValue * 6 * math.pi) * 0.2);
-    }
+    // Zoom effects removed - no scaling animation
+    return 1.0;
   }
 
   Offset _getAnimatedOffset() {
