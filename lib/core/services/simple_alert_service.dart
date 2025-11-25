@@ -15,6 +15,9 @@ class SimpleAlertService {
   late SupabaseClient _supabase;
   bool _isInitialized = false;
 
+  // Hash cache to avoid recomputing SHA256 for the same plates
+  final Map<String, String> _hashCache = {};
+
   /// Initialize Supabase connection
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -300,8 +303,22 @@ class SimpleAlertService {
 
   String _hashPlate(String plateNumber) {
     final normalized = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+
+    // Check cache first to avoid recomputing hash
+    if (_hashCache.containsKey(normalized)) {
+      return _hashCache[normalized]!;
+    }
+
     final bytes = utf8.encode(normalized);
-    return sha256.convert(bytes).toString();
+    final hash = sha256.convert(bytes).toString();
+
+    // Cache the hash (limit cache size to prevent memory issues)
+    if (_hashCache.length > 100) {
+      _hashCache.remove(_hashCache.keys.first);
+    }
+    _hashCache[normalized] = hash;
+
+    return hash;
   }
 
   void _ensureInitialized() {

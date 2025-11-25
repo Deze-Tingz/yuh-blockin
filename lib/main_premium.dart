@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+// Native splash removed - using custom AppInitializer splash instead
+import 'package:lottie/lottie.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -25,8 +26,7 @@ import 'features/theme_settings/theme_settings_screen.dart';
 /// Inspired by Uber, Airbnb, Apple Human Interface guidelines
 /// Minimal, elegant, professional with subtle 2025 motion signature
 void main() {
-  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const PremiumYuhBlockinApp());
 }
 
@@ -67,6 +67,7 @@ class PremiumYuhBlockinApp extends StatelessWidget {
 }
 
 /// Determines the initial route based on user's onboarding status
+/// With beautiful colored logo matching onboarding
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
@@ -74,11 +75,58 @@ class AppInitializer extends StatefulWidget {
   State<AppInitializer> createState() => _AppInitializerState();
 }
 
-class _AppInitializerState extends State<AppInitializer> {
+class _AppInitializerState extends State<AppInitializer>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoFade;
+  late Animation<double> _logoSlide;
+  late Animation<double> _footerFade;
+  bool _goToHome = false;
+
   @override
   void initState() {
     super.initState();
+
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600), // Faster, lighter intro
+      vsync: this,
+    );
+
+    _logoScale = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+
+    _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      ),
+    );
+
+    // Subtle slide up for quick intro effect
+    _logoSlide = Tween<double>(begin: 20.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _footerFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
+      ),
+    );
+
+    _controller.forward();
     _checkOnboardingStatus();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _checkOnboardingStatus() async {
@@ -97,31 +145,18 @@ class _AppInitializerState extends State<AppInitializer> {
 
       if (!mounted) return;
 
-      // Remove splash screen before navigation
-      FlutterNativeSplash.remove();
+      _goToHome = hasCompletedOnboarding && hasUserId;
 
-      if (hasCompletedOnboarding && hasUserId) {
-        print(
-            '✅ AppInitializer: User has completed onboarding - going to home screen');
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const PremiumHomeScreen(),
-          ),
-        );
-      } else {
-        print(
-            '🔄 AppInitializer: First time user or incomplete setup - going to onboarding');
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const OnboardingFlow(),
-          ),
-        );
-      }
+      // Show splash for 2 seconds to display footer properly
+      await Future.delayed(const Duration(milliseconds: 2000));
+
+      if (!mounted) return;
+
+      _navigateToNextScreen();
+
     } catch (e) {
       print('❌ AppInitializer: Error checking status: $e');
-      // On error, default to onboarding
       if (mounted) {
-        FlutterNativeSplash.remove();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const OnboardingFlow(),
@@ -131,14 +166,135 @@ class _AppInitializerState extends State<AppInitializer> {
     }
   }
 
+  void _navigateToNextScreen() {
+    print(_goToHome
+        ? '✅ AppInitializer: Going to home screen'
+        : '🔄 AppInitializer: Going to onboarding');
+
+    // Smooth transition with easing curve
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => _goToHome
+            ? const PremiumHomeScreen()
+            : const OnboardingFlow(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Simple loading screen while checking status
     return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      body: Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(PremiumTheme.accentColor),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) => Column(
+            children: [
+              // Main logo area with slide-up intro animation
+              Expanded(
+                child: Center(
+                  child: Transform.translate(
+                    offset: Offset(0, _logoSlide.value),
+                    child: FadeTransition(
+                      opacity: _logoFade,
+                      child: ScaleTransition(
+                        scale: _logoScale,
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          width: 220,
+                          height: 220,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Premium company footer - always visible
+              FadeTransition(
+                opacity: _footerFade,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 48.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 0.5,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  const Color(0xFF1B6B7A).withOpacity(0.4),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'from',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w300,
+                                color: const Color(0xFF1B6B7A).withOpacity(0.6),
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 20,
+                            height: 0.5,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF1B6B7A).withOpacity(0.4),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [
+                            Color(0xFF1B6B7A), // Teal from logo
+                            Color(0xFFF08080), // Coral from logo
+                          ],
+                        ).createShader(bounds),
+                        child: const Text(
+                          'DezeTingz',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -206,6 +362,16 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   // Animation controller for shake effect
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+
+  // Static regex for emoji extraction (compiled once for performance)
+  static final RegExp _emojiRegex = RegExp(
+      r'[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]',
+      unicode: true);
+
+  // Cancellable timers/futures for cleanup
+  Timer? _taglineDelayTimer;
+  Timer? _shakeStopTimer;
+  Timer? _acknowledgeRefreshTimer;
 
   @override
   void initState() {
@@ -298,8 +464,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // Start entrance animation
     _entranceController.forward();
 
-    // Delayed tagline reveal
-    Future.delayed(const Duration(milliseconds: 800), () {
+    // Delayed tagline reveal (cancellable)
+    _taglineDelayTimer = Timer(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _showTagline = true);
     });
 
@@ -316,10 +482,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     await _ensureUserExists();
     print('🔍 _ensureUserExists() completed');
 
-    // Step 2: Load other data after user is confirmed to exist
-    _loadPrimaryPlate();
-    _loadUserStats();
-    _loadUnacknowledgedAlertsCount();
+    // Step 2: Load other data IN PARALLEL after user is confirmed to exist
+    await Future.wait([
+      _loadPrimaryPlate(),
+      _loadUserStats(),
+      _loadUnacknowledgedAlertsCount(),
+    ]);
 
     // Step 3: Initialize alert system (user ID is now guaranteed to exist)
     _initializeAlertSystem();
@@ -414,6 +582,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   void dispose() {
     // Remove lifecycle observer
     WidgetsBinding.instance.removeObserver(this);
+
+    // Cancel all timers to prevent memory leaks
+    _taglineDelayTimer?.cancel();
+    _shakeStopTimer?.cancel();
+    _acknowledgeRefreshTimer?.cancel();
 
     // Dispose animation controllers
     _breathingController.dispose();
@@ -561,9 +734,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       }
     }
 
-    // Only refresh count if we marked any new alerts
+    // Only refresh count if we marked any new alerts (cancellable)
     if (needsRefresh) {
-      Future.delayed(const Duration(milliseconds: 500), () {
+      _acknowledgeRefreshTimer?.cancel();
+      _acknowledgeRefreshTimer = Timer(const Duration(milliseconds: 500), () {
         if (mounted) {
           _loadUnacknowledgedAlertsCount();
         }
@@ -613,14 +787,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       senderAlias = 'Anonymous';
     }
 
-    // Extract emoji from alert message (if present)
+    // Extract emoji from alert message (if present) using static regex
     String? emoji;
     if (alert.message != null && alert.message!.isNotEmpty) {
-      // Extract first emoji character from message
-      final emojiRegex = RegExp(
-          r'[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]',
-          unicode: true);
-      final match = emojiRegex.firstMatch(alert.message!);
+      final match = _emojiRegex.firstMatch(alert.message!);
       if (match != null) {
         emoji = match.group(0);
       }
@@ -652,8 +822,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // Start shake animation for the banner
     _shakeController.repeat(reverse: true);
 
-    // Stop shaking after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () {
+    // Stop shaking after 2 seconds (cancellable)
+    _shakeStopTimer?.cancel();
+    _shakeStopTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && _shakeController.isAnimating) {
         _shakeController.stop();
         _shakeController.reset();
@@ -1030,19 +1201,23 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               ),
             ),
 
-            // Main content
+            // Main content - bottom: false so footer can reach screen bottom
             SafeArea(
+              bottom: false,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   // Check if we need to use scroll view on smaller screens
                   // Higher threshold to prevent overflow on more devices
                   final useScrollView = constraints.maxHeight < 800;
+                  final bottomPadding = MediaQuery.of(context).padding.bottom;
 
                   final content = Container(
                     width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isTablet ? 80.0 : 32.0,
-                      vertical: isTablet ? 60.0 : (useScrollView ? 16.0 : 40.0),
+                    padding: EdgeInsets.only(
+                      left: isTablet ? 80.0 : 32.0,
+                      right: isTablet ? 80.0 : 32.0,
+                      top: isTablet ? 60.0 : (useScrollView ? 16.0 : 40.0),
+                      bottom: bottomPadding, // Minimal padding - just safe area
                     ),
                     child: useScrollView
                         ? _buildScrollableContent(theme, isTablet)
@@ -1078,11 +1253,17 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Logo on the left
-          Image.asset(
-            'assets/images/logo_transparent.png',
-            height: isTablet ? 64 : 52,
-            fit: BoxFit.contain,
+          // Logo on the left with blue accent filter
+          ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              PremiumTheme.accentColor,
+              BlendMode.srcIn,
+            ),
+            child: Image.asset(
+              'assets/images/logo_transparent.png',
+              height: isTablet ? 60 : 48,
+              fit: BoxFit.contain,
+            ),
           ),
           // Menu button on the right
           PopupMenuButton<String>(
@@ -1783,6 +1964,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Times I moved my car when alerted
           _buildCompactStatCounterWithEmoji(
@@ -1797,6 +1979,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           Container(
             width: 0.5,
             height: isTablet ? 24 : 20,
+            margin: const EdgeInsets.only(top: 2),
             color: PremiumTheme.accentColor.withOpacity(0.1),
           ),
 
@@ -1933,7 +2116,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: isTablet ? 18 : 16),
+          // Fixed height container for consistent alignment
+          SizedBox(
+            height: isTablet ? 20 : 18,
+            child: Center(
+              child: Icon(icon, color: color, size: isTablet ? 18 : 16),
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             count.toString(),
@@ -1969,7 +2158,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: TextStyle(fontSize: isTablet ? 18 : 16)),
+          // Fixed height container for consistent alignment
+          SizedBox(
+            height: isTablet ? 20 : 18,
+            child: Center(
+              child: Text(emoji, style: TextStyle(fontSize: isTablet ? 16 : 14)),
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             count.toString(),
@@ -3069,8 +3264,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
-        // Flexible space above - more space to push content down
-        const Expanded(flex: 3, child: SizedBox()),
+        // Flexible space above - reduced to push content up
+        const Expanded(flex: 2, child: SizedBox()),
 
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
@@ -3114,13 +3309,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         else
           _buildSetupHint(isTablet),
 
-        // Flexible space below - less space to keep content lower
+        // Spacer pushes footer to absolute bottom
         const Expanded(flex: 2, child: SizedBox()),
 
         // DezeTingz branding at the very bottom
         _buildBranding(),
-
-        SizedBox(height: isTablet ? 8 : 6),
       ],
     );
   }
@@ -3181,9 +3374,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
         // DezeTingz branding at the very bottom
         _buildBranding(),
-
-        // Extra bottom padding for scroll
-        SizedBox(height: isTablet ? 12 : 8),
       ],
     );
   }

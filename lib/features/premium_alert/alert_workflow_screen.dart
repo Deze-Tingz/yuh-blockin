@@ -299,8 +299,10 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 
   /// Start periodic refresh of primary plate while screen is visible
+  /// Changed from 3 seconds to 30 seconds to reduce unnecessary I/O
+  /// Event-driven updates (didChangeDependencies, didChangeAppLifecycleState) handle most cases
   void _startPrimaryPlateRefresh() {
-    _primaryPlateRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _primaryPlateRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadPrimaryPlate();
       } else {
@@ -494,144 +496,65 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   Widget _buildVehicleContextBadge() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              PremiumTheme.accentColor.withOpacity(0.12),
-              PremiumTheme.accentColor.withOpacity(0.08),
-            ],
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.directions_car_rounded,
+            size: 14,
+            color: PremiumTheme.accentColor.withOpacity(0.7),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: PremiumTheme.accentColor.withOpacity(0.3),
-            width: 1.5,
+          const SizedBox(width: 6),
+          Text(
+            'From: ',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: PremiumTheme.secondaryTextColor,
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: PremiumTheme.accentColor.withOpacity(0.15),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-              spreadRadius: 0,
+          Text(
+            _primaryPlate!,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.accentColor,
+              letterSpacing: 1.0,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: PremiumTheme.accentColor.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.directions_car_rounded,
-                size: 16,
-                color: PremiumTheme.accentColor,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'From your vehicle:',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: PremiumTheme.accentColor.withOpacity(0.8),
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _primaryPlate!,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: PremiumTheme.accentColor,
-                      letterSpacing: 1.5,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTitle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            PremiumTheme.surfaceColor,
-            PremiumTheme.surfaceColor.withOpacity(0.9),
-          ],
-        ),
-        borderRadius: PremiumTheme.mediumRadius,
-        boxShadow: [
-          BoxShadow(
-            color: PremiumTheme.accentColor.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Premium title with rich text styling
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w300,
-                color: PremiumTheme.primaryTextColor,
-                letterSpacing: 0.5,
-                height: 1.1,
-              ),
-              children: [
-                TextSpan(text: 'Send '),
-                TextSpan(
-                  text: 'Respectful',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: PremiumTheme.accentColor,
-                  ),
-                ),
-                TextSpan(text: ' Alert'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Compact description inline
-          Text(
-            'Let someone know their car needs to be moved',
+    return Column(
+      children: [
+        // Clean title without heavy container
+        RichText(
+          textAlign: TextAlign.center,
+          text: TextSpan(
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: PremiumTheme.secondaryTextColor,
-              letterSpacing: 0.1,
+              fontSize: 20,
+              fontWeight: FontWeight.w300,
+              color: PremiumTheme.primaryTextColor,
+              letterSpacing: 0.3,
             ),
-            textAlign: TextAlign.center,
+            children: [
+              TextSpan(text: 'Send '),
+              TextSpan(
+                text: 'Respectful',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.accentColor,
+                ),
+              ),
+              TextSpan(text: ' Alert'),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -744,94 +667,60 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Urgency Level',
+          'Urgency',
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
-        Container(
-          decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor,
-            borderRadius: PremiumTheme.mediumRadius,
-            boxShadow: PremiumTheme.subtleShadow,
-          ),
-          child: Row(
-            children: urgencyLevels.map((level) {
-              final isSelected = _urgencyLevel == level;
-              final urgencyColor = urgencyColors[level] ?? PremiumTheme.accentColor;
-              final intensity = urgencyIntensities[level] ?? 0.8;
+        Row(
+          children: urgencyLevels.map((level) {
+            final isSelected = _urgencyLevel == level;
+            final urgencyColor = urgencyColors[level] ?? PremiumTheme.accentColor;
+            final intensity = urgencyIntensities[level] ?? 0.8;
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() {
-                    _urgencyLevel = level;
-                    _selectedEmoji = _getDefaultEmojiForLevel(level);
-                  }),
-                  child: AnimatedContainer(
-                    duration: PremiumTheme.fastDuration,
-                    curve: PremiumTheme.standardCurve,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                        ? LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              urgencyColor.withOpacity(intensity),
-                              urgencyColor.withOpacity(intensity * 0.8),
-                            ],
-                          )
-                        : LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              urgencyColor.withOpacity(0.1),
-                              urgencyColor.withOpacity(0.05),
-                            ],
-                          ),
-                      borderRadius: PremiumTheme.mediumRadius,
-                      border: isSelected
-                        ? Border.all(
-                            color: urgencyColor.withOpacity(0.3),
-                            width: 1,
-                          )
-                        : Border.all(
-                            color: urgencyColor.withOpacity(0.1),
-                            width: 1,
-                          ),
-                      boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: urgencyColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                    ),
-                    child: Text(
-                      level,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? Colors.white
-                            : urgencyColor.withOpacity(0.8),
-                        letterSpacing: 0.1,
-                      ),
-                      textAlign: TextAlign.center,
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _urgencyLevel = level;
+                  _selectedEmoji = _getDefaultEmojiForLevel(level);
+                }),
+                child: AnimatedContainer(
+                  duration: PremiumTheme.fastDuration,
+                  curve: PremiumTheme.standardCurve,
+                  margin: EdgeInsets.only(right: level != 'High' ? 6 : 0),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                      ? urgencyColor.withOpacity(intensity)
+                      : urgencyColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                        ? urgencyColor.withOpacity(0.5)
+                        : urgencyColor.withOpacity(0.2),
+                      width: 1,
                     ),
                   ),
+                  child: Text(
+                    level,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : urgencyColor.withOpacity(0.8),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              );
-            }).toList(),
-          ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -845,112 +734,45 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Choose Expression',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: PremiumTheme.primaryTextColor,
-                letterSpacing: 0.1,
-              ),
-            ),
-
-            SizedBox(height: isVerySmallScreen ? 6.0 : 10.0),
-
-            // Compact alert preview
-            Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(isVerySmallScreen ? 12.0 : 14.0),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _selectedEmoji?.accentColor.withOpacity(0.08) ??
-                  PremiumTheme.accentColor.withOpacity(0.08),
-                _selectedEmoji?.accentColor.withOpacity(0.05) ??
-                  PremiumTheme.accentColor.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: PremiumTheme.mediumRadius,
-            border: Border.all(
-              color: _selectedEmoji?.accentColor.withOpacity(0.2) ??
-                PremiumTheme.accentColor.withOpacity(0.2),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _selectedEmoji?.accentColor.withOpacity(0.1) ??
-                  PremiumTheme.accentColor.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Preview label
-              Text(
-                'Preview',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: _selectedEmoji?.accentColor ?? PremiumTheme.accentColor,
-                  letterSpacing: 0.3,
+            // Compact inline preview row with label
+            Row(
+              children: [
+                Text(
+                  'Expression:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: PremiumTheme.primaryTextColor,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Alert content - centered layout
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_selectedEmoji != null) ...[
-                    AnimatedEmojiWidget(
-                      expression: _selectedEmoji!,
-                      isSelected: true,
-                      isPlaying: true,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Text(
-                    'Yuh Blockin!',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: PremiumTheme.primaryTextColor,
-                      letterSpacing: 0.5,
+                const SizedBox(width: 10),
+                if (_selectedEmoji != null) ...[
+                  AnimatedEmojiWidget(
+                    expression: _selectedEmoji!,
+                    isSelected: true,
+                    isPlaying: true,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _selectedEmoji!.title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedEmoji!.accentColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
-              ),
+              ],
+            ),
 
-              const SizedBox(height: 8),
+            SizedBox(height: isVerySmallScreen ? 8.0 : 10.0),
 
-              // Expression description
-              if (_selectedEmoji != null)
-                Text(
-                  _selectedEmoji!.description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: PremiumTheme.secondaryTextColor,
-                    height: 1.3,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-            ],
-          ),
-        ),
-
-        SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
-
-        // Enhanced emoji grid selector
-        _buildEnhancedEmojiGrid(),
+            // Enhanced emoji grid selector
+            _buildEnhancedEmojiGrid(),
           ],
         );
       },
@@ -965,28 +787,15 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
     final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: PremiumTheme.surfaceColor,
-        borderRadius: PremiumTheme.largeRadius,
-        boxShadow: [
-          BoxShadow(
-            color: PremiumTheme.accentColor.withOpacity(0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Emoji Pack Tabs
-          _buildEmojiTabs(),
+    return Column(
+      children: [
+        // Emoji Pack Tabs - simplified
+        _buildEmojiTabs(),
 
-          // Emoji Grid
-          Padding(
-            padding: EdgeInsets.all(isVerySmallScreen ? 12.0 : 16.0),
-            child: LayoutBuilder(
+        const SizedBox(height: 8),
+
+        // Emoji Grid - lighter container
+        LayoutBuilder(
               builder: (context, constraints) {
                 // Calculate optimal height for the grid
                 final itemCount = availableEmojis.length;
@@ -1076,35 +885,27 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 );
               },
             ),
-          ),
         ],
-      ),
-    );
+      );
   }
 
   /// Build emoji pack tabs (Gen Z and Classic)
   Widget _buildEmojiTabs() {
-    final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
-
-    return Container(
-      padding: EdgeInsets.all(isVerySmallScreen ? 8.0 : 12.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTabButton('Classic', '✨ Classic'),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildTabButton('GenZ', '🏝️ Gen Z'),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTabButton('Classic', 'Classic'),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _buildTabButton('GenZ', 'Gen Z'),
+        ),
+      ],
     );
   }
 
   Widget _buildTabButton(String packId, String label) {
     final isSelected = _selectedEmojiPack == packId;
-    final isVerySmallScreen = MediaQuery.of(context).size.height < 600;
 
     return GestureDetector(
       onTap: () {
@@ -1116,26 +917,23 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       },
       child: AnimatedContainer(
         duration: PremiumTheme.fastDuration,
-        padding: EdgeInsets.symmetric(
-          vertical: isVerySmallScreen ? 8.0 : 10.0,
-          horizontal: isVerySmallScreen ? 10.0 : 12.0
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? PremiumTheme.accentColor.withOpacity(0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+              : PremiumTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? PremiumTheme.accentColor
-                : PremiumTheme.dividerColor,
-            width: isSelected ? 2 : 1,
+                ? PremiumTheme.accentColor.withOpacity(0.5)
+                : PremiumTheme.dividerColor.withOpacity(0.5),
+            width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color: isSelected
                 ? PremiumTheme.accentColor

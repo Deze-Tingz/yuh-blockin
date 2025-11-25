@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+// Native splash removed - using custom AppInitializer splash
 
 import '../../core/theme/premium_theme.dart';
 import '../../config/premium_config.dart';
@@ -25,9 +25,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FlutterNativeSplash.remove();
-    });
   }
 
   @override
@@ -65,9 +62,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const PremiumHomeScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(opacity: curvedAnimation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     );
   }
@@ -86,9 +87,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           pageBuilder: (context, animation, secondaryAnimation) =>
               const PlateRegistrationScreen(isOnboarding: true),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(opacity: curvedAnimation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 200),
+          transitionDuration: const Duration(milliseconds: 500),
         ),
       );
     }
@@ -110,8 +115,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   HapticFeedback.selectionClick();
                 },
                 children: [
-                  _WelcomePage(),
-                  _SecurityPage(),
+                  const _WelcomePage(),
+                  const _SecurityPage(),
                   _ReadyPage(onComplete: _completeOnboarding, onSkip: _skipToMainApp),
                 ],
               ),
@@ -125,16 +130,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Fixed-width indicator container for consistent alignment
           Row(
             children: List.generate(_totalPages, (index) {
               final isActive = index <= _currentPage;
               return Container(
-                margin: const EdgeInsets.only(right: 6),
-                width: isActive ? 24 : 8,
+                margin: const EdgeInsets.only(right: 8),
+                width: 32,
                 height: 4,
                 decoration: BoxDecoration(
                   color: isActive ? PremiumTheme.accentColor : PremiumTheme.dividerColor,
@@ -143,6 +149,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               );
             }),
           ),
+          // Placeholder to maintain consistent layout when Skip is hidden
           if (_currentPage < _totalPages - 1)
             GestureDetector(
               onTap: _skipToMainApp,
@@ -154,7 +161,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   color: PremiumTheme.secondaryTextColor,
                 ),
               ),
-            ),
+            )
+          else
+            const SizedBox(width: 32), // Maintains spacing when Skip is hidden
         ],
       ),
     );
@@ -162,7 +171,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _buildFooter() {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
         children: [
           if (_currentPage > 0)
@@ -199,32 +208,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
 /// Page 1: Welcome
 class _WelcomePage extends StatelessWidget {
+  const _WelcomePage();
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: PremiumTheme.heroGradient,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.directions_car_outlined, size: 40, color: Colors.white),
-          ),
           const SizedBox(height: 24),
-          Text(
-            PremiumConfig.appName,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.accentColor,
-            ),
+          Image.asset(
+            'assets/images/app_icon.png',
+            width: 220,
+            height: 220,
+            fit: BoxFit.contain,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'The respectful way to solve parking conflicts',
             style: TextStyle(
@@ -247,6 +246,8 @@ class _WelcomePage extends StatelessWidget {
 
 /// Page 2: Security & Privacy Combined
 class _SecurityPage extends StatelessWidget {
+  const _SecurityPage();
+
   @override
   Widget build(BuildContext context) {
     return Padding(

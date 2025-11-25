@@ -51,6 +51,9 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   bool _isRegistering = false;
   int _sparkleIndex = 0;
 
+  // Timer reference for proper cleanup
+  Timer? _sparkleTimer;
+
   final List<String> _playfulMessages = [
     '🚗 Your digital parking passport',
     '🔒 Secured with mathematical precision',
@@ -135,7 +138,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   }
 
   void _startSparkleRotation() {
-    Timer.periodic(const Duration(seconds: 3), (timer) {
+    _sparkleTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (mounted) {
         setState(() {
           _sparkleIndex = (_sparkleIndex + 1) % _playfulMessages.length;
@@ -596,6 +599,9 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
   @override
   void dispose() {
+    // Cancel timer to prevent memory leak
+    _sparkleTimer?.cancel();
+
     _slideController.dispose();
     _plateController.dispose();
     _sparkleController.dispose();

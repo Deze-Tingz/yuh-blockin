@@ -10,84 +10,41 @@ import 'package:flutter/foundation.dart';
 class UserStatsService {
   static const String _statsDataKey = 'yuh_user_stats_data';
 
+  // Cached SharedPreferences instance for performance
+  static SharedPreferences? _cachedPrefs;
+
+  /// Get cached SharedPreferences instance
+  Future<SharedPreferences> _getPrefs() async {
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+    return _cachedPrefs!;
+  }
+
   /// Get current cars freed count
   Future<int> getCarsFreed() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final statsData = prefs.getString(_statsDataKey);
-
-      if (statsData == null) {
-        return 0;
-      }
-
-      final data = jsonDecode(statsData) as Map<String, dynamic>;
-      return data['carsFreed'] as int? ?? 0;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting cars freed count: $e');
-      }
-      return 0;
-    }
+    final stats = await getStats();
+    return stats.carsFreed;
   }
 
   /// Get current situations resolved count
   Future<int> getSituationsResolved() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final statsData = prefs.getString(_statsDataKey);
-
-      if (statsData == null) {
-        return 0;
-      }
-
-      final data = jsonDecode(statsData) as Map<String, dynamic>;
-      return data['situationsResolved'] as int? ?? 0;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error getting situations resolved count: $e');
-      }
-      return 0;
-    }
+    final stats = await getStats();
+    return stats.situationsResolved;
   }
 
   /// Increment cars freed counter (when user responds to an alert by moving their car)
   Future<void> incrementCarsFreed() async {
-    try {
-      final currentStats = await getStats();
-      await _saveStatsData(
-        carsFreed: currentStats.carsFreed + 1,
-        situationsResolved: currentStats.situationsResolved,
-        alertsSent: currentStats.alertsSent,
-        alertsReceived: currentStats.alertsReceived,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error incrementing cars freed: $e');
-      }
-    }
+    await _incrementField('carsFreed');
   }
 
   /// Increment situations resolved counter (when user sends an alert)
   Future<void> incrementSituationsResolved() async {
-    try {
-      final currentStats = await getStats();
-      await _saveStatsData(
-        carsFreed: currentStats.carsFreed,
-        situationsResolved: currentStats.situationsResolved + 1,
-        alertsSent: currentStats.alertsSent,
-        alertsReceived: currentStats.alertsReceived,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error incrementing situations resolved: $e');
-      }
-    }
+    await _incrementField('situationsResolved');
   }
 
   /// Get all stats in a single call
   Future<UserStats> getStats() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final statsData = prefs.getString(_statsDataKey);
 
       if (statsData == null) {
@@ -121,34 +78,40 @@ class UserStatsService {
 
   /// Increment alerts sent counter
   Future<void> incrementAlertsSent() async {
-    try {
-      final currentStats = await getStats();
-      await _saveStatsData(
-        carsFreed: currentStats.carsFreed,
-        situationsResolved: currentStats.situationsResolved,
-        alertsSent: currentStats.alertsSent + 1,
-        alertsReceived: currentStats.alertsReceived,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error incrementing alerts sent: $e');
-      }
-    }
+    await _incrementField('alertsSent');
   }
 
   /// Increment alerts received counter
   Future<void> incrementAlertsReceived() async {
+    await _incrementField('alertsReceived');
+  }
+
+  /// Atomic increment of a single field (avoids N+1 read pattern)
+  Future<void> _incrementField(String fieldName) async {
     try {
-      final currentStats = await getStats();
-      await _saveStatsData(
-        carsFreed: currentStats.carsFreed,
-        situationsResolved: currentStats.situationsResolved,
-        alertsSent: currentStats.alertsSent,
-        alertsReceived: currentStats.alertsReceived + 1,
-      );
+      final prefs = await _getPrefs();
+      final statsData = prefs.getString(_statsDataKey);
+
+      Map<String, dynamic> data;
+      if (statsData == null) {
+        data = {
+          'carsFreed': 0,
+          'situationsResolved': 0,
+          'alertsSent': 0,
+          'alertsReceived': 0,
+        };
+      } else {
+        data = Map<String, dynamic>.from(jsonDecode(statsData));
+      }
+
+      // Increment only the specified field
+      data[fieldName] = (data[fieldName] as int? ?? 0) + 1;
+      data['lastUpdated'] = DateTime.now().toIso8601String();
+
+      await prefs.setString(_statsDataKey, jsonEncode(data));
     } catch (e) {
       if (kDebugMode) {
-        print('Error incrementing alerts received: $e');
+        print('Error incrementing $fieldName: $e');
       }
     }
   }
@@ -160,7 +123,7 @@ class UserStatsService {
     int? alertsSent,
     int? alertsReceived,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final data = {
       'carsFreed': carsFreed,
       'situationsResolved': situationsResolved,
@@ -173,7 +136,7 @@ class UserStatsService {
 
   /// Reset all stats (for testing or user preference)
   Future<void> resetStats() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.remove(_statsDataKey);
   }
 }

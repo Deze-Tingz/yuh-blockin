@@ -30,6 +30,12 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   StreamSubscription<Alert>? _receivedAlertsSubscription;
   StreamSubscription<List<Alert>>? _sentAlertsSubscription;
 
+  // Debounce timers to batch stream updates and reduce rebuilds
+  Timer? _receivedDebounceTimer;
+  Timer? _sentDebounceTimer;
+  List<Alert> _pendingReceivedAlerts = [];
+  List<Alert>? _pendingSentAlerts;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +48,8 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     _tabController.dispose();
     _receivedAlertsSubscription?.cancel();
     _sentAlertsSubscription?.cancel();
+    _receivedDebounceTimer?.cancel();
+    _sentDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -51,55 +59,67 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     });
 
     try {
-      // Listen to received alerts stream continuously for real-time updates
-      _receivedAlertsSubscription?.cancel(); // Cancel previous subscription if any
+      // Listen to received alerts stream with debouncing to batch updates
+      _receivedAlertsSubscription?.cancel();
       _receivedAlertsSubscription = _alertService.getAlertsStream(widget.userId).listen(
         (alert) {
           if (mounted) {
-            setState(() {
-              // Update or add the alert in the list
-              final index = _receivedAlerts.indexWhere((a) => a.id == alert.id);
-              if (index != -1) {
-                // Update existing alert with latest data
-                _receivedAlerts[index] = alert;
-                print('🔄 Updated received alert: ${alert.id}, response: ${alert.response}');
-              } else {
-                // Add new alert
-                _receivedAlerts.add(alert);
-                print('➕ Added new received alert: ${alert.id}');
+            // Add to pending alerts
+            _pendingReceivedAlerts.add(alert);
+
+            // Debounce: wait 200ms before applying updates to batch multiple events
+            _receivedDebounceTimer?.cancel();
+            _receivedDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+              if (mounted && _pendingReceivedAlerts.isNotEmpty) {
+                setState(() {
+                  for (final pendingAlert in _pendingReceivedAlerts) {
+                    final index = _receivedAlerts.indexWhere((a) => a.id == pendingAlert.id);
+                    if (index != -1) {
+                      _receivedAlerts[index] = pendingAlert;
+                    } else {
+                      _receivedAlerts.add(pendingAlert);
+                    }
+                  }
+                  _pendingReceivedAlerts.clear();
+                  _isLoading = false;
+                });
               }
-              _isLoading = false;
             });
           }
         },
         onError: (error) {
           print('❌ Received alerts stream error: $error');
           if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
+            setState(() => _isLoading = false);
           }
         },
       );
 
-      // Listen to sent alerts stream continuously for real-time updates
-      _sentAlertsSubscription?.cancel(); // Cancel previous subscription if any
+      // Listen to sent alerts stream with debouncing
+      _sentAlertsSubscription?.cancel();
       _sentAlertsSubscription = _alertService.getSentAlertsStream(widget.userId).listen(
         (alertList) {
           if (mounted) {
-            setState(() {
-              _sentAlerts = List.from(alertList);
-              _isLoading = false;
-              print('🔄 Updated sent alerts: ${alertList.length} alerts');
+            // Store pending update
+            _pendingSentAlerts = alertList;
+
+            // Debounce: wait 200ms before applying update
+            _sentDebounceTimer?.cancel();
+            _sentDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+              if (mounted && _pendingSentAlerts != null) {
+                setState(() {
+                  _sentAlerts = List.from(_pendingSentAlerts!);
+                  _pendingSentAlerts = null;
+                  _isLoading = false;
+                });
+              }
             });
           }
         },
         onError: (error) {
           print('❌ Sent alerts stream error: $error');
           if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
+            setState(() => _isLoading = false);
           }
         },
       );
