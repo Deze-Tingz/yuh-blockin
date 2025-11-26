@@ -106,7 +106,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     );
 
     _sparkleController = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
@@ -136,7 +136,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
     _slideController.forward();
     _plateController.forward();
-    _sparkleController.repeat();
+    // Use reverse: true for smooth back-and-forth animation without glitches
+    _sparkleController.repeat(reverse: true);
   }
 
   void _startSparkleRotation() {
@@ -189,7 +190,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-            duration: const Duration(milliseconds: 1500),
+            duration: const Duration(milliseconds: 800),
           ),
         );
       }
@@ -333,7 +334,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             SnackBar(
               content: Text('Failed to create user profile. Please check your internet connection and try again.'),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 2),
+              duration: const Duration(milliseconds: 800),
             ),
           );
           return; // Don't continue if user creation failed
@@ -436,8 +437,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       ),
     );
 
-    // Fallback timeout to ensure navigation works
-    Future.delayed(const Duration(seconds: 3), () {
+    // Fallback timeout to ensure navigation works (matches 1.2s animation)
+    Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop(); // Close dialog if still open
         if (!widget.isOnboarding) {
@@ -581,7 +582,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             content: Text('Vehicle deleted successfully'),
             backgroundColor: Colors.green.shade400,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(milliseconds: 1500),
+            duration: const Duration(milliseconds: 800),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
@@ -1384,7 +1385,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   }
 }
 
-/// Success animation overlay with playful celebration
+/// Premium success animation with playful sparkles and smooth checkmark
 class _SuccessAnimation extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -1396,32 +1397,78 @@ class _SuccessAnimation extends StatefulWidget {
 
 class _SuccessAnimationState extends State<_SuccessAnimation>
     with TickerProviderStateMixin {
-  late AnimationController _celebrationController;
-  late Animation<double> _celebrationAnimation;
+  late AnimationController _scaleController;
+  late AnimationController _checkController;
+  late AnimationController _sparkleController;
+  late AnimationController _glowController;
+
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _checkAnimation;
+  late Animation<double> _sparkleAnimation;
+  late Animation<double> _glowAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    _celebrationController = AnimationController(
-      duration: const Duration(seconds: 2),
+    // Fast bouncy scale animation
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-
-    _celebrationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _celebrationController, curve: Curves.elasticOut),
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
     );
 
-    _celebrationController.forward();
+    // Snappy checkmark draw animation
+    _checkController = AnimationController(
+      duration: const Duration(milliseconds: 350),
+      vsync: this,
+    );
+    _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _checkController, curve: Curves.easeOutBack),
+    );
 
-    Timer(const Duration(seconds: 2), () {
+    // Sparkle burst animation
+    _sparkleController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _sparkleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _sparkleController, curve: Curves.easeOut),
+    );
+
+    // Pulsing glow animation
+    _glowController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _glowAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+
+    // Sequence the animations for premium feel
+    _scaleController.forward();
+    Future.delayed(const Duration(milliseconds: 150), () {
+      _checkController.forward();
+      _sparkleController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _glowController.repeat(reverse: true);
+    });
+
+    // Complete after 1.2 seconds total
+    Timer(const Duration(milliseconds: 1200), () {
       widget.onComplete();
     });
   }
 
   @override
   void dispose() {
-    _celebrationController.dispose();
+    _scaleController.dispose();
+    _checkController.dispose();
+    _sparkleController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
@@ -1431,58 +1478,156 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
       color: Colors.transparent,
       child: Center(
         child: AnimatedBuilder(
-          animation: _celebrationAnimation,
+          animation: Listenable.merge([
+            _scaleAnimation,
+            _checkAnimation,
+            _sparkleAnimation,
+            _glowAnimation,
+          ]),
           builder: (context, child) {
             return Transform.scale(
-              scale: _celebrationAnimation.value,
-              child: Container(
-                margin: const EdgeInsets.all(40),
-                padding: const EdgeInsets.all(40),
-                decoration: BoxDecoration(
-                  color: PremiumTheme.surfaceColor,
-                  borderRadius: PremiumTheme.extraLargeRadius,
-                  boxShadow: [
-                    BoxShadow(
-                      color: PremiumTheme.accentColor.withOpacity(0.3),
-                      blurRadius: 30,
-                      spreadRadius: 6,
+              scale: _scaleAnimation.value,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Sparkle particles
+                  ..._buildSparkles(),
+
+                  // Main card
+                  Container(
+                    margin: const EdgeInsets.all(40),
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 36),
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: PremiumTheme.accentColor.withOpacity(0.2 * _glowAnimation.value),
+                          blurRadius: 40 * _glowAnimation.value,
+                          spreadRadius: 4,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '🎉',
-                      style: TextStyle(fontSize: 60),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Animated checkmark circle
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                PremiumTheme.accentColor,
+                                PremiumTheme.accentColor.withOpacity(0.8),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: PremiumTheme.accentColor.withOpacity(0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Transform.scale(
+                              scale: _checkAnimation.value,
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Registered!',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: PremiumTheme.primaryTextColor,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Your vehicle is secured',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: PremiumTheme.secondaryTextColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Plate Registered!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: PremiumTheme.primaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your vehicle is now protected with\nmilitary-grade security',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: PremiumTheme.secondaryTextColor,
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
         ),
       ),
     );
+  }
+
+  List<Widget> _buildSparkles() {
+    final sparkles = <Widget>[];
+    final sparkleCount = 8;
+
+    for (int i = 0; i < sparkleCount; i++) {
+      final angle = (i * 2 * pi / sparkleCount) - pi / 2;
+      final distance = 80.0 + (i % 2 == 0 ? 20 : 0);
+
+      sparkles.add(
+        Transform.translate(
+          offset: Offset(
+            cos(angle) * distance * _sparkleAnimation.value,
+            sin(angle) * distance * _sparkleAnimation.value,
+          ),
+          child: Opacity(
+            opacity: (1 - _sparkleAnimation.value).clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: 0.5 + (_sparkleAnimation.value * 0.5),
+              child: Container(
+                width: i % 2 == 0 ? 8 : 6,
+                height: i % 2 == 0 ? 8 : 6,
+                decoration: BoxDecoration(
+                  color: i % 3 == 0
+                      ? PremiumTheme.accentColor
+                      : i % 3 == 1
+                          ? Colors.amber
+                          : Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (i % 3 == 0
+                          ? PremiumTheme.accentColor
+                          : i % 3 == 1
+                              ? Colors.amber
+                              : Colors.white).withOpacity(0.6),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return sparkles;
   }
 }

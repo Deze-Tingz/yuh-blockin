@@ -21,6 +21,12 @@ dependencies:
   # flutter_native_splash: ^2.4.0  # Disabled - using custom AppInitializer splash
   lottie: ^3.1.0
 
+  # Notification & connectivity packages
+  flutter_local_notifications: ^17.2.2
+  connectivity_plus: ^6.0.5
+  vibration: ^2.0.0
+  permission_handler: ^11.3.1
+
   # Optional: Keep these only if you want advanced state management
   # hooks_riverpod: ^2.5.1
   # flutter_hooks: ^0.20.5

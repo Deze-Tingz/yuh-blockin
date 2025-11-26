@@ -15,6 +15,8 @@ import 'core/services/user_stats_service.dart';
 import 'core/services/simple_alert_service.dart';
 import 'core/services/unacknowledged_alert_service.dart';
 import 'core/services/user_alias_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/connectivity_service.dart';
 import 'config/premium_config.dart';
 import 'features/premium_alert/alert_workflow_screen.dart';
 import 'features/premium_alert/alert_history_screen.dart';
@@ -359,6 +361,15 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   // Audio player for alert sound
   final AudioPlayer _alertAudioPlayer = AudioPlayer();
 
+  // System notification and connectivity services
+  final NotificationService _notificationService = NotificationService();
+  final ConnectivityService _connectivityService = ConnectivityService();
+  bool _isOffline = false;
+  bool _showOfflineBanner = false;
+
+  // Track app lifecycle state - only show system notifications when app is in background
+  AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
+
   // Animation controller for shake effect
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -372,6 +383,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Timer? _taglineDelayTimer;
   Timer? _shakeStopTimer;
   Timer? _acknowledgeRefreshTimer;
+  Timer? _alertAutoDismissTimer;
 
   @override
   void initState() {
@@ -469,101 +481,157 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       if (mounted) setState(() => _showTagline = true);
     });
 
-    // CRITICAL: Ensure user exists FIRST before any other operations
-    _initializeApp();
+    // CRITICAL: Defer initialization until after the transition completes
+    // This prevents lag during the page transition
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeApp();
+    });
   }
 
   /// Initialize app by ensuring user exists first, then loading other data
+  /// Optimized to batch setState calls and reduce UI jank
   Future<void> _initializeApp() async {
-    print('🔍 _initializeApp() called');
+    // Step 0: Initialize notification and connectivity services (parallel, non-blocking)
+    unawaited(_initializeNotificationServices());
 
-    // Step 1: Ensure user exists in database (BLOCKING - wait for this to complete)
-    print('🔍 About to call _ensureUserExists()...');
+    // Step 1: Ensure user exists in database (BLOCKING)
     await _ensureUserExists();
-    print('🔍 _ensureUserExists() completed');
 
-    // Step 2: Load other data IN PARALLEL after user is confirmed to exist
-    await Future.wait([
-      _loadPrimaryPlate(),
-      _loadUserStats(),
-      _loadUnacknowledgedAlertsCount(),
+    // Step 2: Load all data IN PARALLEL and batch the setState
+    final results = await Future.wait([
+      _loadPrimaryPlateData(),
+      _loadUserStatsData(),
+      _loadUnacknowledgedAlertsCountData(),
     ]);
 
-    // Step 3: Initialize alert system (user ID is now guaranteed to exist)
+    // Step 3: Single batched setState for all data
+    if (mounted) {
+      setState(() {
+        _primaryPlate = results[0] as String?;
+        _userStats = results[1] as UserStats;
+        _unacknowledgedAlertsCount = results[2] as int;
+      });
+    }
+
+    // Step 4: Initialize alert system (user ID is now guaranteed to exist)
     _initializeAlertSystem();
   }
 
-  // Load user's primary license plate
-  Future<void> _loadPrimaryPlate() async {
-    try {
-      print('🔍 MainPremium: Loading primary plate...');
-      final previousPlate = _primaryPlate;
-      final primaryPlate = await _plateStorageService.getPrimaryPlate();
+  /// Initialize notification and connectivity services
+  Future<void> _initializeNotificationServices() async {
+    // Initialize notification service
+    await _notificationService.initialize(
+      onNotificationTapped: (payload) {
+        // Handle notification tap - could navigate to alert screen
+        debugPrint('Notification tapped with payload: $payload');
+      },
+    );
 
-      print('🔍 MainPremium: Previous plate: $previousPlate');
-      print('🔍 MainPremium: New plate: $primaryPlate');
+    // Initialize connectivity service with callbacks
+    await _connectivityService.initialize(
+      onLost: _handleConnectionLost,
+      onRestored: _handleConnectionRestored,
+    );
 
-      if (mounted) {
-        setState(() {
-          _primaryPlate = primaryPlate;
-        });
-
-        if (previousPlate != primaryPlate) {
-          print(
-              '✅ MainPremium: Primary plate changed from "$previousPlate" to "$primaryPlate" - UI updated');
-        } else {
-          print('ℹ️ MainPremium: Primary plate unchanged: "$primaryPlate"');
-        }
-      }
-    } catch (e) {
-      print('❌ MainPremium: Error loading primary plate: $e');
-      // Handle error silently - primary plate is optional for this feature
+    // Check initial connection state
+    _isOffline = !_connectivityService.isConnected;
+    if (_isOffline && mounted) {
+      setState(() => _showOfflineBanner = true);
     }
   }
 
-  // Load user statistics
-  Future<void> _loadUserStats() async {
+  /// Handle connection lost
+  void _handleConnectionLost() {
+    if (!mounted) return;
+    setState(() {
+      _isOffline = true;
+      _showOfflineBanner = true;
+    });
+
+    // Show a notification if app is in background
+    _notificationService.showWarningNotification(
+      title: 'No Internet Connection',
+      body: 'You won\'t receive alerts until connection is restored.',
+    );
+  }
+
+  /// Handle connection restored
+  void _handleConnectionRestored() {
+    if (!mounted) return;
+    setState(() {
+      _isOffline = false;
+      _showOfflineBanner = false;
+    });
+
+    // Refresh data when connection is back
+    _refreshAllData();
+  }
+
+  /// Helper to run futures without waiting (fire and forget)
+  void unawaited(Future<void> future) {
+    future.catchError((e) => debugPrint('Unawaited error: $e'));
+  }
+
+  // Data-only loaders (no setState) for batched updates
+  Future<String?> _loadPrimaryPlateData() async {
     try {
-      final stats = await _statsService.getStats();
-      if (mounted) {
-        setState(() {
-          _userStats = stats;
-        });
-      }
+      return await _plateStorageService.getPrimaryPlate();
     } catch (e) {
-      // Handle error silently - stats are optional for display
+      return null;
     }
   }
 
-  // Load unacknowledged alerts count
-  Future<void> _loadUnacknowledgedAlertsCount() async {
+  Future<UserStats> _loadUserStatsData() async {
     try {
-      final count = await _unacknowledgedAlertService.getUnacknowledgedCount();
-      if (mounted) {
-        setState(() {
-          _unacknowledgedAlertsCount = count;
-        });
-      }
+      return await _statsService.getStats();
     } catch (e) {
-      // Handle error silently - count is optional for display
+      return UserStats(carsFreed: 0, situationsResolved: 0, alertsSent: 0, alertsReceived: 0);
+    }
+  }
+
+  Future<int> _loadUnacknowledgedAlertsCountData() async {
+    try {
+      return await _unacknowledgedAlertService.getUnacknowledgedCount();
+    } catch (e) {
+      return 0;
     }
   }
 
   /// Refresh all home screen data - call when returning from other screens
+  /// Uses batched setState for better performance
   Future<void> _refreshAllData() async {
     try {
-      print('🔄 MainPremium: Starting complete data refresh...');
-
-      // Refresh primary plate, stats, and unacknowledged alerts concurrently
-      await Future.wait([
-        _loadPrimaryPlate(),
-        _loadUserStats(),
-        _loadUnacknowledgedAlertsCount(),
+      final results = await Future.wait([
+        _loadPrimaryPlateData(),
+        _loadUserStatsData(),
+        _loadUnacknowledgedAlertsCountData(),
       ]);
 
-      print('✅ MainPremium: All data refreshed successfully');
+      if (mounted) {
+        setState(() {
+          _primaryPlate = results[0] as String?;
+          _userStats = results[1] as UserStats;
+          _unacknowledgedAlertsCount = results[2] as int;
+        });
+      }
     } catch (e) {
-      print('❌ MainPremium: Error during data refresh: $e');
+      // Handle silently - data refresh is optional
+    }
+  }
+
+  /// Load user stats and update state
+  Future<void> _loadUserStats() async {
+    final stats = await _loadUserStatsData();
+    if (mounted) {
+      setState(() => _userStats = stats);
+    }
+  }
+
+  /// Load unacknowledged alerts count and update state
+  Future<void> _loadUnacknowledgedAlertsCount() async {
+    final count = await _loadUnacknowledgedAlertsCountData();
+    if (mounted) {
+      setState(() => _unacknowledgedAlertsCount = count);
     }
   }
 
@@ -572,8 +640,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
+    // Track lifecycle state for notification handling
+    _appLifecycleState = state;
+
     if (state == AppLifecycleState.resumed) {
-      print('🔄 MainPremium: App resumed - refreshing all data...');
       _refreshAllData();
     }
   }
@@ -596,6 +666,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // Dispose audio player
     _alertAudioPlayer.dispose();
 
+    // Dispose connectivity service
+    _connectivityService.dispose();
+
     // Cancel alert stream subscriptions
     _alertStreamSubscription?.cancel();
     _sentAlertsStreamSubscription?.cancel();
@@ -603,38 +676,36 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     super.dispose();
   }
 
+  /// Play premium alert sound when receiving an incoming alert
+  Future<void> _playPremiumAlertSound() async {
+    try {
+      // Use WAV file - two-tone alert (A5 to C6) that's attention-grabbing but pleasant
+      await _alertAudioPlayer.play(AssetSource('sounds/alert_sound.wav'));
+    } catch (e) {
+      debugPrint('Failed to play alert sound: $e');
+      // Fallback to vibration if sound fails
+      try {
+        await _notificationService.vibrateOnly();
+      } catch (_) {}
+    }
+  }
+
   /// Ensure user exists in database before accessing any features
   Future<void> _ensureUserExists() async {
-    print('🔍 _ensureUserExists() called');
-
     try {
-      print('🔍 Initializing alert service...');
       await _alertService.initialize();
-      print('🔍 Alert service initialized');
 
-      // Get or create user ID
-      print('🔍 Getting SharedPreferences...');
       final prefs = await SharedPreferences.getInstance();
       String? userId = prefs.getString('user_id');
-      print('🔍 Existing userId from prefs: $userId');
 
       if (userId == null) {
-        print('🔍 No existing user, creating new user...');
         userId = await _alertService.getOrCreateUser();
-        print('🔍 User creation returned: $userId');
         await prefs.setString('user_id', userId);
-        print('🆕 Created new user on app startup: $userId');
-      } else {
-        print('👤 User already exists: $userId');
       }
 
-      setState(() {
-        _currentUserId = userId;
-      });
-      print('🔍 Set _currentUserId to: $_currentUserId');
+      _currentUserId = userId;
     } catch (e) {
-      print('❌ Failed to ensure user exists: $e');
-      print('❌ Error type: ${e.runtimeType}');
+      debugPrint('Failed to ensure user exists: $e');
     }
   }
 
@@ -673,13 +744,24 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           // 1. Haven't been shown before
           // 2. Haven't been read yet
           // 3. Haven't been responded to
+          // 4. Are recent (within 5 minutes) - prevents showing old alerts on app reopen
+          final alertAge = DateTime.now().difference(alert.createdAt);
+          final isRecent = alertAge.inMinutes < 5;
+
           if (!_shownAlertIds.contains(alert.id) &&
               alert.readAt == null &&
-              alert.response == null) {
+              alert.response == null &&
+              isRecent) {
             _handleIncomingAlert(alert);
             _shownAlertIds.add(alert.id); // Mark as shown
           } else {
-            print('ℹ️ Alert ${alert.id} already shown, read, or responded to - skipping');
+            if (!isRecent) {
+              print('ℹ️ Alert ${alert.id} is ${alertAge.inMinutes}min old - skipping banner (too old)');
+            } else {
+              print('ℹ️ Alert ${alert.id} already shown, read, or responded to - skipping');
+            }
+            // Still mark as shown to prevent future triggers
+            _shownAlertIds.add(alert.id);
           }
         },
         onError: (error) {
@@ -710,10 +792,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     }
   }
 
-  /// Process sent alerts to mark acknowledged ones
+  /// Process sent alerts to mark acknowledged ones and show notifications
   void _processSentAlertsForAcknowledgments(List<Alert> alerts) {
-    bool needsRefresh = false;
-
     for (final alert in alerts) {
       // If alert has a response and hasn't been processed yet, mark it as acknowledged
       if (alert.response != null &&
@@ -722,10 +802,17 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
         // Mark this alert as processed to prevent duplicate marking
         _acknowledgedAlertIds.add(alert.id);
-        needsRefresh = true;
 
+        // Show notification for the response
+        _showResponseNotification(alert);
+
+        // Mark as acknowledged and immediately refresh counter when done
         _unacknowledgedAlertService.markAlertAcknowledged(alert.id).then((_) {
           print('✅ Marked sent alert ${alert.id} as acknowledged');
+          // Immediately refresh counter after successful marking
+          if (mounted) {
+            _loadUnacknowledgedAlertsCount();
+          }
         }).catchError((error) {
           print('⚠️ Failed to mark alert ${alert.id} as acknowledged: $error');
           // Remove from set if marking failed, so we can retry
@@ -733,15 +820,67 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         });
       }
     }
+  }
 
-    // Only refresh count if we marked any new alerts (cancellable)
-    if (needsRefresh) {
-      _acknowledgeRefreshTimer?.cancel();
-      _acknowledgeRefreshTimer = Timer(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _loadUnacknowledgedAlertsCount();
-        }
-      });
+  /// Show notification when a response is received for a sent alert
+  void _showResponseNotification(Alert alert) {
+    if (!mounted) return;
+
+    final responseText = alert.responseText;
+    String title;
+    String body;
+
+    // Customize notification based on response type
+    switch (alert.response) {
+      case 'moving_now':
+        title = 'They\'re moving!';
+        body = 'The car owner is moving their vehicle now';
+        break;
+      case '5_minutes':
+        title = 'Give them 5 minutes';
+        body = 'The car owner will move in about 5 minutes';
+        break;
+      case 'cant_move':
+        title = 'Can\'t move right now';
+        body = 'The car owner cannot move their vehicle at this time';
+        break;
+      case 'wrong_car':
+        title = 'Wrong car!';
+        body = 'You may have alerted the wrong person';
+        break;
+      default:
+        title = 'Response received';
+        body = responseText;
+    }
+
+    // Only show system notification when app is NOT in foreground
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      _notificationService.showAlertNotification(
+        title: title,
+        body: body,
+        payload: alert.id,
+        playSound: true,
+        vibrate: true,
+      );
+      print('📢 Showed response notification: $title - $body');
+    } else {
+      print('ℹ️ Skipped system notification (app in foreground): $title - $body');
+    }
+  }
+
+  /// Get icon for response type
+  IconData _getResponseIcon(String? response) {
+    switch (response) {
+      case 'moving_now':
+        return Icons.directions_car;
+      case '5_minutes':
+        return Icons.schedule;
+      case 'cant_move':
+        return Icons.block;
+      case 'wrong_car':
+        return Icons.warning_amber;
+      default:
+        return Icons.notifications;
     }
   }
 
@@ -808,8 +947,20 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       _loadUserStats(); // Refresh stats display
     });
 
-    // Sound effects disabled - no sound files in project
-    // Using haptic feedback only for user feedback
+    // Play premium alert sound
+    _playPremiumAlertSound();
+
+    // Only show system notification when app is NOT in foreground
+    // (for lock screen, background, other apps - not when user is in the app)
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      _notificationService.showAlertNotification(
+        title: 'Someone needs you to move!',
+        body: '$senderAlias is asking you to move your car${emoji != null ? ' $emoji' : ''}',
+        payload: alert.id,
+        playSound: true,
+        vibrate: true,
+      );
+    }
 
     // Premium haptic feedback - phone vibration
     HapticFeedback.heavyImpact();
@@ -831,12 +982,22 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       }
     });
 
-    // Alert will stay active until user makes a decision
+    // Auto-dismiss alert banner after 30 seconds if no response
+    _alertAutoDismissTimer?.cancel();
+    _alertAutoDismissTimer = Timer(const Duration(seconds: 30), () {
+      if (mounted && _showingAlertBanner && _currentIncomingAlert != null) {
+        print('⏰ Auto-dismissing alert banner after 30 seconds');
+        _dismissCurrentAlert();
+      }
+    });
   }
 
   /// Dismiss current alert without responding
   Future<void> _dismissCurrentAlert() async {
     if (_currentIncomingAlert == null) return;
+
+    // Cancel auto-dismiss timer
+    _alertAutoDismissTimer?.cancel();
 
     print('🔕 Dismissing alert: ${_currentIncomingAlert!.id}');
 
@@ -867,6 +1028,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   /// Respond to alert with acknowledgment
   Future<void> _respondToAlert(String response) async {
     if (_currentIncomingAlert == null) return;
+
+    // Cancel auto-dismiss timer
+    _alertAutoDismissTimer?.cancel();
 
     print(
         '🔄 Attempting to respond to alert: ${_currentIncomingAlert!.id} with response: $response');
@@ -909,7 +1073,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           _showPremiumSnackBar(
             message: 'Response sent: $responseText',
             isSuccess: true,
-            duration: const Duration(seconds: 1),
+            duration: const Duration(milliseconds: 500),
             icon: Icons.check_circle_outline,
           );
         }
@@ -924,7 +1088,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         _showPremiumSnackBar(
           message: 'Failed to send response. Please try again.',
           isSuccess: false,
-          duration: const Duration(seconds: 1),
+          duration: const Duration(milliseconds: 500),
           icon: Icons.error_outline,
         );
       }
@@ -1201,35 +1365,71 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               ),
             ),
 
+            // Offline banner - shows when no internet connection
+            if (_showOfflineBanner)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade700,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No internet - alerts may be delayed',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => setState(() => _showOfflineBanner = false),
+                          child: const Icon(Icons.close, color: Colors.white, size: 18),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
             // Main content - bottom: false so footer can reach screen bottom
             SafeArea(
               bottom: false,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Check if we need to use scroll view on smaller screens
-                  // Higher threshold to prevent overflow on more devices
-                  final useScrollView = constraints.maxHeight < 800;
                   final bottomPadding = MediaQuery.of(context).padding.bottom;
+                  // Determine if screen is compact (reduce spacing)
+                  final isCompact = constraints.maxHeight < 700;
 
-                  final content = Container(
+                  return Container(
                     width: double.infinity,
                     padding: EdgeInsets.only(
                       left: isTablet ? 80.0 : 32.0,
                       right: isTablet ? 80.0 : 32.0,
-                      top: isTablet ? 60.0 : (useScrollView ? 16.0 : 40.0),
-                      bottom: bottomPadding, // Minimal padding - just safe area
+                      top: isTablet ? 60.0 : (isCompact ? 16.0 : 40.0),
+                      bottom: bottomPadding,
                     ),
-                    child: useScrollView
-                        ? _buildScrollableContent(theme, isTablet)
-                        : _buildStaticContent(theme, isTablet),
+                    // Always use static content with Expanded widgets - fits without scrolling
+                    child: _buildStaticContent(theme, isTablet, isCompact: isCompact),
                   );
-
-                  return useScrollView
-                      ? SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: content,
-                        )
-                      : content;
                 },
               ),
             ),
@@ -1501,7 +1701,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             child: Text(
               'Move with respect.',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
                 color: PremiumTheme.tertiaryTextColor.withOpacity(0.7),
                 letterSpacing: 0.8,
@@ -1514,7 +1714,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         Text(
           'DezeTingz © 2026',
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w300,
             color: PremiumTheme.tertiaryTextColor.withOpacity(0.5),
             letterSpacing: 0.8,
@@ -1538,7 +1738,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.secondaryTextColor,
             letterSpacing: 0.3,
@@ -2069,7 +2269,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               Text(
                 'Notifications',
                 style: TextStyle(
-                  fontSize: isTablet ? 13 : 11,
+                  fontSize: isTablet ? 15 : 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.purple.shade700,
                   letterSpacing: 0.3,
@@ -2146,7 +2346,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           Text(
             label,
             style: TextStyle(
-              fontSize: isTablet ? 10 : 9,
+              fontSize: isTablet ? 11 : 10,
               fontWeight: FontWeight.w500,
               color: color,
             ),
@@ -2188,7 +2388,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           Text(
             label,
             style: TextStyle(
-              fontSize: isTablet ? 10 : 9,
+              fontSize: isTablet ? 11 : 10,
               fontWeight: FontWeight.w500,
               color: color,
             ),
@@ -2243,7 +2443,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             Text(
               label,
               style: TextStyle(
-                fontSize: isTablet ? 9 : 8,
+                fontSize: isTablet ? 11 : 10,
                 fontWeight: FontWeight.w500,
                 color: color.withOpacity(0.8),
                 letterSpacing: 0.2,
@@ -2349,7 +2549,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   child: Text(
                     totalImpact > 99 ? '99+' : '$totalImpact',
                     style: TextStyle(
-                      fontSize: isTablet ? 11 : 10,
+                      fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       height: 1.0,
@@ -2835,7 +3035,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         Text(
           label,
           style: TextStyle(
-            fontSize: isCompact ? 11 : 13,
+            fontSize: isCompact ? 12 : 14,
             fontWeight: FontWeight.w600,
             color: color.withOpacity(0.8),
             letterSpacing: 0.3,
@@ -2892,6 +3092,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     return GestureDetector(
       onTap: () async {
         HapticFeedback.lightImpact();
+
+        // Reset counter immediately when opening notifications
+        setState(() {
+          _unacknowledgedAlertsCount = 0;
+        });
+
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => AlertHistoryScreen(
@@ -3268,21 +3474,21 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
-  /// Build content for larger screens (with Expanded widgets)
-  Widget _buildStaticContent(ThemeData theme, bool isTablet) {
+  /// Build content layout (with Expanded widgets to fit without scrolling)
+  Widget _buildStaticContent(ThemeData theme, bool isTablet, {bool isCompact = false}) {
     return Column(
       children: [
         // Subtle app identity
         _buildAppHeader(theme, isTablet),
 
         // Flexible space above - reduced to push content up
-        const Expanded(flex: 2, child: SizedBox()),
+        Expanded(flex: isCompact ? 1 : 2, child: const SizedBox()),
 
         // Hero button - the centerpiece
         _buildHeroButton(theme, isTablet),
 
         // Stats and notification icons with labels - animated entrance
-        SizedBox(height: isTablet ? 28 : 24),
+        SizedBox(height: isCompact ? 16 : (isTablet ? 28 : 24)),
         AnimatedBuilder(
           animation: _entranceController,
           builder: (context, child) {
@@ -3314,14 +3520,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         ),
 
         // Active vehicle display OR setup hint
-        SizedBox(height: isTablet ? 24 : 20),
+        SizedBox(height: isCompact ? 12 : (isTablet ? 24 : 20)),
         if (_primaryPlate != null)
           _buildActiveVehicleDisplay(isTablet)
         else
           _buildSetupHint(isTablet),
 
         // Spacer pushes footer to absolute bottom
-        const Expanded(flex: 2, child: SizedBox()),
+        Expanded(flex: isCompact ? 1 : 2, child: const SizedBox()),
 
         // DezeTingz branding at the very bottom
         _buildBranding(),
@@ -3329,7 +3535,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
-  /// Build content for smaller screens (scrollable, no Expanded widgets)
+  /// Build content for smaller screens (scrollable, no Expanded widgets) - DEPRECATED
   Widget _buildScrollableContent(ThemeData theme, bool isTablet) {
     return Column(
       children: [
@@ -3580,15 +3786,19 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           GestureDetector(
                             onTap: _dismissCurrentAlert,
                             child: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.black.withOpacity(0.3),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.5),
+                                  width: 1.5,
+                                ),
                               ),
                               child: const Icon(
                                 Icons.close,
                                 color: Colors.white,
-                                size: 18,
+                                size: 22,
                               ),
                             ),
                           ),

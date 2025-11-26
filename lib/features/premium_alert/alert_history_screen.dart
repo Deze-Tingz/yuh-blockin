@@ -154,7 +154,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           SnackBar(
             content: Text('Response sent: ${_getResponseDisplayText(response)}'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 1),
+            duration: const Duration(milliseconds: 500),
           ),
         );
 
@@ -169,7 +169,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           const SnackBar(
             content: Text('Failed to send response'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 1),
+            duration: Duration(milliseconds: 500),
           ),
         );
       }
@@ -393,85 +393,189 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final hasResponse = alert.hasResponse;
 
+    // Get response emoji and color based on response type
+    IconData statusIcon;
+    Color statusColor;
+    String statusText;
+
+    if (hasResponse) {
+      switch (alert.response) {
+        case 'moving_now':
+          statusIcon = Icons.directions_car;
+          statusColor = Colors.green;
+          statusText = 'Moving now';
+          break;
+        case '5_minutes':
+          statusIcon = Icons.timer;
+          statusColor = Colors.orange;
+          statusText = 'In 5 minutes';
+          break;
+        case 'cant_move':
+          statusIcon = Icons.block;
+          statusColor = Colors.red;
+          statusText = 'Can\'t move';
+          break;
+        case 'wrong_car':
+          statusIcon = Icons.error_outline;
+          statusColor = Colors.grey;
+          statusText = 'Wrong car';
+          break;
+        default:
+          statusIcon = Icons.check_circle;
+          statusColor = Colors.green;
+          statusText = alert.responseText ?? 'Responded';
+      }
+    } else {
+      statusIcon = Icons.access_time;
+      statusColor = Colors.blue;
+      statusText = 'Awaiting response';
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: hasResponse ? Colors.green[50] : Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: hasResponse ? Colors.green[200]! : Colors.grey[300]!,
-          width: 1,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: hasResponse
+              ? [statusColor.withOpacity(0.08), statusColor.withOpacity(0.03)]
+              : [Colors.blue.withOpacity(0.05), Colors.grey.withOpacity(0.02)],
         ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: statusColor.withOpacity(0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with status and timestamp
-          Row(
-            children: [
-              Icon(
-                hasResponse ? Icons.check_circle : Icons.access_time,
-                color: hasResponse ? Colors.green : Colors.grey[600],
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                hasResponse ? 'Response received' : 'Waiting for response',
-                style: TextStyle(
-                  fontSize: isTablet ? 16 : 14,
-                  fontWeight: FontWeight.w600,
-                  color: hasResponse ? Colors.green : Colors.grey[600],
+          // Main content area
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Status indicator circle
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    statusIcon,
+                    color: statusColor,
+                    size: isTablet ? 24 : 20,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                _formatTimestamp(alert.createdAt),
-                style: TextStyle(
-                  fontSize: isTablet ? 14 : 12,
-                  color: Colors.grey[600],
+                const SizedBox(width: 14),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status and time row
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: isTablet ? 12 : 11,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatTimestamp(alert.createdAt),
+                            style: TextStyle(
+                              fontSize: isTablet ? 13 : 11,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Recipient info with alias
+                      FutureBuilder<String>(
+                        future: _aliasService.getAliasForUser(alert.receiverId),
+                        builder: (context, snapshot) {
+                          final alias = snapshot.hasData
+                              ? _aliasService.formatAliasForDisplay(snapshot.data!)
+                              : 'Driver';
+                          return Text(
+                            'Alert sent to $alias',
+                            style: TextStyle(
+                              fontSize: isTablet ? 16 : 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          );
+                        },
+                      ),
+                      if (alert.message != null && alert.message!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          alert.message!,
+                          style: TextStyle(
+                            fontSize: isTablet ? 14 : 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // Alert message
-          Text(
-            alert.message ?? 'You asked someone to move their car',
-            style: TextStyle(
-              fontSize: isTablet ? 16 : 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+              ],
             ),
           ),
-
-          if (hasResponse) ...[
-            const SizedBox(height: 12),
+          // Response details footer (only if responded)
+          if (hasResponse && alert.responseAt != null)
             Container(
-              padding: const EdgeInsets.all(8),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.green[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[300]!),
+                color: statusColor.withOpacity(0.06),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.reply, size: 16, color: Colors.green[700]),
-                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.reply,
+                    size: isTablet ? 16 : 14,
+                    color: statusColor.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 6),
                   Text(
-                    'They responded: ${alert.responseText}',
+                    'Responded ${_formatTimestamp(alert.responseAt!)}',
                     style: TextStyle(
-                      fontSize: isTablet ? 14 : 12,
-                      color: Colors.green[700],
+                      fontSize: isTablet ? 12 : 11,
+                      color: Colors.grey[600],
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
         ],
       ),
     );
