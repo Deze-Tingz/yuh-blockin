@@ -20,11 +20,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   late PageController _pageController;
   int _currentPage = 0;
   final int _totalPages = 3;
+  bool _imagesPreloaded = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Precache images to prevent glitches during first swipe
+    if (!_imagesPreloaded) {
+      _imagesPreloaded = true;
+      precacheImage(const AssetImage('assets/images/app_icon.png'), context);
+    }
   }
 
   @override
@@ -110,9 +121,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             Expanded(
               child: PageView(
                 controller: _pageController,
+                physics: const ClampingScrollPhysics(),
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
-                  HapticFeedback.selectionClick();
+                  // Defer haptic feedback to avoid interfering with animation
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    HapticFeedback.selectionClick();
+                  });
                 },
                 children: [
                   const _WelcomePage(),
@@ -222,6 +237,8 @@ class _WelcomePage extends StatelessWidget {
             width: 220,
             height: 220,
             fit: BoxFit.contain,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.medium,
           ),
           const SizedBox(height: 12),
           Text(

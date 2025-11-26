@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 class PlateStorageService {
   static const String _storageKey = 'yuh_plates_secure_data';
   static const String _encryptionSalt = 'YUH_BLOCKIN_PREMIUM_2025_SALT';
+  static const int maxVehicles = 3;
 
   /// Get all registered license plates for the current user
   Future<List<String>> getRegisteredPlates() async {
@@ -48,6 +49,11 @@ class PlateStorageService {
       }
 
       final existingPlates = await getRegisteredPlates();
+
+      // Check for max vehicles limit
+      if (existingPlates.length >= maxVehicles) {
+        throw PlateStorageException('Maximum of $maxVehicles vehicles allowed');
+      }
 
       // Check for duplicates
       if (existingPlates.contains(normalizedPlate)) {

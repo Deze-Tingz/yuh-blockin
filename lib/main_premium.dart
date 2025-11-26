@@ -1793,21 +1793,32 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       return;
     }
 
-    // Launch premium alert workflow
+    // Launch premium alert workflow with optimized transition
     Navigator.of(context).push(
       PageRouteBuilder(
+        opaque: false,
         pageBuilder: (context, animation, secondaryAnimation) =>
-            SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 1.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
+            const AlertWorkflowScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          // Use simple fade + slight slide for smoother performance
+          final fadeAnimation = CurvedAnimation(
             parent: animation,
-            curve: PremiumTheme.standardCurve,
-          )),
-          child: const AlertWorkflowScreen(),
-        ),
-        transitionDuration: PremiumTheme.mediumDuration,
+            curve: Curves.easeOut,
+          );
+          final slideAnimation = Tween<Offset>(
+            begin: const Offset(0.0, 0.05), // Subtle slide (5% instead of 100%)
+            end: Offset.zero,
+          ).animate(fadeAnimation);
+
+          return FadeTransition(
+            opacity: fadeAnimation,
+            child: SlideTransition(
+              position: slideAnimation,
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
       ),
     );
   }

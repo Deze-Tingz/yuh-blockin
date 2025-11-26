@@ -51,6 +51,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   bool _isRegistering = false;
   int _sparkleIndex = 0;
 
+  bool get _isAtMaxCapacity => _registeredPlates.length >= PlateStorageService.maxVehicles;
+
   // Timer reference for proper cleanup
   Timer? _sparkleTimer;
 
@@ -847,17 +849,68 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
         const SizedBox(height: 48),
 
-        // Premium plate input
-        ScaleTransition(
-          scale: _plateAnimation,
-          child: _buildUltraPremiumPlateInput(isTablet),
-        ),
+        // Show input or max capacity message
+        if (_isAtMaxCapacity)
+          _buildMaxCapacityMessage(isTablet)
+        else ...[
+          // Premium plate input
+          ScaleTransition(
+            scale: _plateAnimation,
+            child: _buildUltraPremiumPlateInput(isTablet),
+          ),
 
-        const SizedBox(height: 48),
+          const SizedBox(height: 48),
 
-        // Minimalist register button
-        _buildMinimalistRegisterButton(isTablet),
+          // Minimalist register button
+          _buildMinimalistRegisterButton(isTablet),
+        ],
       ],
+    );
+  }
+
+  Widget _buildMaxCapacityMessage(bool isTablet) {
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(
+        maxWidth: isTablet ? 400 : 320,
+      ),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.amber.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.garage_outlined,
+            size: 48,
+            color: Colors.amber.shade600,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Garage Full',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.primaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You\'ve registered the maximum of ${PlateStorageService.maxVehicles} vehicles. Remove a vehicle to add a new one.',
+            style: TextStyle(
+              fontSize: 14,
+              color: PremiumTheme.secondaryTextColor,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 

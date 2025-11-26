@@ -964,7 +964,10 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       _selectedEmoji = emoji;
     });
 
-    HapticFeedback.mediumImpact();
+    // Defer haptic feedback to avoid blocking UI thread during animation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      HapticFeedback.mediumImpact();
+    });
 
     // Do NOT auto-send - user must explicitly press Send button
     // This gives users control over when the alert is actually sent
@@ -979,46 +982,55 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
 
   Widget _buildSendButton() {
+    final isEnabled = _isValidPlate && !_isLoading && _selectedEmoji != null;
+
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-          onPressed: _isValidPlate && !_isLoading && _selectedEmoji != null ? _sendAlert : null,
+          onPressed: isEnabled ? _sendAlert : null,
           onLongPress: _isValidPlate ? _onButtonPress : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: PremiumTheme.accentColor,
             foregroundColor: Colors.white,
-            elevation: 8,
-            shadowColor: PremiumTheme.accentColor.withOpacity(0.3),
+            elevation: 2, // Reduced elevation for better performance
+            shadowColor: Colors.black26, // Simpler shadow color
             shape: RoundedRectangleBorder(
               borderRadius: PremiumTheme.mediumRadius,
             ),
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
             minimumSize: const Size(double.infinity, 56),
+            // Disable splash and highlight for smoother tap
+            splashFactory: NoSplash.splashFactory,
           ),
-          child: _isLoading
-              ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    strokeWidth: 2,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.send, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Send Respectful Alert',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _isLoading
+                ? SizedBox(
+                    key: const ValueKey('loading'),
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 2,
                     ),
-                  ],
-                ),
+                  )
+                : Row(
+                    key: const ValueKey('content'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.send, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Send Respectful Alert',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
     );
   }
@@ -1157,8 +1169,12 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       return;
     }
 
+    // Defer haptic feedback to avoid blocking UI thread
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      HapticFeedback.mediumImpact();
+    });
+
     setState(() => _isLoading = true);
-    HapticFeedback.mediumImpact();
 
     try {
       // Record this alert for spam protection
@@ -1207,19 +1223,26 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             );
           }
 
-          // Navigate to alert confirmation
+          // Navigate to alert confirmation with optimized transition
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                  FadeTransition(
-                opacity: animation,
-                child: AlertConfirmationScreen(
-                  plateNumber: plateNumber,
-                  urgencyLevel: _urgencyLevel,
-                  selectedEmoji: _selectedEmoji!,
-                ),
-              ),
-              transitionDuration: PremiumTheme.mediumDuration,
+                  AlertConfirmationScreen(
+                    plateNumber: plateNumber,
+                    urgencyLevel: _urgencyLevel,
+                    selectedEmoji: _selectedEmoji!,
+                  ),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                // Use a simple, GPU-accelerated opacity transition
+                return FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  ),
+                  child: child,
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 250),
             ),
           );
         } else {
