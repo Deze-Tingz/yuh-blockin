@@ -6,10 +6,9 @@ import 'dart:async';
 import 'dart:math';
 
 import '../../core/theme/premium_theme.dart';
-import '../../config/premium_config.dart';
-import '../../core/services/premium_backend_service.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
+import '../../core/services/plate_verification_service.dart';
 import '../../main_premium.dart';
 
 /// License Plate Registration Screen
@@ -42,8 +41,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   final FocusNode _plateFocusNode = FocusNode();
 
   final PlateStorageService _storageService = PlateStorageService();
-  final PremiumBackendService _backendService = PremiumBackendService();
   final SimpleAlertService _alertService = SimpleAlertService();
+  final PlateVerificationService _verificationService = PlateVerificationService();
 
   List<String> _registeredPlates = [];
   String? _primaryPlate;
@@ -64,14 +63,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     '🌟 Welcome to respectful parking!',
   ];
 
-  final List<Color> _playfulColors = [
-    Color(0xFF6366F1), // Indigo
-    Color(0xFF8B5CF6), // Violet
-    Color(0xFFF59E0B), // Amber
-    Color(0xFFEF4444), // Red
-    Color(0xFF10B981), // Emerald
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -85,11 +76,11 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     try {
       await _alertService.initialize();
       if (kDebugMode) {
-        print('✅ Simple alert service initialized');
+        debugPrint('✅ Simple alert service initialized');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ Failed to initialize secure service: $e');
+        debugPrint('⚠️ Failed to initialize secure service: $e');
       }
     }
   }
@@ -161,12 +152,12 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         _primaryPlate = primaryPlate;
       });
       if (kDebugMode) {
-        print('✅ Loaded ${plates.length} registered plates from local storage');
-        print('✅ Primary plate: ${primaryPlate ?? "none set"}');
+        debugPrint('✅ Loaded ${plates.length} registered plates from local storage');
+        debugPrint('✅ Primary plate: ${primaryPlate ?? "none set"}');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Failed to load existing plates: $e');
+        debugPrint('❌ Failed to load existing plates: $e');
       }
     }
   }
@@ -178,7 +169,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         _primaryPlate = plate;
       });
 
-      print('✅ Set $plate as primary vehicle');
+      debugPrint('✅ Set $plate as primary vehicle');
 
       // Show confirmation
       if (mounted) {
@@ -196,7 +187,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error setting primary plate: $e');
+        debugPrint('❌ Error setting primary plate: $e');
       }
     }
   }
@@ -221,12 +212,12 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
     final isValid = lengthValid && formatValid && hasAlphaNumeric && notDuplicate;
 
-    print('Validating plate "$value" -> "$normalizedPlate"');
-    print('Length valid: $lengthValid (${normalizedPlate.length})');
-    print('Format valid: $formatValid');
-    print('Has alphanumeric: $hasAlphaNumeric');
-    print('Not duplicate: $notDuplicate');
-    print('Overall valid: $isValid');
+    debugPrint('Validating plate "$value" -> "$normalizedPlate"');
+    debugPrint('Length valid: $lengthValid (${normalizedPlate.length})');
+    debugPrint('Format valid: $formatValid');
+    debugPrint('Has alphanumeric: $hasAlphaNumeric');
+    debugPrint('Not duplicate: $notDuplicate');
+    debugPrint('Overall valid: $isValid');
 
     setState(() {
       _isValidPlate = isValid;
@@ -280,7 +271,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       final plateNumber = _plateInputController.text.trim();
 
       if (kDebugMode) {
-        print('🔐 Registering plate with multi-user privacy protection: $plateNumber');
+        debugPrint('🔐 Registering plate with multi-user privacy protection: $plateNumber');
       }
 
       // Initialize simple alert service
@@ -294,19 +285,19 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       bool needsNewUser = userId == null;
       if (userId != null) {
         if (kDebugMode) {
-          print('🔍 Found existing userId in prefs: $userId');
-          print('🔍 Verifying user exists in database...');
+          debugPrint('🔍 Found existing userId in prefs: $userId');
+          debugPrint('🔍 Verifying user exists in database...');
         }
 
         bool userExistsInDB = await _alertService.userExists(userId);
         if (!userExistsInDB) {
           if (kDebugMode) {
-            print('⚠️ User ID exists in prefs but NOT in database! Need to create user.');
+            debugPrint('⚠️ User ID exists in prefs but NOT in database! Need to create user.');
           }
           needsNewUser = true;
         } else {
           if (kDebugMode) {
-            print('✅ User verified to exist in database: $userId');
+            debugPrint('✅ User verified to exist in database: $userId');
           }
         }
       }
@@ -315,19 +306,19 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         try {
           // Create new user profile
           if (kDebugMode) {
-            print('🔍 Creating new user...');
+            debugPrint('🔍 Creating new user...');
           }
           userId = await _alertService.getOrCreateUser();
           await prefs.setString('user_id', userId);
           if (kDebugMode) {
-            print('🆕 Created new user: $userId');
+            debugPrint('🆕 Created new user: $userId');
           }
 
           // Small delay to ensure user creation is fully committed before plate registration
           await Future.delayed(Duration(milliseconds: 100));
         } catch (e) {
           if (kDebugMode) {
-            print('❌ Failed to create user: $e');
+            debugPrint('❌ Failed to create user: $e');
           }
           setState(() => _isRegistering = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -351,6 +342,15 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         throw Exception('User ID is null after creation attempts');
       }
 
+      // Generate ownership key for security
+      final ownershipKey = _verificationService.generateOwnershipKey();
+
+      // Save key locally
+      await _verificationService.saveKeyLocally(
+        plateNumber: plateNumber,
+        ownershipKey: ownershipKey,
+      );
+
       // Save to local storage as well
       await _storageService.addPlate(plateNumber);
 
@@ -363,7 +363,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
           _registeredPlates.add(plateNumber);
         });
         if (kDebugMode) {
-          print('🔧 ONBOARDING FIX: Added plate $plateNumber to list');
+          debugPrint('🔧 ONBOARDING FIX: Added plate $plateNumber to list');
         }
       }
 
@@ -371,7 +371,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       if (_primaryPlate == null || _registeredPlates.length == 1) {
         await _setPrimaryPlate(plateNumber);
         if (kDebugMode) {
-          print('✅ Auto-set $plateNumber as primary (first vehicle)');
+          debugPrint('✅ Auto-set $plateNumber as primary (first vehicle)');
         }
       }
 
@@ -380,12 +380,14 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         _isValidPlate = false;
       });
 
-      _showSuccessMessage('Plate registered successfully! Multiple users can now register this same plate.');
-      _showSuccessAnimation();
+      // Show ownership key dialog - user must acknowledge before continuing
+      if (mounted) {
+        await _showOwnershipKeyDialog(plateNumber, ownershipKey);
+      }
 
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Multi-user registration failed: $e');
+        debugPrint('❌ Multi-user registration failed: $e');
       }
 
       // Handle specific error cases
@@ -402,6 +404,255 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     } finally {
       setState(() => _isRegistering = false);
     }
+  }
+
+  /// Show ownership key dialog - CRITICAL for security
+  /// User must save this key to prove ownership if disputed
+  Future<void> _showOwnershipKeyDialog(String plateNumber, String ownershipKey) async {
+    bool hasCopied = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false, // Must acknowledge
+      barrierColor: Colors.black.withValues(alpha: 0.85),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: PremiumTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: PremiumTheme.accentColor.withValues(alpha: 0.3),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: PremiumTheme.accentColor.withValues(alpha: 0.2),
+                  blurRadius: 30,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success icon
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.green.shade400,
+                        Colors.green.shade600,
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Title
+                Text(
+                  'Plate Registered!',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: PremiumTheme.primaryTextColor,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  plateNumber,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: PremiumTheme.accentColor,
+                    letterSpacing: 2,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Security key section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.backgroundColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.key_rounded,
+                            color: Colors.amber.shade600,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Your Ownership Key',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.amber.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // The key itself
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: PremiumTheme.surfaceColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: PremiumTheme.dividerColor,
+                          ),
+                        ),
+                        child: SelectableText(
+                          ownershipKey,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace',
+                            color: PremiumTheme.primaryTextColor,
+                            letterSpacing: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Copy button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await _verificationService.copyKeyToClipboard(ownershipKey);
+                            HapticFeedback.mediumImpact();
+                            setDialogState(() => hasCopied = true);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Key copied to clipboard!'),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                          icon: Icon(
+                            hasCopied ? Icons.check : Icons.copy_rounded,
+                            size: 18,
+                          ),
+                          label: Text(hasCopied ? 'Copied!' : 'Copy Key'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: hasCopied
+                                ? Colors.green
+                                : PremiumTheme.accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Warning text
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red.shade400,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Save this key securely! It\'s the only way to prove you own this plate. Like a crypto key - if you lose it, you lose ownership.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.shade300,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Continue button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showSuccessAnimation();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'I\'ve Saved My Key',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showSuccessMessage(String message) {
@@ -422,7 +673,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     showDialog(
       context: context,
       barrierDismissible: true, // Allow dismissing dialog
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) => _SuccessAnimation(
         onComplete: () {
           Navigator.of(context).pop(); // Close the dialog
@@ -492,7 +743,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                   color: PremiumTheme.surfaceColor,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: PremiumTheme.dividerColor.withOpacity(0.3),
+                    color: PremiumTheme.dividerColor.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -560,11 +811,11 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             userId: userId,
           );
           if (kDebugMode) {
-            print('✅ Deleted plate from database: $plate');
+            debugPrint('✅ Deleted plate from database: $plate');
           }
         } catch (e) {
           if (kDebugMode) {
-            print('⚠️ Failed to delete plate from database: $e');
+            debugPrint('⚠️ Failed to delete plate from database: $e');
           }
           // Continue with local deletion even if database deletion fails
         }
@@ -688,7 +939,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
           width: 32,
           height: 2,
           decoration: BoxDecoration(
-            color: PremiumTheme.accentColor.withOpacity(0.4),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(1),
           ),
         ),
@@ -706,7 +957,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       await prefs.setBool('onboarding_completed', true);
 
       if (kDebugMode) {
-        print('✅ Onboarding marked as completed');
+        debugPrint('✅ Onboarding marked as completed');
       }
 
       // Navigate to main app
@@ -719,7 +970,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Failed to complete onboarding: $e');
+        debugPrint('❌ Failed to complete onboarding: $e');
       }
       // Fallback navigation even if prefs fails
       if (mounted) {
@@ -759,13 +1010,13 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                           end: Alignment.bottomRight,
                           colors: [
                             PremiumTheme.accentColor,
-                            PremiumTheme.accentColor.withOpacity(0.8),
+                            PremiumTheme.accentColor.withValues(alpha: 0.8),
                           ],
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: PremiumTheme.accentColor.withOpacity(0.25),
+                            color: PremiumTheme.accentColor.withValues(alpha: 0.25),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                             spreadRadius: 0,
@@ -814,7 +1065,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      PremiumTheme.accentColor.withOpacity(0.6),
+                      PremiumTheme.accentColor.withValues(alpha: 0.6),
                       Colors.transparent,
                     ],
                   ),
@@ -839,7 +1090,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
-                color: PremiumTheme.secondaryTextColor.withOpacity(0.8),
+                color: PremiumTheme.secondaryTextColor.withValues(alpha: 0.8),
                 letterSpacing: 0.2,
                 height: 1.4,
               ),
@@ -880,7 +1131,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         color: PremiumTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.amber.withOpacity(0.3),
+          color: Colors.amber.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -915,177 +1166,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     );
   }
 
-  Widget _buildPremiumPlateInput(bool isTablet) {
-    return Column(
-      children: [
-
-        // Premium input field with enhanced design
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                PremiumTheme.surfaceColor,
-                PremiumTheme.surfaceColor.withOpacity(0.95),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: _isValidPlate
-                    ? PremiumTheme.accentColor.withOpacity(0.2)
-                    : Colors.black.withOpacity(0.08),
-                blurRadius: _isValidPlate ? 20 : 12,
-                offset: const Offset(0, 6),
-                spreadRadius: _isValidPlate ? 2 : 0,
-              ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.9),
-                blurRadius: 1,
-                offset: const Offset(0, -1),
-                spreadRadius: 0,
-              ),
-            ],
-            border: Border.all(
-              color: _isValidPlate
-                  ? PremiumTheme.accentColor.withOpacity(0.4)
-                  : PremiumTheme.dividerColor.withOpacity(0.3),
-              width: _isValidPlate ? 2 : 1,
-            ),
-          ),
-          child: TextField(
-            controller: _plateInputController,
-            focusNode: _plateFocusNode,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isTablet ? 32 : 28,
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.primaryTextColor,
-              letterSpacing: 3.0,
-            ),
-            decoration: InputDecoration(
-              hintText: 'YOURPLATE',
-              hintStyle: TextStyle(
-                color: PremiumTheme.tertiaryTextColor.withOpacity(0.6),
-                fontWeight: FontWeight.w400,
-                letterSpacing: 2.0,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 24,
-              ),
-              border: InputBorder.none,
-              prefixIcon: Container(
-                margin: const EdgeInsets.only(left: 16, right: 8),
-                child: Icon(
-                  Icons.edit_rounded,
-                  color: _isValidPlate
-                      ? PremiumTheme.accentColor
-                      : PremiumTheme.tertiaryTextColor,
-                  size: 24,
-                ),
-              ),
-              suffixIcon: _isValidPlate
-                  ? Container(
-                      margin: const EdgeInsets.only(right: 16, left: 8),
-                      child: Icon(
-                        Icons.verified_rounded,
-                        color: Colors.green,
-                        size: 28,
-                      ),
-                    )
-                  : null,
-            ),
-            onChanged: _validatePlate,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s]')),
-              LengthLimitingTextInputFormatter(10),
-            ],
-          ),
-        ),
-
-        if (_isValidPlate) ...[
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.green.withOpacity(0.05),
-                  Colors.green.withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.green.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.enhanced_encryption_rounded,
-                  size: 20,
-                  color: Colors.green.shade700,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Secured with HMAC-SHA256 encryption',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.green.shade700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildFeatureBadge({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: color,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUltraPremiumPlateInput(bool isTablet) {
     return Column(
       children: [
@@ -1101,15 +1181,15 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _isValidPlate
-                  ? PremiumTheme.accentColor.withOpacity(0.3)
-                  : PremiumTheme.dividerColor.withOpacity(0.2),
+                  ? PremiumTheme.accentColor.withValues(alpha: 0.3)
+                  : PremiumTheme.dividerColor.withValues(alpha: 0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
                 color: _isValidPlate
-                    ? PremiumTheme.accentColor.withOpacity(0.08)
-                    : Colors.black.withOpacity(0.04),
+                    ? PremiumTheme.accentColor.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.04),
                 blurRadius: _isValidPlate ? 16 : 8,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -1129,7 +1209,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             decoration: InputDecoration(
               hintText: 'YOURPLATE',
               hintStyle: TextStyle(
-                color: PremiumTheme.tertiaryTextColor.withOpacity(0.5),
+                color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
                 fontWeight: FontWeight.w300,
                 letterSpacing: 1.5,
               ),
@@ -1178,7 +1258,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
               : PremiumTheme.surfaceColor,
           foregroundColor: _isValidPlate
               ? Colors.white
-              : PremiumTheme.tertiaryTextColor.withOpacity(0.6),
+              : PremiumTheme.tertiaryTextColor.withValues(alpha: 0.6),
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -1186,7 +1266,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             side: BorderSide(
               color: _isValidPlate
                   ? Colors.transparent
-                  : PremiumTheme.dividerColor.withOpacity(0.3),
+                  : PremiumTheme.dividerColor.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -1223,7 +1303,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             height: 2,
             margin: const EdgeInsets.only(bottom: 24),
             decoration: BoxDecoration(
-              color: PremiumTheme.accentColor.withOpacity(0.3),
+              color: PremiumTheme.accentColor.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(1),
             ),
           ),
@@ -1265,8 +1345,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          PremiumTheme.accentColor.withOpacity(0.1),
-                          PremiumTheme.accentColor.withOpacity(0.05),
+                          PremiumTheme.accentColor.withValues(alpha: 0.1),
+                          PremiumTheme.accentColor.withValues(alpha: 0.05),
                         ],
                       )
                     : null,
@@ -1274,15 +1354,15 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _primaryPlate == plate
-                      ? PremiumTheme.accentColor.withOpacity(0.3)
-                      : PremiumTheme.dividerColor.withOpacity(0.2),
+                      ? PremiumTheme.accentColor.withValues(alpha: 0.3)
+                      : PremiumTheme.dividerColor.withValues(alpha: 0.2),
                   width: _primaryPlate == plate ? 2 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: _primaryPlate == plate
-                        ? PremiumTheme.accentColor.withOpacity(0.08)
-                        : Colors.black.withOpacity(0.02),
+                        ? PremiumTheme.accentColor.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.02),
                     blurRadius: _primaryPlate == plate ? 12 : 8,
                     offset: Offset(0, _primaryPlate == plate ? 4 : 2),
                     spreadRadius: 0,
@@ -1293,15 +1373,15 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 children: [
                   // Primary indicator
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: _primaryPlate == plate
-                          ? PremiumTheme.accentColor.withOpacity(0.15)
+                          ? PremiumTheme.accentColor.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       border: _primaryPlate == plate
                           ? Border.all(
-                              color: PremiumTheme.accentColor.withOpacity(0.3),
+                              color: PremiumTheme.accentColor.withValues(alpha: 0.3),
                               width: 1,
                             )
                           : null,
@@ -1365,7 +1445,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -1502,12 +1582,12 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: PremiumTheme.accentColor.withOpacity(0.2 * _glowAnimation.value),
+                          color: PremiumTheme.accentColor.withValues(alpha: 0.2 * _glowAnimation.value),
                           blurRadius: 40 * _glowAnimation.value,
                           spreadRadius: 4,
                         ),
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -1526,13 +1606,13 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
                               end: Alignment.bottomRight,
                               colors: [
                                 PremiumTheme.accentColor,
-                                PremiumTheme.accentColor.withOpacity(0.8),
+                                PremiumTheme.accentColor.withValues(alpha: 0.8),
                               ],
                             ),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: PremiumTheme.accentColor.withOpacity(0.3),
+                                color: PremiumTheme.accentColor.withValues(alpha: 0.3),
                                 blurRadius: 16,
                                 offset: const Offset(0, 4),
                               ),
@@ -1615,7 +1695,7 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
                           ? PremiumTheme.accentColor
                           : i % 3 == 1
                               ? Colors.amber
-                              : Colors.white).withOpacity(0.6),
+                              : Colors.white).withValues(alpha: 0.6),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),

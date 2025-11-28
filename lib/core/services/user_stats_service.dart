@@ -116,24 +116,6 @@ class UserStatsService {
     }
   }
 
-  /// Private helper to save stats data
-  Future<void> _saveStatsData({
-    required int carsFreed,
-    required int situationsResolved,
-    int? alertsSent,
-    int? alertsReceived,
-  }) async {
-    final prefs = await _getPrefs();
-    final data = {
-      'carsFreed': carsFreed,
-      'situationsResolved': situationsResolved,
-      'alertsSent': alertsSent ?? 0,
-      'alertsReceived': alertsReceived ?? 0,
-      'lastUpdated': DateTime.now().toIso8601String(),
-    };
-    await prefs.setString(_statsDataKey, jsonEncode(data));
-  }
-
   /// Reset all stats (for testing or user preference)
   Future<void> resetStats() async {
     final prefs = await _getPrefs();

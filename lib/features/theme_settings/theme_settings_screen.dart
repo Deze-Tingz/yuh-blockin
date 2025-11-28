@@ -116,9 +116,9 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            PremiumTheme.accentColor.withOpacity(0.0),
-                            PremiumTheme.accentColor.withOpacity(0.3),
-                            PremiumTheme.accentColor.withOpacity(0.0),
+                            PremiumTheme.accentColor.withValues(alpha: 0.0),
+                            PremiumTheme.accentColor.withValues(alpha: 0.3),
+                            PremiumTheme.accentColor.withValues(alpha: 0.0),
                           ],
                         ),
                       ),
@@ -178,19 +178,19 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isSelected
-              ? PremiumTheme.accentColor.withOpacity(0.1)
+              ? PremiumTheme.accentColor.withValues(alpha: 0.1)
               : PremiumTheme.surfaceColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? PremiumTheme.accentColor.withOpacity(0.3)
+                ? PremiumTheme.accentColor.withValues(alpha: 0.3)
                 : PremiumTheme.dividerColor,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumTheme.accentColor.withOpacity(0.15),
+                    color: PremiumTheme.accentColor.withValues(alpha: 0.15),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -207,12 +207,12 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 color: backgroundColor,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: primaryColor.withOpacity(0.3),
+                  color: primaryColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withOpacity(0.2),
+                    color: primaryColor.withValues(alpha: 0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),

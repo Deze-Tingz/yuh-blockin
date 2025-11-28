@@ -27,6 +27,9 @@ dependencies:
   vibration: ^2.0.0
   permission_handler: ^11.3.1
 
+  # In-app purchases via RevenueCat
+  purchases_flutter: ^8.0.0
+
   # Optional: Keep these only if you want advanced state management
   # hooks_riverpod: ^2.5.1
   # flutter_hooks: ^0.20.5

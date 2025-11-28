@@ -32,11 +32,11 @@ class SimpleAlertService {
       _isInitialized = true;
 
       if (kDebugMode) {
-        print('✅ Simple Alert Service initialized');
+        debugPrint('✅ Simple Alert Service initialized');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Failed to initialize service: $e');
+        debugPrint('❌ Failed to initialize service: $e');
       }
       rethrow;
     }
@@ -45,7 +45,7 @@ class SimpleAlertService {
   /// Create or get user ID
   Future<String> getOrCreateUser() async {
     if (kDebugMode) {
-      print('🔍 getOrCreateUser() called');
+      debugPrint('🔍 getOrCreateUser() called');
     }
 
     _ensureInitialized();
@@ -53,24 +53,24 @@ class SimpleAlertService {
     final userId = 'user_${DateTime.now().millisecondsSinceEpoch}';
 
     if (kDebugMode) {
-      print('🔍 Generated userId: $userId');
-      print('🔍 About to insert into users table...');
+      debugPrint('🔍 Generated userId: $userId');
+      debugPrint('🔍 About to insert into users table...');
     }
 
     try {
       final result = await _supabase.from('users').insert({'id': userId});
 
       if (kDebugMode) {
-        print('🔍 Insert result: $result');
-        print('👤 ✅ Created user: $userId');
+        debugPrint('🔍 Insert result: $result');
+        debugPrint('👤 ✅ Created user: $userId');
       }
 
       return userId;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ User creation failed: $e');
-        print('❌ Error type: ${e.runtimeType}');
-        print('❌ Error details: $e');
+        debugPrint('❌ User creation failed: $e');
+        debugPrint('❌ Error type: ${e.runtimeType}');
+        debugPrint('❌ Error details: $e');
       }
       rethrow; // Re-throw so calling code knows it failed
     }
@@ -90,7 +90,7 @@ class SimpleAlertService {
       return result != null;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error checking user existence: $e');
+        debugPrint('❌ Error checking user existence: $e');
       }
       return false;
     }
@@ -112,11 +112,11 @@ class SimpleAlertService {
       });
 
       if (kDebugMode) {
-        print('✅ Registered plate: $plateNumber -> $plateHash');
+        debugPrint('✅ Registered plate: $plateNumber -> $plateHash');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Registration failed: $e');
+        debugPrint('❌ Registration failed: $e');
       }
       rethrow;
     }
@@ -143,7 +143,7 @@ class SimpleAlertService {
 
       if (result['success'] == true) {
         if (kDebugMode) {
-          print('📢 Alert sent to ${result['recipients']} users');
+          debugPrint('📢 Alert sent to ${result['recipients']} users');
         }
         return AlertResult(
           success: true,
@@ -160,7 +160,7 @@ class SimpleAlertService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Alert failed: $e');
+        debugPrint('❌ Alert failed: $e');
       }
       return AlertResult(
         success: false,
@@ -185,7 +185,7 @@ class SimpleAlertService {
           .toList();
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Failed to get plates: $e');
+        debugPrint('❌ Failed to get plates: $e');
       }
       return [];
     }
@@ -233,13 +233,13 @@ class SimpleAlertService {
           .eq('id', alertId);
 
       if (kDebugMode) {
-        print('✅ Response sent: $response for alert: $alertId');
+        debugPrint('✅ Response sent: $response for alert: $alertId');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Failed to send response: $e');
+        debugPrint('❌ Failed to send response: $e');
       }
       return false;
     }
@@ -273,7 +273,7 @@ class SimpleAlertService {
           .toList();
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error getting sent alerts: $e');
+        debugPrint('❌ Error getting sent alerts: $e');
       }
       return [];
     }
@@ -295,7 +295,7 @@ class SimpleAlertService {
         .eq('plate_hash', plateHash);
 
     if (kDebugMode) {
-      print('🗑️ Deleted plate: $plateNumber');
+      debugPrint('🗑️ Deleted plate: $plateNumber');
     }
   }
 

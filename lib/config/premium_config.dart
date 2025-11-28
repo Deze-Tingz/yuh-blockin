@@ -136,15 +136,10 @@ class PremiumConfig {
     return isPremium ? 'Premium Edition' : 'Community Edition';
   }
 
-  static void logPremiumStatus() {
-    print('🏝️ Yuh Blockin\' ${isPremium ? 'Premium' : 'Free'} - $buildInfo');
-    if (isPremium) {
-      print('👑 Premium features enabled - Walk good with VIP vibes!');
-    } else {
-      print('🆓 Free version - Upgrade for premium Caribbean experience!');
-    }
-  }
+  // logPremiumStatus is intentionally left empty for production
+  // Use debugPrint in debug mode if logging is needed
 }
+
 
 // Premium Feature Enums
 enum PremiumFeature {

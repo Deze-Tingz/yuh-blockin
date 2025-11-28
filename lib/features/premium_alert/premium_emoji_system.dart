@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../core/theme/premium_theme.dart';
-import '../manim_animations/manim_integration.dart';
 
 /// Premium Animated Emoji Expression System
 ///
@@ -366,7 +365,6 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
   late Animation<double> _primaryAnimation;
   late Animation<double> _selectionAnimation;
   late Animation<double> _playAnimation;
-  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -402,11 +400,6 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
 
     _playAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _playController, curve: Curves.elasticInOut),
-    );
-
-    // Combined scale animation
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _primaryController, curve: Curves.easeInOut),
     );
   }
 
@@ -490,19 +483,19 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
             height: widget.size + 20,
             decoration: BoxDecoration(
               color: widget.isSelected
-                  ? widget.expression.accentColor.withOpacity(0.1)
+                  ? widget.expression.accentColor.withValues(alpha: 0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular((widget.size + 20) / 2),
               border: widget.isSelected
                   ? Border.all(
-                      color: widget.expression.accentColor.withOpacity(0.3),
+                      color: widget.expression.accentColor.withValues(alpha: 0.3),
                       width: 2,
                     )
                   : null,
               boxShadow: widget.isSelected
                   ? [
                       BoxShadow(
-                        color: widget.expression.accentColor.withOpacity(0.2),
+                        color: widget.expression.accentColor.withValues(alpha: 0.2),
                         blurRadius: 12,
                         spreadRadius: 2,
                       ),
@@ -528,11 +521,6 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
         },
       ),
     );
-  }
-
-  double _getAnimatedScale() {
-    // Zoom effects removed - no scaling animation
-    return 1.0;
   }
 
   Offset _getAnimatedOffset() {
@@ -685,7 +673,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
     final availableEmojis = _getCurrentExpressions();
 
     return Material(
-      color: Colors.black.withOpacity(0.6),
+      color: Colors.black.withValues(alpha: 0.6),
       child: SlideTransition(
         position: _slideAnimation,
         child: Container(
@@ -699,7 +687,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, -4),
               ),
@@ -819,13 +807,13 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              _selectedEmoji!.accentColor.withOpacity(0.08),
-                              _selectedEmoji!.accentColor.withOpacity(0.03),
+                              _selectedEmoji!.accentColor.withValues(alpha: 0.08),
+                              _selectedEmoji!.accentColor.withValues(alpha: 0.03),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: _selectedEmoji!.accentColor.withOpacity(0.2),
+                            color: _selectedEmoji!.accentColor.withValues(alpha: 0.2),
                             width: 1,
                           ),
                         ),
@@ -909,7 +897,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                               borderRadius: BorderRadius.circular(28),
                             ),
                           ),
-                          child: Text(
+                          child: const Text(
                             'Send Alert',
                             style: TextStyle(
                               fontSize: 18,
@@ -933,10 +921,10 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
   Widget _buildPackSwitcher() {
     return Container(
       decoration: BoxDecoration(
-        color: PremiumTheme.surfaceColor.withOpacity(0.8),
+        color: PremiumTheme.surfaceColor.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: PremiumTheme.dividerColor.withOpacity(0.3),
+          color: PremiumTheme.dividerColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -953,7 +941,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
           Container(
             width: 1,
             height: 40,
-            color: PremiumTheme.dividerColor.withOpacity(0.3),
+            color: PremiumTheme.dividerColor.withValues(alpha: 0.3),
           ),
           _buildPackOption(
             title: 'Classic',
@@ -979,7 +967,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? PremiumTheme.accentColor.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? PremiumTheme.accentColor.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -987,7 +975,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
           children: [
             Text(
               icon,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(width: 8),
             Column(
@@ -1009,7 +997,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
                     color: isSelected
-                        ? PremiumTheme.accentColor.withOpacity(0.8)
+                        ? PremiumTheme.accentColor.withValues(alpha: 0.8)
                         : PremiumTheme.secondaryTextColor,
                   ),
                 ),

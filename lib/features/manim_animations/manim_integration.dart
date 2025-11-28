@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
-import 'dart:math' as math;
 
 import '../../core/theme/premium_theme.dart';
 
@@ -12,12 +11,8 @@ import '../../core/theme/premium_theme.dart';
 /// "Pixar-level composition meets minimal, tasteful visual humor"
 /// "Mathematical precision with comedic flair"
 class ManImAnimationController {
-  late AnimationController _primaryController;
-  late AnimationController _secondaryController;
-  late AnimationController _comedyTimingController;
-
   Timer? _sequenceTimer;
-  List<Timer> _activeTimers = [];
+  final List<Timer> _activeTimers = [];
 
   bool _isDisposed = false;
 
@@ -34,7 +29,7 @@ class ManImAnimationController {
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.8),
+      barrierColor: Colors.black.withValues(alpha: 0.8),
       builder: (context) => _ComedyRevealOverlay(
         plateNumber: plateNumber,
         onAnimationComplete: () {
@@ -55,7 +50,7 @@ class ManImAnimationController {
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) => _AcknowledgmentOverlay(
         onAnimationComplete: () {
           Navigator.of(context).pop();
@@ -75,7 +70,7 @@ class ManImAnimationController {
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (context) => _ResolutionOverlay(
         onAnimationComplete: () {
           Navigator.of(context).pop();
@@ -117,7 +112,6 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
   late AnimationController _mathController;
 
   late Animation<double> _scaleAnimation;
-  late Animation<double> _rotateAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _mathAnimation;
 
@@ -161,10 +155,6 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
 
     _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
-
-    _rotateAnimation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _rotateController, curve: Curves.easeInOut),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -252,7 +242,7 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                     borderRadius: PremiumTheme.largeRadius,
                     boxShadow: [
                       BoxShadow(
-                        color: PremiumTheme.accentColor.withOpacity(0.3),
+                        color: PremiumTheme.accentColor.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -266,7 +256,7 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: PremiumTheme.accentColor.withOpacity(0.1),
+                          color: PremiumTheme.accentColor.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -288,7 +278,7 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                           color: PremiumTheme.backgroundColor,
                           borderRadius: PremiumTheme.mediumRadius,
                           border: Border.all(
-                            color: PremiumTheme.accentColor.withOpacity(0.3),
+                            color: PremiumTheme.accentColor.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -334,9 +324,9 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  PremiumTheme.accentColor.withOpacity(0.3),
+                                  PremiumTheme.accentColor.withValues(alpha: 0.3),
                                   PremiumTheme.accentColor,
-                                  PremiumTheme.accentColor.withOpacity(0.3),
+                                  PremiumTheme.accentColor.withValues(alpha: 0.3),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(2),
@@ -425,7 +415,7 @@ class _AcknowledgmentOverlayState extends State<_AcknowledgmentOverlay>
                   borderRadius: PremiumTheme.largeRadius,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.withOpacity(0.2),
+                      color: Colors.green.withValues(alpha: 0.2),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
@@ -441,10 +431,10 @@ class _AcknowledgmentOverlayState extends State<_AcknowledgmentOverlay>
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: Colors.green.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.check,
                           size: 30,
                           color: Colors.green,
@@ -568,13 +558,13 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                       end: Alignment.bottomRight,
                       colors: [
                         PremiumTheme.surfaceColor,
-                        PremiumTheme.surfaceColor.withOpacity(0.9),
+                        PremiumTheme.surfaceColor.withValues(alpha: 0.9),
                       ],
                     ),
                     borderRadius: PremiumTheme.extraLargeRadius,
                     boxShadow: [
                       BoxShadow(
-                        color: PremiumTheme.accentColor.withOpacity(0.2),
+                        color: PremiumTheme.accentColor.withValues(alpha: 0.2),
                         blurRadius: 30,
                         spreadRadius: 6,
                       ),
@@ -590,8 +580,8 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Colors.green.withOpacity(0.2),
-                              Colors.blue.withOpacity(0.2),
+                              Colors.green.withValues(alpha: 0.2),
+                              Colors.blue.withValues(alpha: 0.2),
                             ],
                           ),
                           shape: BoxShape.circle,
@@ -635,7 +625,7 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                         width: 150,
                         height: 6,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             colors: [
                               Colors.green,
                               Colors.blue,

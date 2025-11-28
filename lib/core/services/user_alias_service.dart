@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -65,7 +66,7 @@ class UserAliasService {
         final data = jsonDecode(aliasesJson) as Map<String, dynamic>;
         aliases = data.cast<String, String>();
       } catch (e) {
-        print('Error loading aliases: $e');
+        debugPrint('Error loading aliases: $e');
       }
     }
 
@@ -112,7 +113,7 @@ class UserAliasService {
       final data = jsonDecode(aliasesJson) as Map<String, dynamic>;
       return data.cast<String, String>();
     } catch (e) {
-      print('Error loading aliases: $e');
+      debugPrint('Error loading aliases: $e');
       return {};
     }
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Secure License Plate Storage Service
 ///
@@ -45,19 +46,19 @@ class PlateStorageService {
 
       // Validate plate format
       if (!_isValidPlateFormat(normalizedPlate)) {
-        throw PlateStorageException('Invalid license plate format');
+        throw const PlateStorageException('Invalid license plate format');
       }
 
       final existingPlates = await getRegisteredPlates();
 
       // Check for max vehicles limit
       if (existingPlates.length >= maxVehicles) {
-        throw PlateStorageException('Maximum of $maxVehicles vehicles allowed');
+        throw const PlateStorageException('Maximum of 3 vehicles allowed');
       }
 
       // Check for duplicates
       if (existingPlates.contains(normalizedPlate)) {
-        throw PlateStorageException('License plate already registered');
+        throw const PlateStorageException('License plate already registered');
       }
 
       // Add new plate
@@ -100,7 +101,7 @@ class PlateStorageService {
       final existingPlates = await getRegisteredPlates();
 
       if (!existingPlates.contains(normalizedPlate)) {
-        throw PlateStorageException('License plate not found');
+        throw const PlateStorageException('License plate not found');
       }
 
       final updatedPlates = existingPlates.where((plate) => plate != normalizedPlate).toList();
@@ -240,7 +241,7 @@ class PlateStorageService {
 
       // Verify the plate exists
       if (!existingPlates.contains(normalizedPlate)) {
-        throw PlateStorageException('Cannot set primary plate: plate not registered');
+        throw const PlateStorageException('Cannot set primary plate: plate not registered');
       }
 
       // Get current data
@@ -312,6 +313,164 @@ class PlateStorageService {
     }
   }
 
+  /// Sync local plates with database - bidirectional sync
+  /// - Removes local plates that don't exist in DB
+  /// - Restores plates from DB that don't exist locally
+  /// - Handles offline gracefully
+  /// Call this on app startup to ensure data consistency
+  Future<SyncResult> syncWithDatabase(String userId) async {
+    try {
+      // Check for user ID change (different account)
+      final prefs = await SharedPreferences.getInstance();
+      final lastSyncedUserId = prefs.getString('yuh_last_synced_user_id');
+
+      if (lastSyncedUserId != null && lastSyncedUserId != userId) {
+        // User changed! Clear local data to prevent cross-account data leak
+        if (kDebugMode) {
+          debugPrint('⚠️ User ID changed from $lastSyncedUserId to $userId - clearing local plates');
+        }
+        await clearAllPlates();
+        await prefs.setString('yuh_last_synced_user_id', userId);
+      } else if (lastSyncedUserId == null) {
+        await prefs.setString('yuh_last_synced_user_id', userId);
+      }
+
+      // Validate local storage integrity first
+      final isValid = await validateStorageIntegrity();
+      if (!isValid) {
+        if (kDebugMode) {
+          debugPrint('⚠️ Local storage corrupted - clearing and will restore from DB');
+        }
+        await clearAllPlates();
+      }
+
+      List<String> localPlates;
+      try {
+        localPlates = await getRegisteredPlates();
+      } catch (e) {
+        // Local storage read failed - clear and continue
+        if (kDebugMode) {
+          debugPrint('⚠️ Failed to read local plates, clearing: $e');
+        }
+        await clearAllPlates();
+        localPlates = [];
+      }
+
+      // Try to get DB plates - handle network errors gracefully
+      List<Map<String, dynamic>> dbResult;
+      try {
+        final supabase = Supabase.instance.client;
+        dbResult = await supabase
+            .from('plates')
+            .select('plate_number, hashed_plate')
+            .eq('user_id', userId)
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        // Network error - skip sync but don't crash
+        if (kDebugMode) {
+          debugPrint('⚠️ Network error during sync, skipping: $e');
+        }
+        return SyncResult(
+          synced: false,
+          removedCount: 0,
+          restoredCount: 0,
+          message: 'Offline - sync skipped',
+          wasOffline: true,
+        );
+      }
+
+      final dbPlates = <String>{};
+      final dbPlatesList = <String>[];
+
+      for (final row in dbResult) {
+        if (row['plate_number'] != null) {
+          final plate = (row['plate_number'] as String).toUpperCase();
+          dbPlates.add(plate);
+          dbPlatesList.add(plate);
+        }
+      }
+
+      // === EDGE CASE 1: Remove local plates not in DB ===
+      final platesToRemove = <String>[];
+      for (final localPlate in localPlates) {
+        final normalizedPlate = localPlate.toUpperCase();
+        if (!dbPlates.contains(normalizedPlate)) {
+          platesToRemove.add(localPlate);
+          if (kDebugMode) {
+            debugPrint('🗑️ Plate not in DB, will remove: $localPlate');
+          }
+        }
+      }
+
+      for (final plate in platesToRemove) {
+        await removePlate(plate);
+        if (kDebugMode) {
+          debugPrint('✅ Removed stale local plate: $plate');
+        }
+      }
+
+      // === EDGE CASE 2: Restore DB plates not in local ===
+      final localPlatesNormalized = localPlates.map((p) => p.toUpperCase()).toSet();
+      final platesToRestore = <String>[];
+
+      for (final dbPlate in dbPlatesList) {
+        if (!localPlatesNormalized.contains(dbPlate) && !platesToRemove.contains(dbPlate)) {
+          platesToRestore.add(dbPlate);
+          if (kDebugMode) {
+            debugPrint('📥 Plate in DB but not local, will restore: $dbPlate');
+          }
+        }
+      }
+
+      for (final plate in platesToRestore) {
+        try {
+          await addPlate(plate);
+          if (kDebugMode) {
+            debugPrint('✅ Restored plate from DB: $plate');
+          }
+        } catch (e) {
+          // May fail if at max limit - that's ok
+          if (kDebugMode) {
+            debugPrint('⚠️ Could not restore plate $plate: $e');
+          }
+        }
+      }
+
+      // Build result message
+      final messages = <String>[];
+      if (platesToRemove.isNotEmpty) {
+        messages.add('removed ${platesToRemove.length}');
+      }
+      if (platesToRestore.isNotEmpty) {
+        messages.add('restored ${platesToRestore.length}');
+      }
+      final message = messages.isEmpty ? 'All plates synced' : messages.join(', ');
+
+      if (kDebugMode) {
+        debugPrint('🔄 Sync complete: $message');
+      }
+
+      return SyncResult(
+        synced: true,
+        removedCount: platesToRemove.length,
+        removedPlates: platesToRemove,
+        restoredCount: platesToRestore.length,
+        restoredPlates: platesToRestore,
+        message: message,
+      );
+
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Sync failed: $e');
+      }
+      return SyncResult(
+        synced: false,
+        removedCount: 0,
+        message: 'Sync failed: $e',
+      );
+    }
+  }
+
   // Private helper methods
 
   bool _isValidPlateFormat(String plate) {
@@ -342,4 +501,27 @@ class PlateStorageException implements Exception {
 
   @override
   String toString() => 'PlateStorageException: $message';
+}
+
+/// Result of syncing local plates with database
+class SyncResult {
+  final bool synced;
+  final int removedCount;
+  final List<String> removedPlates;
+  final int restoredCount;
+  final List<String> restoredPlates;
+  final String message;
+  final bool wasOffline;
+
+  SyncResult({
+    required this.synced,
+    required this.removedCount,
+    this.removedPlates = const [],
+    this.restoredCount = 0,
+    this.restoredPlates = const [],
+    required this.message,
+    this.wasOffline = false,
+  });
+
+  bool get hadChanges => removedCount > 0 || restoredCount > 0;
 }

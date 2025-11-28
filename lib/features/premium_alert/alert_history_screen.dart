@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/user_alias_service.dart';
@@ -9,9 +8,9 @@ class AlertHistoryScreen extends StatefulWidget {
   final String userId;
 
   const AlertHistoryScreen({
-    Key? key,
+    super.key,
     required this.userId,
-  }) : super(key: key);
+  });
 
   @override
   State<AlertHistoryScreen> createState() => _AlertHistoryScreenState();
@@ -23,18 +22,14 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   List<Alert> _receivedAlerts = [];
   List<Alert> _sentAlerts = [];
   bool _isLoading = true;
-  int _selectedTab = 0; // 0 = Received, 1 = Sent
   late TabController _tabController;
 
   // Stream subscriptions for real-time updates
   StreamSubscription<Alert>? _receivedAlertsSubscription;
   StreamSubscription<List<Alert>>? _sentAlertsSubscription;
 
-  // Debounce timers to batch stream updates and reduce rebuilds
-  Timer? _receivedDebounceTimer;
-  Timer? _sentDebounceTimer;
-  List<Alert> _pendingReceivedAlerts = [];
-  List<Alert>? _pendingSentAlerts;
+  // Track seen alert IDs to prevent duplicates
+  final Set<String> _seenReceivedAlertIds = {};
 
   @override
   void initState() {
@@ -48,8 +43,6 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     _tabController.dispose();
     _receivedAlertsSubscription?.cancel();
     _sentAlertsSubscription?.cancel();
-    _receivedDebounceTimer?.cancel();
-    _sentDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -59,72 +52,70 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     });
 
     try {
-      // Listen to received alerts stream with debouncing to batch updates
+      // Listen to received alerts stream - handle each alert individually
       _receivedAlertsSubscription?.cancel();
       _receivedAlertsSubscription = _alertService.getAlertsStream(widget.userId).listen(
         (alert) {
           if (mounted) {
-            // Add to pending alerts
-            _pendingReceivedAlerts.add(alert);
-
-            // Debounce: wait 200ms before applying updates to batch multiple events
-            _receivedDebounceTimer?.cancel();
-            _receivedDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-              if (mounted && _pendingReceivedAlerts.isNotEmpty) {
-                setState(() {
-                  for (final pendingAlert in _pendingReceivedAlerts) {
-                    final index = _receivedAlerts.indexWhere((a) => a.id == pendingAlert.id);
-                    if (index != -1) {
-                      _receivedAlerts[index] = pendingAlert;
-                    } else {
-                      _receivedAlerts.add(pendingAlert);
-                    }
-                  }
-                  _pendingReceivedAlerts.clear();
-                  _isLoading = false;
-                });
+            setState(() {
+              // Check if we've already seen this alert
+              if (!_seenReceivedAlertIds.contains(alert.id)) {
+                _seenReceivedAlertIds.add(alert.id);
+                _receivedAlerts.add(alert);
+                // Sort by newest first
+                _receivedAlerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              } else {
+                // Update existing alert (e.g., when response is added)
+                final index = _receivedAlerts.indexWhere((a) => a.id == alert.id);
+                if (index != -1) {
+                  _receivedAlerts[index] = alert;
+                }
               }
+              _isLoading = false;
             });
           }
         },
         onError: (error) {
-          print('❌ Received alerts stream error: $error');
+          debugPrint('❌ Received alerts stream error: $error');
           if (mounted) {
             setState(() => _isLoading = false);
           }
         },
       );
 
-      // Listen to sent alerts stream with debouncing
+      // Listen to sent alerts stream - receives full list each time
       _sentAlertsSubscription?.cancel();
       _sentAlertsSubscription = _alertService.getSentAlertsStream(widget.userId).listen(
         (alertList) {
           if (mounted) {
-            // Store pending update
-            _pendingSentAlerts = alertList;
-
-            // Debounce: wait 200ms before applying update
-            _sentDebounceTimer?.cancel();
-            _sentDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-              if (mounted && _pendingSentAlerts != null) {
-                setState(() {
-                  _sentAlerts = List.from(_pendingSentAlerts!);
-                  _pendingSentAlerts = null;
-                  _isLoading = false;
-                });
+            setState(() {
+              // Deduplicate by ID and sort by newest first
+              final uniqueAlerts = <String, Alert>{};
+              for (final alert in alertList) {
+                uniqueAlerts[alert.id] = alert;
               }
+              _sentAlerts = uniqueAlerts.values.toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              _isLoading = false;
             });
           }
         },
         onError: (error) {
-          print('❌ Sent alerts stream error: $error');
+          debugPrint('❌ Sent alerts stream error: $error');
           if (mounted) {
             setState(() => _isLoading = false);
           }
         },
       );
+
+      // Set loading to false after a timeout if streams don't emit
+      Timer(const Duration(seconds: 3), () {
+        if (mounted && _isLoading) {
+          setState(() => _isLoading = false);
+        }
+      });
     } catch (e) {
-      print('❌ Error loading alert history: $e');
+      debugPrint('❌ Error loading alert history: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -135,7 +126,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
 
   Future<void> _respondToAlert(Alert alert, String response) async {
     try {
-      print('📤 Sending response: $response for alert: ${alert.id}');
+      debugPrint('📤 Sending response: $response for alert: ${alert.id}');
 
       final success = await _alertService.sendResponse(
         alertId: alert.id,
@@ -158,12 +149,12 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           ),
         );
 
-        print('✅ Response sent successfully - waiting for stream update');
+        debugPrint('✅ Response sent successfully - waiting for stream update');
       } else {
         throw Exception('Failed to send response');
       }
     } catch (e) {
-      print('❌ Error responding to alert: $e');
+      debugPrint('❌ Error responding to alert: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -367,7 +358,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     return ElevatedButton(
       onPressed: () => _respondToAlert(alert, response),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? color : color.withOpacity(0.1),
+        backgroundColor: isPrimary ? color : color.withValues(alpha: 0.1),
         foregroundColor: isPrimary ? Colors.white : color,
         elevation: isPrimary ? 2 : 0,
         padding: EdgeInsets.symmetric(
@@ -423,7 +414,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         default:
           statusIcon = Icons.check_circle;
           statusColor = Colors.green;
-          statusText = alert.responseText ?? 'Responded';
+          statusText = alert.responseText;
       }
     } else {
       statusIcon = Icons.access_time;
@@ -438,17 +429,17 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: hasResponse
-              ? [statusColor.withOpacity(0.08), statusColor.withOpacity(0.03)]
-              : [Colors.blue.withOpacity(0.05), Colors.grey.withOpacity(0.02)],
+              ? [statusColor.withValues(alpha: 0.08), statusColor.withValues(alpha: 0.03)]
+              : [Colors.blue.withValues(alpha: 0.05), Colors.grey.withValues(alpha: 0.02)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: statusColor.withOpacity(0.25),
+          color: statusColor.withValues(alpha: 0.25),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -466,7 +457,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -487,7 +478,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.15),
+                              color: statusColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -551,7 +542,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.06),
+                color: statusColor.withValues(alpha: 0.06),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
@@ -562,7 +553,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                   Icon(
                     Icons.reply,
                     size: isTablet ? 16 : 14,
-                    color: statusColor.withOpacity(0.7),
+                    color: statusColor.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -599,26 +590,24 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[800]),
-        bottom: TabBar(
-          controller: _tabController,
-          onTap: (index) {
-            setState(() {
-              _selectedTab = index;
-            });
-          },
-          tabs: [
-            Tab(
-              icon: Icon(Icons.inbox),
-              text: 'Received (${_receivedAlerts.length})',
-            ),
-            Tab(
-              icon: Icon(Icons.send),
-              text: 'Sent (${_sentAlerts.length})',
-            ),
-          ],
-          labelColor: Colors.blue[600],
-          unselectedLabelColor: Colors.grey[600],
-          indicatorColor: Colors.blue[600],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabController,
+            tabs: [
+              Tab(
+                icon: const Icon(Icons.inbox),
+                text: 'Received (${_receivedAlerts.length})',
+              ),
+              Tab(
+                icon: const Icon(Icons.send),
+                text: 'Sent (${_sentAlerts.length})',
+              ),
+            ],
+            labelColor: Colors.blue[600],
+            unselectedLabelColor: Colors.grey[600],
+            indicatorColor: Colors.blue[600],
+          ),
         ),
       ),
       body: _isLoading

@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../../core/theme/premium_theme.dart';
-import '../../config/premium_config.dart';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/unacknowledged_alert_service.dart';
 import '../manim_animations/manim_integration.dart';
@@ -48,9 +47,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
   // Real alert system integration
   String? _currentUserId;
-  String? _sentAlertId;
   StreamSubscription<List<Alert>>? _alertResponseSubscription;
-  Alert? _currentAlert;
 
   @override
   void initState() {
@@ -142,39 +139,35 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   void _startListeningForResponses() {
     if (_currentUserId == null) return;
 
-    print('🔄 Starting to listen for real-time responses...');
+    debugPrint('🔄 Starting to listen for real-time responses...');
 
     _alertResponseSubscription = _alertService
         .getSentAlertsStream(_currentUserId!)
         .listen(
           (alerts) {
-            print('📡 Received alerts update: ${alerts.length} alerts');
+            debugPrint('📡 Received alerts update: ${alerts.length} alerts');
 
             if (alerts.isNotEmpty) {
               final latestAlert = alerts.first;
 
               // Debug logging
-              print('🎯 Latest alert: ID=${latestAlert.id}, Response=${latestAlert.response}, Phase=$_currentPhase');
-
-              setState(() {
-                _currentAlert = latestAlert;
-              });
+              debugPrint('🎯 Latest alert: ID=${latestAlert.id}, Response=${latestAlert.response}, Phase=$_currentPhase');
 
               // Only handle response if we haven't already processed it and aren't resolved
               if (latestAlert.hasResponse && _currentPhase != 'resolved' && _currentPhase != 'acknowledged') {
-                print('✅ Processing real response: ${latestAlert.response}');
+                debugPrint('✅ Processing real response: ${latestAlert.response}');
                 _handleRealResponse(latestAlert);
               } else if (latestAlert.hasResponse) {
-                print('ℹ️  Response already processed or alert resolved');
+                debugPrint('ℹ️  Response already processed or alert resolved');
               }
             }
           },
           onError: (error) {
-            print('❌ Alert stream error: $error');
+            debugPrint('❌ Alert stream error: $error');
             // Attempt to reconnect after delay
             Timer(const Duration(seconds: 5), () {
               if (mounted) {
-                print('🔄 Attempting to reconnect alert stream...');
+                debugPrint('🔄 Attempting to reconnect alert stream...');
                 _startListeningForResponses();
               }
             });
@@ -190,7 +183,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     // Set a reasonable timeout (10 minutes) for alerts
     Timer(const Duration(minutes: 10), () {
       if (mounted && _currentPhase == 'delivered') {
-        print('⏰ Alert timeout reached - no response received');
+        debugPrint('⏰ Alert timeout reached - no response received');
         setState(() {
           _currentPhase = 'timeout';
           _statusMessage = 'No response received. The recipient may not have seen the alert.';
@@ -208,7 +201,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
   /// Handle actual response from receiver
   void _handleRealResponse(Alert alert) {
-    print('✅ Real response received: ${alert.response} - ${alert.responseText}');
+    debugPrint('✅ Real response received: ${alert.response} - ${alert.responseText}');
 
     setState(() {
       _currentPhase = 'acknowledged';
@@ -219,9 +212,9 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
     // Mark alert as acknowledged in unacknowledged alerts service
     _unacknowledgedAlertService.markAlertAcknowledged(alert.id).then((_) {
-      print('✅ Marked alert ${alert.id} as acknowledged in tracking service');
+      debugPrint('✅ Marked alert ${alert.id} as acknowledged in tracking service');
     }).catchError((error) {
-      print('⚠️ Failed to mark alert as acknowledged: $error');
+      debugPrint('⚠️ Failed to mark alert as acknowledged: $error');
     });
 
     // Handle different response types appropriately
@@ -265,7 +258,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     });
 
     // Stay in acknowledged state - don't auto-resolve for delayed responses
-    print('🕐 Waiting for actual movement...');
+    debugPrint('🕐 Waiting for actual movement...');
   }
 
   /// Handle "can't move" response
@@ -275,7 +268,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     });
 
     // Don't auto-resolve - user may need to take other action
-    print('🚫 Cannot move - alert remains active');
+    debugPrint('🚫 Cannot move - alert remains active');
   }
 
   /// Handle "wrong car" response - transition to resolved
@@ -295,7 +288,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
   /// Handle generic/unknown response
   void _handleGenericResponse(Alert alert) {
     // Don't auto-resolve for unknown responses
-    print('❓ Unknown response type - staying in acknowledged state');
+    debugPrint('❓ Unknown response type - staying in acknowledged state');
   }
 
   /// Handle alert sending failure
@@ -323,7 +316,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     HapticFeedback.lightImpact();
 
     // Simple confirmation - alert delivered
-    print('🎯 Alert delivered. Waiting for genuine user response...');
+    debugPrint('🎯 Alert delivered. Waiting for genuine user response...');
   }
 
   // Removed fake auto-confirmation timers - now waits for real user responses only
@@ -542,9 +535,9 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     }
 
     // Show emoji for main phases, icons for status phases
-    if (widget.selectedEmoji != null && (_currentPhase == 'delivered' || _currentPhase == 'acknowledged' || _currentPhase == 'sending')) {
+    if (_currentPhase == 'delivered' || _currentPhase == 'acknowledged' || _currentPhase == 'sending') {
       return Text(
-        widget.selectedEmoji!.unicode,
+        widget.selectedEmoji.unicode,
         style: TextStyle(
           fontSize: isTablet ? 50 : 40,
           height: 1.0,
@@ -587,10 +580,10 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor.withOpacity(0.7),
+            color: PremiumTheme.surfaceColor.withValues(alpha: 0.7),
             borderRadius: PremiumTheme.mediumRadius,
             border: Border.all(
-              color: widget.selectedEmoji.accentColor.withOpacity(0.2),
+              color: widget.selectedEmoji.accentColor.withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -623,7 +616,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     final phases = ['sending', 'delivered', 'acknowledged', 'resolved'];
     final phaseLabels = ['Sending', 'Delivered', 'Acknowledged', 'Resolved'];
 
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: Center(
         child: SingleChildScrollView(
@@ -634,7 +627,6 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             mainAxisSize: MainAxisSize.min,
             children: phases.asMap().entries.map((entry) {
               final index = entry.key;
-              final phase = entry.value;
               final label = phaseLabels[index];
               final isActive = phases.indexOf(_currentPhase) >= index;
 

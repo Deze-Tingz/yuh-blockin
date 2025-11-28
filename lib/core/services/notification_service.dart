@@ -111,7 +111,7 @@ class NotificationService {
       enableVibration: vibrate,
       vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500]), // Premium vibration pattern
       enableLights: true,
-      ledColor: Color(0xFF4CAF50), // Green LED
+      ledColor: const Color(0xFF4CAF50), // Green LED
       ledOnMs: 1000,
       ledOffMs: 500,
       fullScreenIntent: true, // Shows on lock screen
@@ -157,12 +157,12 @@ class NotificationService {
   /// Uses a premium pattern: short-short-long
   Future<void> _vibrateForSilentMode() async {
     try {
-      final hasVibrator = await Vibration.hasVibrator() ?? false;
-      if (hasVibrator) {
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator == true) {
         // Check if custom vibration is available
-        final hasAmplitudeControl = await Vibration.hasAmplitudeControl() ?? false;
+        final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
 
-        if (hasAmplitudeControl) {
+        if (hasAmplitudeControl == true) {
           // Premium vibration with amplitude control
           await Vibration.vibrate(
             pattern: [0, 200, 100, 200, 100, 400],

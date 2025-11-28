@@ -38,11 +38,11 @@ class UnacknowledgedAlertService {
       await _saveAlerts(alerts);
 
       if (kDebugMode) {
-        print('📤 UnacknowledgedAlerts: Added alert $alertId for plate $targetPlateNumber');
+        debugPrint('📤 UnacknowledgedAlerts: Added alert $alertId for plate $targetPlateNumber');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ UnacknowledgedAlerts: Error tracking sent alert: $e');
+        debugPrint('❌ UnacknowledgedAlerts: Error tracking sent alert: $e');
       }
     }
   }
@@ -64,11 +64,11 @@ class UnacknowledgedAlertService {
       await _saveAlerts(updatedAlerts);
 
       if (kDebugMode) {
-        print('✅ UnacknowledgedAlerts: Marked alert $alertId as acknowledged');
+        debugPrint('✅ UnacknowledgedAlerts: Marked alert $alertId as acknowledged');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ UnacknowledgedAlerts: Error marking acknowledged: $e');
+        debugPrint('❌ UnacknowledgedAlerts: Error marking acknowledged: $e');
       }
     }
   }
@@ -123,7 +123,7 @@ class UnacknowledgedAlertService {
       return updatedAlerts;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ UnacknowledgedAlerts: Error getting alerts: $e');
+        debugPrint('❌ UnacknowledgedAlerts: Error getting alerts: $e');
       }
       return [];
     }
@@ -168,11 +168,11 @@ class UnacknowledgedAlertService {
       await _saveAlerts(filteredAlerts);
 
       if (kDebugMode) {
-        print('🗑️ UnacknowledgedAlerts: Removed alert $alertId');
+        debugPrint('🗑️ UnacknowledgedAlerts: Removed alert $alertId');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ UnacknowledgedAlerts: Error removing alert: $e');
+        debugPrint('❌ UnacknowledgedAlerts: Error removing alert: $e');
       }
     }
   }
@@ -184,11 +184,11 @@ class UnacknowledgedAlertService {
       await prefs.remove(_storageKey);
 
       if (kDebugMode) {
-        print('🧹 UnacknowledgedAlerts: Cleared all alerts');
+        debugPrint('🧹 UnacknowledgedAlerts: Cleared all alerts');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ UnacknowledgedAlerts: Error clearing alerts: $e');
+        debugPrint('❌ UnacknowledgedAlerts: Error clearing alerts: $e');
       }
     }
   }

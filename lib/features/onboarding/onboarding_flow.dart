@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Native splash removed - using custom AppInitializer splash
 
 import '../../core/theme/premium_theme.dart';
-import '../../config/premium_config.dart';
 import '../plate_registration/plate_registration_screen.dart';
 import '../../main_premium.dart';
 
@@ -250,11 +249,11 @@ class _WelcomePage extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          _CompactFeature(Icons.security_rounded, 'Privacy-First', 'Your data is encrypted'),
+          const _CompactFeature(Icons.security_rounded, 'Privacy-First', 'Your data is encrypted'),
           const SizedBox(height: 12),
-          _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
+          const _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
           const SizedBox(height: 12),
-          _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
+          const _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
         ],
       ),
     );
@@ -299,13 +298,13 @@ class _SecurityPage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _SecurityItem(Icons.enhanced_encryption, 'Military-grade encryption'),
+                const _SecurityItem(Icons.enhanced_encryption, 'Military-grade encryption'),
                 const SizedBox(height: 10),
-                _SecurityItem(Icons.visibility_off, 'We never see your plate number'),
+                const _SecurityItem(Icons.visibility_off, 'We never see your plate number'),
                 const SizedBox(height: 10),
-                _SecurityItem(Icons.person_off, 'No personal info required'),
+                const _SecurityItem(Icons.person_off, 'No personal info required'),
                 const SizedBox(height: 10),
-                _SecurityItem(Icons.phone_android, 'Data stays on your device'),
+                const _SecurityItem(Icons.phone_android, 'Data stays on your device'),
               ],
             ),
           ),

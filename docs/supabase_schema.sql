@@ -3,7 +3,7 @@
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
+YB-YKJT-B6GX-S78A-GRK3
 -- Users table - anonymous user profiles
 CREATE TABLE users (
     user_id TEXT PRIMARY KEY,
@@ -185,3 +185,130 @@ COMMENT ON TABLE plate_registry IS 'Stores only HMAC-SHA256 hashes of license pl
 COMMENT ON COLUMN plate_registry.hashed_plate IS 'HMAC-SHA256 hash of original license plate. Irreversible hash ensures privacy even in case of data breach.';
 COMMENT ON TABLE alerts IS 'Real-time alert system using hashed plate references. No personal information exposed.';
 COMMENT ON COLUMN alerts.target_plate_hash IS 'References hashed license plate for privacy. Original plate number never stored or transmitted to database.';
+
+-- =====================================================
+-- SUBSCRIPTION & MONETIZATION TABLES
+-- =====================================================
+
+-- Subscriptions table - tracks premium status
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'free' CHECK (status IN ('free', 'premium', 'lifetime')),
+    plan_type TEXT CHECK (plan_type IN ('monthly', 'lifetime')),
+    revenuecat_user_id TEXT,
+    started_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+
+-- Daily alert usage - tracks free tier limits
+CREATE TABLE daily_alert_usage (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    date DATE DEFAULT CURRENT_DATE,
+    alert_count INTEGER DEFAULT 0,
+    UNIQUE(user_id, date)
+);
+
+CREATE INDEX idx_daily_usage_user_date ON daily_alert_usage(user_id, date);
+
+-- Enable RLS on subscription tables
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_alert_usage ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for subscriptions
+CREATE POLICY "Users can view their own subscription" ON subscriptions
+    FOR SELECT USING (user_id = current_setting('request.jwt.claims', true)::json->>'sub');
+
+CREATE POLICY "Allow anonymous subscription check" ON subscriptions
+    FOR SELECT USING (true);
+
+-- RLS Policies for daily usage (allow service to read/write)
+CREATE POLICY "Users can view their own daily usage" ON daily_alert_usage
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow increment daily usage" ON daily_alert_usage
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow update daily usage" ON daily_alert_usage
+    FOR UPDATE USING (true);
+
+-- Trigger to auto-update timestamps on subscriptions
+CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Function to increment daily usage (upsert)
+CREATE OR REPLACE FUNCTION increment_daily_usage(p_user_id TEXT)
+RETURNS INTEGER AS $$
+DECLARE
+    new_count INTEGER;
+BEGIN
+    INSERT INTO daily_alert_usage (user_id, date, alert_count)
+    VALUES (p_user_id, CURRENT_DATE, 1)
+    ON CONFLICT (user_id, date)
+    DO UPDATE SET alert_count = daily_alert_usage.alert_count + 1
+    RETURNING alert_count INTO new_count;
+
+    RETURN new_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get remaining alerts for a user
+CREATE OR REPLACE FUNCTION get_remaining_alerts(p_user_id TEXT, p_free_limit INTEGER DEFAULT 3)
+RETURNS INTEGER AS $$
+DECLARE
+    user_status TEXT;
+    alerts_used INTEGER;
+BEGIN
+    -- Check subscription status
+    SELECT status INTO user_status
+    FROM subscriptions
+    WHERE user_id = p_user_id
+    LIMIT 1;
+
+    -- Premium/lifetime users get unlimited
+    IF user_status IN ('premium', 'lifetime') THEN
+        RETURN 999;
+    END IF;
+
+    -- Get today's usage for free users
+    SELECT COALESCE(alert_count, 0) INTO alerts_used
+    FROM daily_alert_usage
+    WHERE user_id = p_user_id AND date = CURRENT_DATE;
+
+    RETURN GREATEST(0, p_free_limit - COALESCE(alerts_used, 0));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =====================================================
+-- PLATE OWNERSHIP VERIFICATION SYSTEM
+-- Crypto-style ownership keys - no photos, no IDs required
+-- =====================================================
+
+-- Add ownership key columns to plates table
+-- RUN THIS SQL ON YOUR EXISTING 'plates' TABLE:
+ALTER TABLE plates ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'verified';
+ALTER TABLE plates ADD COLUMN IF NOT EXISTS ownership_key_hash TEXT;
+ALTER TABLE plates ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE plates ADD COLUMN IF NOT EXISTS hashed_plate TEXT;
+
+-- Add constraint for verification_status (run separately if needed)
+-- ALTER TABLE plates ADD CONSTRAINT plates_verification_status_check
+--     CHECK (verification_status IN ('unverified', 'verified', 'disputed'));
+
+-- Index for efficient lookups
+CREATE INDEX IF NOT EXISTS idx_plates_verification_status ON plates(verification_status);
+CREATE INDEX IF NOT EXISTS idx_plates_ownership_key_hash ON plates(ownership_key_hash);
+CREATE INDEX IF NOT EXISTS idx_plates_hashed_plate ON plates(hashed_plate);
+
+-- Update existing plates to be verified by default (legacy support)
+UPDATE plates SET verification_status = 'verified' WHERE verification_status IS NULL;
+
+COMMENT ON TABLE plates IS 'License plate registry with crypto-style ownership verification. Only stores hashed plates and hashed ownership keys.';
+COMMENT ON COLUMN plates.ownership_key_hash IS 'SHA-256 hash of the ownership key. Original key stored ONLY on user device (like a crypto private key).';
+COMMENT ON COLUMN plates.verification_status IS 'verified=ownership proven with key, unverified=no key set, disputed=under ownership dispute';

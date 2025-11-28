@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 /// Premium Backend Service for Yuh Blockin'
 ///
@@ -33,10 +34,10 @@ class PremiumBackendService {
       await _seedDemoData();
 
       _isInitialized = true;
-      print('✅ Premium Backend Service initialized successfully');
+      debugPrint('✅ Premium Backend Service initialized successfully');
     } catch (e) {
-      print('❌ Failed to initialize Premium Backend Service: $e');
-      throw PremiumBackendException('Initialization failed', code: 'INIT_ERROR');
+      debugPrint('❌ Failed to initialize Premium Backend Service: $e');
+      throw const PremiumBackendException('Initialization failed', code: 'INIT_ERROR');
     }
   }
 
@@ -83,7 +84,7 @@ class PremiumBackendService {
 
       return profile;
     } catch (e) {
-      throw PremiumBackendException('Account creation failed', code: 'CREATE_ACCOUNT_ERROR');
+      throw const PremiumBackendException('Account creation failed', code: 'CREATE_ACCOUNT_ERROR');
     }
   }
 
@@ -96,7 +97,7 @@ class PremiumBackendService {
     _ensureInitialized();
 
     if (_currentUserId == null) {
-      throw PremiumBackendException('User not authenticated', code: 'AUTH_ERROR');
+      throw const PremiumBackendException('User not authenticated', code: 'AUTH_ERROR');
     }
 
     try {
@@ -104,7 +105,7 @@ class PremiumBackendService {
       final plateRegistration = _plateDatabase[hashedPlate];
 
       if (plateRegistration == null) {
-        throw PremiumBackendException('License plate not registered', code: 'PLATE_NOT_FOUND');
+        throw const PremiumBackendException('License plate not registered', code: 'PLATE_NOT_FOUND');
       }
 
       final alertId = _generateAlertId();
@@ -133,7 +134,7 @@ class PremiumBackendService {
       );
     } catch (e) {
       if (e is PremiumBackendException) rethrow;
-      throw PremiumBackendException('Failed to send alert', code: 'SEND_ALERT_ERROR');
+      throw const PremiumBackendException('Failed to send alert', code: 'SEND_ALERT_ERROR');
     }
   }
 
@@ -160,7 +161,7 @@ class PremiumBackendService {
 
     final alert = _alertDatabase[alertId];
     if (alert == null) {
-      throw PremiumBackendException('Alert not found', code: 'ALERT_NOT_FOUND');
+      throw const PremiumBackendException('Alert not found', code: 'ALERT_NOT_FOUND');
     }
 
     final updatedAlert = alert.copyWith(
@@ -189,7 +190,7 @@ class PremiumBackendService {
 
     final user = _userDatabase[userId];
     if (user == null) {
-      throw PremiumBackendException('User not found', code: 'USER_NOT_FOUND');
+      throw const PremiumBackendException('User not found', code: 'USER_NOT_FOUND');
     }
 
     final alertsAsReceiver = _alertDatabase.values
@@ -229,7 +230,7 @@ class PremiumBackendService {
   /// Hash license plate for privacy
   String _hashLicensePlate(String plateNumber) {
     final normalizedPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
-    final salt = 'YUH_BLOCKIN_PREMIUM_SALT_2025';
+    const salt = 'YUH_BLOCKIN_PREMIUM_SALT_2025';
     final bytes = utf8.encode('$normalizedPlate$salt');
     final digest = sha256.convert(bytes);
     return digest.toString().substring(0, 16); // First 16 characters for efficiency
@@ -388,7 +389,7 @@ class PremiumBackendService {
 
   void _ensureInitialized() {
     if (!_isInitialized) {
-      throw PremiumBackendException('Service not initialized', code: 'NOT_INITIALIZED');
+      throw const PremiumBackendException('Service not initialized', code: 'NOT_INITIALIZED');
     }
   }
 

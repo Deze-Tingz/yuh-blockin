@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../../core/theme/premium_theme.dart';
-import '../../config/premium_config.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/user_stats_service.dart';
 import '../../core/services/unacknowledged_alert_service.dart';
+import '../../core/services/subscription_service.dart';
 import 'alert_confirmation_screen.dart';
 import 'premium_emoji_system.dart';
 
@@ -157,7 +156,10 @@ class LicensePlateFormatter extends TextInputFormatter {
 /// Premium alert workflow screen - launched from hero button
 /// Handles license plate input and alert creation with Manim integration
 class AlertWorkflowScreen extends StatefulWidget {
-  const AlertWorkflowScreen({super.key});
+  /// When true, screen is embedded in a modal bottom sheet (no back button, adjusted layout)
+  final bool isEmbedded;
+
+  const AlertWorkflowScreen({super.key, this.isEmbedded = false});
 
   @override
   State<AlertWorkflowScreen> createState() => _AlertWorkflowScreenState();
@@ -168,7 +170,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   late AnimationController _slideController;
   late AnimationController _scaleController;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
   final TextEditingController _plateController = TextEditingController();
@@ -185,7 +186,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   String? _primaryPlate;
   bool _hasLoadedDependencies = false;
   Timer? _primaryPlateRefreshTimer;
-  List<DateTime> _paymentTierAlertTimes = []; // Track alert timing for payment tier limits
+  final List<DateTime> _paymentTierAlertTimes = []; // Track alert timing for payment tier limits
 
   // Emoji pack selection
   String _selectedEmojiPack = 'Classic'; // 'Classic' or 'GenZ'
@@ -232,14 +233,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       curve: PremiumTheme.standardCurve,
     ));
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: PremiumTheme.standardCurve,
-    ));
-
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -277,9 +270,9 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   Future<void> _initializeServices() async {
     try {
       await _alertService.initialize();
-      print('✅ Simple alert service initialized');
+      debugPrint('✅ Simple alert service initialized');
     } catch (e) {
-      print('⚠️ Failed to initialize secure service: $e');
+      debugPrint('⚠️ Failed to initialize secure service: $e');
     }
   }
 
@@ -318,10 +311,10 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     // Only refresh on first load or when returning to screen
     if (!_hasLoadedDependencies) {
       _hasLoadedDependencies = true;
-      print('🔄 AlertWorkflow: Initial dependencies loaded');
+      debugPrint('🔄 AlertWorkflow: Initial dependencies loaded');
     } else {
       // User returned to screen, refresh primary plate
-      print('🔄 AlertWorkflow: Dependencies changed, likely returned to screen - refreshing primary plate...');
+      debugPrint('🔄 AlertWorkflow: Dependencies changed, likely returned to screen - refreshing primary plate...');
       _loadPrimaryPlate();
     }
   }
@@ -332,7 +325,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
     // Refresh primary plate when app becomes active
     if (state == AppLifecycleState.resumed) {
-      print('🔄 AlertWorkflow: App resumed, refreshing primary plate...');
+      debugPrint('🔄 AlertWorkflow: App resumed, refreshing primary plate...');
       _loadPrimaryPlate();
     }
   }
@@ -352,17 +345,14 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isTablet = screenSize.width > 768;
-
     return PopScope(
       canPop: !_isLoading,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _isLoading) {
           // Show a message that operation is in progress
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Please wait, sending alert...'),
+              content: const Text('Please wait, sending alert...'),
               backgroundColor: PremiumTheme.accentColor,
               duration: const Duration(milliseconds: 1500),
             ),
@@ -370,7 +360,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         }
       },
       child: Scaffold(
-      backgroundColor: PremiumTheme.backgroundColor.withOpacity(0.95),
+      backgroundColor: widget.isEmbedded ? Colors.transparent : PremiumTheme.backgroundColor.withValues(alpha: 0.95),
       body: Stack(
         children: [
           // Main content
@@ -379,11 +369,12 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: SafeArea(
+            top: !widget.isEmbedded, // Skip top safe area when embedded (bottom sheet handles it)
+            bottom: true,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 // Check if we need to use responsive layout for very small screens
                 final isVerySmallScreen = constraints.maxHeight < 600;
-                final isExtremelySmallScreen = constraints.maxHeight < 550;
 
                 return Container(
                   width: double.infinity,
@@ -450,6 +441,25 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 
   Widget _buildHeader(BuildContext context) {
+    // For embedded mode (modal bottom sheet), show centered title only
+    if (widget.isEmbedded) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Center(
+          child: Text(
+            'Send Alert',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.primaryTextColor,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Standard mode with back button
     return Row(
       children: [
         // Back button
@@ -477,7 +487,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: PremiumTheme.accentColor.withOpacity(0.1),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -503,7 +513,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
           Icon(
             Icons.directions_car_rounded,
             size: 14,
-            color: PremiumTheme.accentColor.withOpacity(0.7),
+            color: PremiumTheme.accentColor.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 6),
           Text(
@@ -581,7 +591,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             boxShadow: PremiumTheme.subtleShadow,
             border: Border.all(
               color: _isValidPlate
-                  ? PremiumTheme.accentColor.withOpacity(0.3)
+                  ? PremiumTheme.accentColor.withValues(alpha: 0.3)
                   : PremiumTheme.dividerColor,
               width: 1,
             ),
@@ -652,9 +662,9 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
     // Color mapping for urgency levels
     final urgencyColors = {
-      'Low': Color(0xFF34D399),    // Light green
+      'Low': const Color(0xFF34D399),    // Light green
       'Normal': PremiumTheme.accentColor,  // Standard blue
-      'High': Color(0xFFEF4444),   // Red
+      'High': const Color(0xFFEF4444),   // Red
     };
 
     final urgencyIntensities = {
@@ -696,13 +706,13 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected
-                      ? urgencyColor.withOpacity(intensity)
-                      : urgencyColor.withOpacity(0.1),
+                      ? urgencyColor.withValues(alpha: intensity)
+                      : urgencyColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected
-                        ? urgencyColor.withOpacity(0.5)
-                        : urgencyColor.withOpacity(0.2),
+                        ? urgencyColor.withValues(alpha: 0.5)
+                        : urgencyColor.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
@@ -713,7 +723,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                       fontWeight: FontWeight.w600,
                       color: isSelected
                           ? Colors.white
-                          : urgencyColor.withOpacity(0.8),
+                          : urgencyColor.withValues(alpha: 0.8),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -824,22 +834,22 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? emoji.accentColor.withOpacity(0.15)
+                                ? emoji.accentColor.withValues(alpha: 0.15)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             border: isSelected
                                 ? Border.all(
-                                    color: emoji.accentColor.withOpacity(0.5),
+                                    color: emoji.accentColor.withValues(alpha: 0.5),
                                     width: 2,
                                   )
                                 : Border.all(
-                                    color: PremiumTheme.dividerColor.withOpacity(0.3),
+                                    color: PremiumTheme.dividerColor.withValues(alpha: 0.3),
                                     width: 1,
                                   ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: emoji.accentColor.withOpacity(0.2),
+                                      color: emoji.accentColor.withValues(alpha: 0.2),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
                                       spreadRadius: 0,
@@ -920,13 +930,13 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? PremiumTheme.accentColor.withOpacity(0.15)
+              ? PremiumTheme.accentColor.withValues(alpha: 0.15)
               : PremiumTheme.surfaceColor,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? PremiumTheme.accentColor.withOpacity(0.5)
-                : PremiumTheme.dividerColor.withOpacity(0.5),
+                ? PremiumTheme.accentColor.withValues(alpha: 0.5)
+                : PremiumTheme.dividerColor.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -972,14 +982,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     // Do NOT auto-send - user must explicitly press Send button
     // This gives users control over when the alert is actually sent
   }
-
-  /// Play sound effect appropriate to the emoji
-  Future<void> _playEmojiSound(PremiumEmojiExpression emoji) async {
-    // Sound effects disabled - no sound files in project
-    // Haptic feedback is used instead for user feedback
-  }
-
-
 
   Widget _buildSendButton() {
     final isEnabled = _isValidPlate && !_isLoading && _selectedEmoji != null;
@@ -1183,7 +1185,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       final plateNumber = _plateController.text.trim();
 
       // Send real alert through secure service to live database
-      print('📢 Sending real alert to: $plateNumber');
+      debugPrint('📢 Sending real alert to: $plateNumber');
 
       // Get or create sender user ID
       final prefs = await SharedPreferences.getInstance();
@@ -1203,7 +1205,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
       if (mounted) {
         if (result.success) {
-          print('✅ Alert sent successfully to ${result.recipients} users');
+          debugPrint('✅ Alert sent successfully to ${result.recipients} users');
 
           // Record alert timing for payment tier limits
           _paymentTierAlertTimes.add(DateTime.now());
@@ -1212,6 +1214,9 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
           // Increment alerts sent counter in user stats
           await _statsService.incrementAlertsSent();
+
+          // Increment daily usage for subscription tracking
+          await SubscriptionService().incrementDailyUsage();
 
           // Track alert for unacknowledged monitoring
           if (result.alertId != null) {
@@ -1265,7 +1270,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   void _showErrorDialog(String error) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.3),
+      barrierColor: Colors.black.withValues(alpha: 0.3),
       builder: (context) => AlertDialog(
         backgroundColor: PremiumTheme.surfaceColor,
         shape: RoundedRectangleBorder(
@@ -1414,35 +1419,4 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 }
 
-/// Custom elastic ease-in curve implementation (simulates Curves.easeInElastic)
-double _customElasticEaseIn(double t) {
-  if (t == 0) return 0;
-  if (t == 1) return 1;
-
-  const double c4 = (2 * math.pi) / 3;
-  return -(math.pow(2, 10 * (t - 1))) * math.sin((t - 1.1) * c4);
-}
-
-/// Enhanced pulse curve combining easeOutCubic expansion with easeInElastic compression
-class _EnhancedPulseCurve extends Curve {
-  @override
-  double transform(double t) {
-    // For the first half (0.0 to 0.5): easeOutCubic expansion
-    if (t < 0.5) {
-      // Map t from [0, 0.5] to [0, 1] for easeOutCubic
-      double normalizedT = t * 2.0;
-      // easeOutCubic formula: 1 - (1 - x)^3
-      return Curves.easeOutCubic.transform(normalizedT);
-    }
-    // For the second half (0.5 to 1.0): easeInElastic compression (subtle)
-    else {
-      // Map t from [0.5, 1] to [1, 0] for reverse effect
-      double normalizedT = (t - 0.5) * 2.0;
-      // Custom elastic compression return (simulate easeInElastic)
-      double elasticValue = _customElasticEaseIn(normalizedT);
-      // Invert the elastic value and blend it back to 1.0
-      return 1.0 - (elasticValue * 0.3); // 30% elastic intensity for subtlety
-    }
-  }
-}
 
