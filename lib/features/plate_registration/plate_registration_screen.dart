@@ -547,6 +547,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      // Dismiss keyboard first
+                      FocusScope.of(context).unfocus();
                       Navigator.of(context).pop();
                       _showSuccessAnimation();
                     },
@@ -589,35 +591,27 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
   }
 
   void _showSuccessAnimation() {
+    // Dismiss keyboard before showing animation
+    FocusScope.of(context).unfocus();
     HapticFeedback.heavyImpact();
 
     showDialog(
       context: context,
-      barrierDismissible: true, // Allow dismissing dialog
+      barrierDismissible: false, // Prevent accidental dismiss during animation
       barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (context) => _SuccessAnimation(
+      builder: (dialogContext) => _SuccessAnimation(
         onComplete: () {
-          Navigator.of(context).pop(); // Close the dialog
+          Navigator.of(dialogContext).pop(); // Close the dialog
           if (widget.isOnboarding && _registeredPlates.isNotEmpty) {
             // Complete onboarding and go to main app
             _completeOnboarding();
-          } else if (!widget.isOnboarding) {
+          } else if (!widget.isOnboarding && mounted) {
             // For non-onboarding mode, go back to previous screen
             Navigator.of(context).pop();
           }
         },
       ),
     );
-
-    // Fallback timeout to ensure navigation works (matches 1.2s animation)
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop(); // Close dialog if still open
-        if (!widget.isOnboarding) {
-          Navigator.of(context).pop(); // Go back to home
-        }
-      }
-    });
   }
 
   void _showErrorMessage(String error) {
