@@ -70,8 +70,8 @@ class PremiumYuhBlockinApp extends StatelessWidget {
   }
 }
 
-/// Determines the initial route based on user's onboarding status
-/// With beautiful colored logo matching onboarding
+/// Premium splash screen with island-tech aesthetic
+/// Brand: "Move with respect." - from DezeTingz
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
@@ -85,41 +85,71 @@ class _AppInitializerState extends State<AppInitializer>
   late Animation<double> _logoScale;
   late Animation<double> _logoFade;
   late Animation<double> _logoSlide;
+  late Animation<double> _taglineFade;
   late Animation<double> _footerFade;
+  late Animation<double> _footerSlide;
   bool _goToHome = false;
+
+  // Brand colors
+  static const Color _teal = Color(0xFF0B6E7D);
+  static const Color _coral = Color(0xFFFF847C);
+  static const Color _deepBlue = Color(0xFF045C71);
+  static const Color _softTeal = Color(0xFFE8F6F8);
 
   @override
   void initState() {
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 600), // Faster, lighter intro
+      duration: const Duration(milliseconds: 900), // Premium timing
       vsync: this,
     );
 
-    _logoScale = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    // Logo: gentle scale with ease
+    _logoScale = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+      ),
     );
 
+    // Logo: fade in first
     _logoFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
       ),
     );
 
-    // Subtle slide up for quick intro effect
-    _logoSlide = Tween<double>(begin: 20.0, end: 0.0).animate(
+    // Logo: subtle slide up
+    _logoSlide = Tween<double>(begin: 15.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
       ),
     );
 
+    // Tagline: fade in after logo
+    _taglineFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    // Footer: fade in last
     _footerFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    // Footer: slide up effect
+    _footerSlide = Tween<double>(begin: 10.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -200,104 +230,137 @@ class _AppInitializerState extends State<AppInitializer>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.backgroundColor,
-      body: SafeArea(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) => Column(
-            children: [
-              // Main logo area with slide-up intro animation
-              Expanded(
-                child: Center(
-                  child: Transform.translate(
-                    offset: Offset(0, _logoSlide.value),
-                    child: FadeTransition(
-                      opacity: _logoFade,
-                      child: ScaleTransition(
-                        scale: _logoScale,
-                        child: Image.asset(
-                          'assets/images/app_icon.png',
-                          width: 220,
-                          height: 220,
-                          fit: BoxFit.contain,
-                        ),
+      body: Container(
+        // Premium gradient background: white to soft teal
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              _softTeal,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) => Column(
+              children: [
+                // Spacer to push logo 20% above center
+                const Spacer(flex: 2),
+
+                // Logo with animations
+                Transform.translate(
+                  offset: Offset(0, _logoSlide.value),
+                  child: FadeTransition(
+                    opacity: _logoFade,
+                    child: ScaleTransition(
+                      scale: _logoScale,
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
                 ),
-              ),
-              // Premium company footer - always visible
-              FadeTransition(
-                opacity: _footerFade,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 48.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+
+                const SizedBox(height: 24),
+
+                // Tagline: "Move with respect."
+                FadeTransition(
+                  opacity: _taglineFade,
+                  child: Text(
+                    'Move with respect.',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                      color: _deepBlue,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+
+                // Spacer to balance layout
+                const Spacer(flex: 3),
+
+                // Premium footer with slide-up animation
+                Transform.translate(
+                  offset: Offset(0, _footerSlide.value),
+                  child: FadeTransition(
+                    opacity: _footerFade,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 48.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            width: 20,
-                            height: 0.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  const Color(0xFF1B6B7A).withValues(alpha: 0.4),
-                                ],
+                          // "from" with decorative lines
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 0.5,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.transparent,
+                                      _teal.withValues(alpha: 0.3),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'from',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w300,
+                                    color: _teal.withValues(alpha: 0.5),
+                                    letterSpacing: 2.0,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: 24,
+                                height: 0.5,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      _teal.withValues(alpha: 0.3),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              'from',
+                          const SizedBox(height: 8),
+                          // "DezeTingz" with brand gradient
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [_teal, _coral],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'DezeTingz',
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w300,
-                                color: const Color(0xFF1B6B7A).withValues(alpha: 0.6),
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 20,
-                            height: 0.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFF1B6B7A).withValues(alpha: 0.4),
-                                  Colors.transparent,
-                                ],
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 2.5,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFF1B6B7A), // Teal from logo
-                            Color(0xFFF08080), // Coral from logo
-                          ],
-                        ).createShader(bounds),
-                        child: const Text(
-                          'DezeTingz',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 2.0,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
