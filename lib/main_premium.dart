@@ -938,6 +938,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         // Mark this alert as processed to prevent duplicate marking
         _acknowledgedAlertIds.add(alert.id);
 
+        // Increment "They Moved" counter - someone responded to your alert
+        _statsService.incrementSituationsResolved().then((_) {
+          _loadUserStats(); // Refresh stats display
+        });
+
         // Show notification for the response
         _showResponseNotification(alert);
 
