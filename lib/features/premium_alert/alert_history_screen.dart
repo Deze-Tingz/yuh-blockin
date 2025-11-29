@@ -265,6 +265,8 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                   fontWeight: FontWeight.w500,
                   color: Colors.grey[800],
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               );
             },
           ),
@@ -282,12 +284,16 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                 children: [
                   Icon(Icons.reply, size: 16, color: Colors.green[700]),
                   const SizedBox(width: 8),
-                  Text(
-                    'You responded: ${alert.responseText}',
-                    style: TextStyle(
-                      fontSize: isTablet ? 14 : 12,
-                      color: Colors.green[700],
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      'You responded: ${alert.responseText}',
+                      style: TextStyle(
+                        fontSize: isTablet ? 14 : 12,
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -517,6 +523,8 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                               fontWeight: FontWeight.w600,
                               color: Colors.grey[800],
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           );
                         },
                       ),
@@ -528,6 +536,8 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                             fontSize: isTablet ? 14 : 12,
                             color: Colors.grey[600],
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],

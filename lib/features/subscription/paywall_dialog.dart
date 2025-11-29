@@ -6,20 +6,29 @@ import 'upgrade_screen.dart';
 class PaywallDialog extends StatelessWidget {
   final int remainingAlerts;
   final VoidCallback? onDismiss;
+  final String? customMessage;
 
   const PaywallDialog({
     super.key,
     this.remainingAlerts = 0,
     this.onDismiss,
+    this.customMessage,
   });
 
   /// Show the paywall dialog
-  static Future<void> show(BuildContext context, {int remainingAlerts = 0}) {
+  static Future<void> show(
+    BuildContext context, {
+    int remainingAlerts = 0,
+    String? customMessage,
+  }) {
     return showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.6),
-      builder: (context) => PaywallDialog(remainingAlerts: remainingAlerts),
+      builder: (context) => PaywallDialog(
+        remainingAlerts: remainingAlerts,
+        customMessage: customMessage,
+      ),
     );
   }
 
@@ -35,9 +44,11 @@ class PaywallDialog extends StatelessWidget {
           borderRadius: PremiumTheme.extraLargeRadius,
           boxShadow: PremiumTheme.strongShadow,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Header with icon
             Container(
               width: double.infinity,
@@ -81,7 +92,7 @@ class PaywallDialog extends StatelessWidget {
                   const SizedBox(height: 16),
                   // Title
                   Text(
-                    'Daily Limit Reached',
+                    customMessage != null ? 'Premium Feature' : 'Daily Limit Reached',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
@@ -98,7 +109,7 @@ class PaywallDialog extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    "You've used all 3 free alerts for today.",
+                    customMessage ?? "You've used all 3 free alerts for today.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
@@ -196,6 +207,7 @@ class PaywallDialog extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

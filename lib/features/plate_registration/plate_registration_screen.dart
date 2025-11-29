@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';
-import 'dart:math';
 
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/plate_storage_service.dart';
@@ -27,16 +28,7 @@ class PlateRegistrationScreen extends StatefulWidget {
   State<PlateRegistrationScreen> createState() => _PlateRegistrationScreenState();
 }
 
-class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _slideController;
-  late AnimationController _plateController;
-  late AnimationController _sparkleController;
-
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _plateAnimation;
-  late Animation<double> _sparkleAnimation;
-
+class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
   final TextEditingController _plateInputController = TextEditingController();
   final FocusNode _plateFocusNode = FocusNode();
 
@@ -48,28 +40,14 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   String? _primaryPlate;
   bool _isValidPlate = false;
   bool _isRegistering = false;
-  int _sparkleIndex = 0;
 
   bool get _isAtMaxCapacity => _registeredPlates.length >= PlateStorageService.maxVehicles;
-
-  // Timer reference for proper cleanup
-  Timer? _sparkleTimer;
-
-  final List<String> _playfulMessages = [
-    '🚗 Your digital parking passport',
-    '🔒 Secured with mathematical precision',
-    '✨ Adding some premium magic...',
-    '🎯 Almost there, parking champion!',
-    '🌟 Welcome to respectful parking!',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _initializeServices();
     _loadExistingPlates();
-    _startSparkleRotation();
   }
 
   Future<void> _initializeServices() async {
@@ -83,64 +61,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
         debugPrint('⚠️ Failed to initialize secure service: $e');
       }
     }
-  }
-
-  void _initializeAnimations() {
-    _slideController = AnimationController(
-      duration: PremiumTheme.mediumDuration,
-      vsync: this,
-    );
-
-    _plateController = AnimationController(
-      duration: PremiumTheme.fastDuration,
-      vsync: this,
-    );
-
-    _sparkleController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, 1.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutBack,
-    ));
-
-    _plateAnimation = Tween<double>(
-      begin: 0.9,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _plateController,
-      curve: Curves.elasticOut,
-    ));
-
-    _sparkleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _sparkleController,
-      curve: Curves.easeInOut,
-    ));
-
-    _slideController.forward();
-    _plateController.forward();
-    // Use reverse: true for smooth back-and-forth animation without glitches
-    _sparkleController.repeat(reverse: true);
-  }
-
-  void _startSparkleRotation() {
-    _sparkleTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        setState(() {
-          _sparkleIndex = (_sparkleIndex + 1) % _playfulMessages.length;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
   }
 
   Future<void> _loadExistingPlates() async {
@@ -232,8 +152,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
     if (isValid) {
       HapticFeedback.lightImpact();
-      _plateController.reset();
-      _plateController.forward();
     }
   }
 
@@ -436,11 +354,13 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Success icon
-                Container(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Success icon
+                  Container(
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
@@ -647,7 +567,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -853,12 +774,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
 
   @override
   void dispose() {
-    // Cancel timer to prevent memory leak
-    _sparkleTimer?.cancel();
-
-    _slideController.dispose();
-    _plateController.dispose();
-    _sparkleController.dispose();
     _plateInputController.dispose();
     _plateFocusNode.dispose();
     super.dispose();
@@ -868,45 +783,49 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
+    final isCompact = screenSize.height < 700;
 
     return Scaffold(
-        backgroundColor: PremiumTheme.backgroundColor,
-        body: SafeArea(
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Container(
-              width: double.infinity,
+      backgroundColor: PremiumTheme.backgroundColor,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 80.0 : 32.0,
-                vertical: 40.0,
+                horizontal: isTablet ? 64.0 : 24.0,
+                vertical: isCompact ? 12 : 16,
               ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (isCompact ? 24 : 32),
+                ),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Header
                     _buildHeader(),
 
-                    // Fixed spacing to replace flexible space
-                    SizedBox(height: isTablet ? 60 : 40),
+                    // Compact spacing
+                    SizedBox(height: isCompact ? 10 : 16),
 
                     // Main content
-                    _buildMainContent(isTablet),
+                    _buildMainContent(isTablet, isCompact),
 
-                    // Fixed spacing to replace flexible space
-                    SizedBox(height: isTablet ? 60 : 40),
+                    // Compact spacing
+                    SizedBox(height: isCompact ? 14 : 20),
 
                     // Registered plates list
-                    if (_registeredPlates.isNotEmpty) _buildRegisteredPlates(),
-
-                    const SizedBox(height: 40),
+                    if (_registeredPlates.isNotEmpty) _buildRegisteredPlates(isCompact),
                   ],
                 ),
               ),
-            ),
-          ),
-        ), // closes SafeArea & body
-    ); // closes Scaffold
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildHeader() {
@@ -983,179 +902,161 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     }
   }
 
-  Widget _buildMainContent(bool isTablet) {
+  Widget _buildMainContent(bool isTablet, bool isCompact) {
     return Column(
       children: [
-        // Ultra-minimalist hero section
+        // Premium hero section - static, no animations
         Container(
           padding: EdgeInsets.symmetric(
-            vertical: isTablet ? 56 : 40,
-            horizontal: isTablet ? 48 : 32,
+            vertical: isCompact ? 16 : 24,
+            horizontal: isTablet ? 32 : 20,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                PremiumTheme.accentColor.withValues(alpha: 0.03),
+                Colors.transparent,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
             children: [
-              // Breathing logo
-              AnimatedBuilder(
-                animation: _sparkleAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: 1.0 + (sin(_sparkleAnimation.value * 2 * pi) * 0.05),
-                    child: Container(
-                      width: isTablet ? 72 : 60,
-                      height: isTablet ? 72 : 60,
-                      margin: const EdgeInsets.only(bottom: 32),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            PremiumTheme.accentColor,
-                            PremiumTheme.accentColor.withValues(alpha: 0.8),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: PremiumTheme.accentColor.withValues(alpha: 0.25),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.directions_car_rounded,
-                        size: isTablet ? 36 : 30,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              // Clear header that reflects vehicle management focus
+              // Static logo icon
               Container(
-                constraints: BoxConstraints(
-                  maxWidth: isTablet ? 600 : 340,
-                ),
-                child: Text(
-                  widget.isOnboarding
-                      ? 'Vehicle Registry'
-                      : 'My Vehicles',
-                  style: TextStyle(
-                    fontSize: isTablet ? 32 : 24, // Match onboarding welcome text size
-                    fontWeight: FontWeight.w300,
-                    color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 0.5,
-                    height: 1.3,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Subtle status indicator
-              Container(
-                width: 60,
-                height: 2,
+                width: isCompact ? 48 : 56,
+                height: isCompact ? 48 : 56,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [
-                      Colors.transparent,
-                      PremiumTheme.accentColor.withValues(alpha: 0.6),
-                      Colors.transparent,
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withValues(alpha: 0.7),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(1),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.accentColor.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.directions_car_rounded,
+                  size: isCompact ? 24 : 28,
+                  color: Colors.white,
+                ),
+              ),
+
+              SizedBox(height: isCompact ? 12 : 16),
+
+              // Title
+              Text(
+                widget.isOnboarding ? 'Vehicle Registry' : 'My Vehicles',
+                style: TextStyle(
+                  fontSize: isCompact ? 22 : 26,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                  letterSpacing: -0.3,
+                ),
+              ),
+
+              SizedBox(height: isCompact ? 6 : 10),
+
+              // Subtle accent line
+              Container(
+                width: 40,
+                height: 3,
+                decoration: BoxDecoration(
+                  gradient: PremiumTheme.heroGradient,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 32),
+        SizedBox(height: isCompact ? 12 : 20),
 
-        // Clean status message
-        Container(
-          height: 40,
-          alignment: Alignment.center,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 800),
-            child: Text(
-              key: ValueKey(_sparkleIndex),
-              _playfulMessages[_sparkleIndex].replaceAll('🚗', '').replaceAll('🔒', '').replaceAll('✨', '').replaceAll('🎯', '').replaceAll('🌟', '').trim(),
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-                color: PremiumTheme.secondaryTextColor.withValues(alpha: 0.8),
-                letterSpacing: 0.2,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
+        // Static subtitle
+        Text(
+          'Register your license plate to receive alerts',
+          style: TextStyle(
+            fontSize: isCompact ? 13 : 14,
+            fontWeight: FontWeight.w400,
+            color: PremiumTheme.secondaryTextColor,
+            letterSpacing: 0.1,
           ),
+          textAlign: TextAlign.center,
         ),
 
-        const SizedBox(height: 48),
+        SizedBox(height: isCompact ? 20 : 28),
 
         // Show input or max capacity message
         if (_isAtMaxCapacity)
-          _buildMaxCapacityMessage(isTablet)
+          _buildMaxCapacityMessage(isTablet, isCompact)
         else ...[
           // Premium plate input
-          ScaleTransition(
-            scale: _plateAnimation,
-            child: _buildUltraPremiumPlateInput(isTablet),
-          ),
+          _buildUltraPremiumPlateInput(isTablet, isCompact),
 
-          const SizedBox(height: 48),
+          SizedBox(height: isCompact ? 20 : 28),
 
-          // Minimalist register button
-          _buildMinimalistRegisterButton(isTablet),
+          // Register button
+          _buildMinimalistRegisterButton(isTablet, isCompact),
         ],
       ],
     );
   }
 
-  Widget _buildMaxCapacityMessage(bool isTablet) {
+  Widget _buildMaxCapacityMessage(bool isTablet, bool isCompact) {
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(
-        maxWidth: isTablet ? 400 : 320,
+        maxWidth: isTablet ? 380 : 300,
       ),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isCompact ? 16 : 20),
       decoration: BoxDecoration(
         color: PremiumTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.amber.withValues(alpha: 0.3),
+          color: Colors.amber.withValues(alpha: 0.4),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Icon(
             Icons.garage_outlined,
-            size: 48,
+            size: isCompact ? 36 : 44,
             color: Colors.amber.shade600,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isCompact ? 10 : 14),
           Text(
             'Garage Full',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: isCompact ? 16 : 18,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isCompact ? 6 : 8),
           Text(
-            'You\'ve registered the maximum of ${PlateStorageService.maxVehicles} vehicles. Remove a vehicle to add a new one.',
+            'Maximum ${PlateStorageService.maxVehicles} vehicles. Remove one to add another.',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: isCompact ? 13 : 14,
               color: PremiumTheme.secondaryTextColor,
               height: 1.4,
             ),
@@ -1166,31 +1067,30 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
     );
   }
 
-  Widget _buildUltraPremiumPlateInput(bool isTablet) {
+  Widget _buildUltraPremiumPlateInput(bool isTablet, bool isCompact) {
     return Column(
       children: [
-
-        // Ultra-minimalist input field
+        // Premium input field with enhanced styling
         Container(
           width: double.infinity,
           constraints: BoxConstraints(
-            maxWidth: isTablet ? 400 : 320,
+            maxWidth: isTablet ? 380 : 300,
           ),
           decoration: BoxDecoration(
             color: PremiumTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _isValidPlate
-                  ? PremiumTheme.accentColor.withValues(alpha: 0.3)
-                  : PremiumTheme.dividerColor.withValues(alpha: 0.2),
-              width: 1,
+                  ? PremiumTheme.accentColor.withValues(alpha: 0.5)
+                  : PremiumTheme.dividerColor.withValues(alpha: 0.3),
+              width: _isValidPlate ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
                 color: _isValidPlate
-                    ? PremiumTheme.accentColor.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.04),
-                blurRadius: _isValidPlate ? 16 : 8,
+                    ? PremiumTheme.accentColor.withValues(alpha: 0.15)
+                    : Colors.black.withValues(alpha: 0.06),
+                blurRadius: _isValidPlate ? 20 : 10,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
               ),
@@ -1201,21 +1101,21 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
             focusNode: _plateFocusNode,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: isTablet ? 28 : 24,
-              fontWeight: FontWeight.w400,
+              fontSize: isCompact ? 20 : 24,
+              fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 3.0,
+              letterSpacing: 2.5,
             ),
             decoration: InputDecoration(
-              hintText: 'YOURPLATE',
+              hintText: 'ABC-1234',
               hintStyle: TextStyle(
-                color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
-                fontWeight: FontWeight.w300,
-                letterSpacing: 1.5,
+                color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.4),
+                fontWeight: FontWeight.w400,
+                letterSpacing: 2.0,
               ),
               contentPadding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 32 : 24,
-                vertical: isTablet ? 24 : 20,
+                horizontal: isCompact ? 20 : 24,
+                vertical: isCompact ? 16 : 18,
               ),
               border: InputBorder.none,
             ),
@@ -1228,28 +1128,56 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
           ),
         ),
 
-        if (_isValidPlate) ...[
-          const SizedBox(height: 24),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.green,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
+        // Valid indicator
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: _isValidPlate
+              ? Padding(
+                  padding: EdgeInsets.only(top: isCompact ? 10 : 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade500,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Valid format',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.green.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
 
-  Widget _buildMinimalistRegisterButton(bool isTablet) {
+  Widget _buildMinimalistRegisterButton(bool isTablet, bool isCompact) {
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(
-        maxWidth: isTablet ? 320 : 280,
+        maxWidth: isTablet ? 300 : 260,
       ),
-      height: 56,
+      height: isCompact ? 48 : 52,
       child: ElevatedButton(
         onPressed: _isValidPlate && !_isRegistering ? _registerPlate : null,
         style: ElevatedButton.styleFrom(
@@ -1258,209 +1186,197 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen>
               : PremiumTheme.surfaceColor,
           foregroundColor: _isValidPlate
               ? Colors.white
-              : PremiumTheme.tertiaryTextColor.withValues(alpha: 0.6),
-          elevation: 0,
-          shadowColor: Colors.transparent,
+              : PremiumTheme.tertiaryTextColor,
+          elevation: _isValidPlate ? 4 : 0,
+          shadowColor: _isValidPlate
+              ? PremiumTheme.accentColor.withValues(alpha: 0.4)
+              : Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(isCompact ? 12 : 14),
             side: BorderSide(
               color: _isValidPlate
                   ? Colors.transparent
-                  : PremiumTheme.dividerColor.withValues(alpha: 0.3),
+                  : PremiumTheme.dividerColor.withValues(alpha: 0.4),
               width: 1,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: isCompact ? 12 : 14),
         ),
         child: _isRegistering
             ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                   strokeWidth: 2,
                 ),
               )
             : Text(
-                _isValidPlate ? 'Register' : 'Enter plate number',
+                _isValidPlate ? 'Register Vehicle' : 'Enter plate number',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.2,
+                  fontSize: isCompact ? 14 : 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
                 ),
               ),
       ),
     );
   }
 
-  Widget _buildRegisteredPlates() {
-    return Container(
-      child: Column(
-        children: [
-          // Minimalist section header
-          Container(
-            width: 24,
-            height: 2,
-            margin: const EdgeInsets.only(bottom: 24),
-            decoration: BoxDecoration(
-              color: PremiumTheme.accentColor.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(1),
+  Widget _buildRegisteredPlates(bool isCompact) {
+    return Column(
+      children: [
+        // Section header with premium styling
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 20,
+              height: 2,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    PremiumTheme.accentColor.withValues(alpha: 0.5),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(1),
+              ),
             ),
-          ),
-
-          Column(
-            children: [
-              Text(
-                'Registered Vehicles',
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'Your Vehicles',
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w200,
+                  fontSize: isCompact ? 14 : 16,
+                  fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.3,
                 ),
               ),
-              SizedBox(height: 8),
-              Text(
-                'Tap any vehicle to set it as your primary',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: PremiumTheme.secondaryTextColor,
-                  letterSpacing: -0.2,
+            ),
+            Container(
+              width: 20,
+              height: 2,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    PremiumTheme.accentColor.withValues(alpha: 0.5),
+                    Colors.transparent,
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(1),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
 
-          const SizedBox(height: 24),
+        SizedBox(height: isCompact ? 12 : 16),
 
-          ..._registeredPlates.map((plate) => GestureDetector(
+        // Vehicle list - more compact
+        ..._registeredPlates.map((plate) {
+          final isPrimary = _primaryPlate == plate;
+          return GestureDetector(
             onTap: () => _setPrimaryPlate(plate),
             child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              margin: EdgeInsets.only(bottom: isCompact ? 8 : 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 14 : 16,
+                vertical: isCompact ? 12 : 14,
+              ),
               decoration: BoxDecoration(
-                gradient: _primaryPlate == plate
+                gradient: isPrimary
                     ? LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          PremiumTheme.accentColor.withValues(alpha: 0.1),
-                          PremiumTheme.accentColor.withValues(alpha: 0.05),
+                          PremiumTheme.accentColor.withValues(alpha: 0.12),
+                          PremiumTheme.accentColor.withValues(alpha: 0.06),
                         ],
                       )
                     : null,
-                color: _primaryPlate != plate ? PremiumTheme.surfaceColor : null,
+                color: !isPrimary ? PremiumTheme.surfaceColor : null,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _primaryPlate == plate
-                      ? PremiumTheme.accentColor.withValues(alpha: 0.3)
-                      : PremiumTheme.dividerColor.withValues(alpha: 0.2),
-                  width: _primaryPlate == plate ? 2 : 1,
+                  color: isPrimary
+                      ? PremiumTheme.accentColor.withValues(alpha: 0.4)
+                      : PremiumTheme.dividerColor.withValues(alpha: 0.3),
+                  width: isPrimary ? 1.5 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _primaryPlate == plate
-                        ? PremiumTheme.accentColor.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.02),
-                    blurRadius: _primaryPlate == plate ? 12 : 8,
-                    offset: Offset(0, _primaryPlate == plate ? 4 : 2),
-                    spreadRadius: 0,
-                ),
-              ],
-            ),
+                    color: isPrimary
+                        ? PremiumTheme.accentColor.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.04),
+                    blurRadius: isPrimary ? 12 : 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
-                  // Primary indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _primaryPlate == plate
-                          ? PremiumTheme.accentColor.withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: _primaryPlate == plate
-                          ? Border.all(
-                              color: PremiumTheme.accentColor.withValues(alpha: 0.3),
-                              width: 1,
-                            )
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _primaryPlate == plate ? Icons.star : Icons.star_border,
-                          color: _primaryPlate == plate
-                              ? PremiumTheme.accentColor
-                              : PremiumTheme.tertiaryTextColor,
-                          size: 16,
-                        ),
-                        if (_primaryPlate == plate) ...[
-                          SizedBox(width: 4),
-                          Text(
-                            'PRIMARY',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: PremiumTheme.accentColor,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  // Star indicator
+                  Icon(
+                    isPrimary ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: isPrimary
+                        ? PremiumTheme.accentColor
+                        : PremiumTheme.tertiaryTextColor,
+                    size: isCompact ? 18 : 20,
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: isCompact ? 10 : 12),
+                  // Plate number
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plate,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: _primaryPlate == plate ? FontWeight.w600 : FontWeight.w400,
-                            color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 2.0,
-                            fontFamily: 'monospace',
-                          ),
+                    child: Text(
+                      plate,
+                      style: TextStyle(
+                        fontSize: isCompact ? 15 : 16,
+                        fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
+                        color: PremiumTheme.primaryTextColor,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                  // Primary badge or hint
+                  if (isPrimary)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: PremiumTheme.accentColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'PRIMARY',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
-                        if (_primaryPlate != plate)
-                          Text(
-                            'Tap to set as primary',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: PremiumTheme.tertiaryTextColor,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                      ],
+                      ),
+                    ),
+                  SizedBox(width: isCompact ? 8 : 10),
+                  // Delete button
+                  GestureDetector(
+                    onTap: () => _confirmDeletePlate(plate),
+                    child: Container(
+                      padding: EdgeInsets.all(isCompact ? 6 : 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red.shade400,
+                        size: isCompact ? 16 : 18,
+                      ),
                     ),
                   ),
-                // Delete button
-                GestureDetector(
-                  onTap: () => _confirmDeletePlate(plate),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                      size: 18,
-                    ),
-                  ),
-                ),
                 ],
               ),
             ),
-          )).toList(),
-        ],
-      ),
+          );
+        }),
+      ],
     );
   }
 }

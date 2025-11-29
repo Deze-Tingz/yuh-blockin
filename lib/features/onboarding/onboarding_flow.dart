@@ -143,8 +143,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    return Container(
+      height: 56, // Fixed height for consistent positioning across all pages
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: Alignment.center,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -226,36 +228,55 @@ class _WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 24),
-          Image.asset(
-            'assets/images/app_icon.png',
-            width: 220,
-            height: 220,
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
-            filterQuality: FilterQuality.medium,
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 700;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/app_icon.png',
+                width: isCompact ? 160 : 220,
+                height: isCompact ? 160 : 220,
+                fit: BoxFit.contain,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+              ),
+              SizedBox(height: isCompact ? 8 : 12),
+              Text(
+                'The respectful way to solve parking conflicts',
+                style: TextStyle(
+                  fontSize: isCompact ? 14 : 16,
+                  color: PremiumTheme.secondaryTextColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isCompact ? 20 : 32),
+              const _CompactFeature(Icons.security_rounded, 'Privacy-First', 'Your data is encrypted'),
+              const SizedBox(height: 12),
+              const _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
+              const SizedBox(height: 12),
+              const _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'The respectful way to solve parking conflicts',
-            style: TextStyle(
-              fontSize: 16,
-              color: PremiumTheme.secondaryTextColor,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          const _CompactFeature(Icons.security_rounded, 'Privacy-First', 'Your data is encrypted'),
-          const SizedBox(height: 12),
-          const _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
-          const SizedBox(height: 12),
-          const _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
-        ],
-      ),
+        );
+
+        // For very small screens, allow scrolling; otherwise center content
+        if (constraints.maxHeight < 450) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: content,
+          );
+        }
+
+        // Center content vertically for normal screens
+        return Center(child: content);
+      },
     );
   }
 }
@@ -266,60 +287,79 @@ class _SecurityPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.verified_user_rounded, size: 35, color: Colors.white),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 700;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: isCompact ? 60 : 70,
+                height: isCompact ? 60 : 70,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.verified_user_rounded, size: isCompact ? 30 : 35, color: Colors.white),
+              ),
+              SizedBox(height: isCompact ? 16 : 20),
+              Text(
+                'Your Privacy Protected',
+                style: TextStyle(
+                  fontSize: isCompact ? 20 : 24,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                ),
+              ),
+              SizedBox(height: isCompact ? 16 : 20),
+              Container(
+                padding: EdgeInsets.all(isCompact ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const _SecurityItem(Icons.enhanced_encryption, 'Military-grade encryption'),
+                    SizedBox(height: isCompact ? 8 : 10),
+                    const _SecurityItem(Icons.visibility_off, 'We never see your plate number'),
+                    SizedBox(height: isCompact ? 8 : 10),
+                    const _SecurityItem(Icons.person_off, 'No personal info required'),
+                    SizedBox(height: isCompact ? 8 : 10),
+                    const _SecurityItem(Icons.phone_android, 'Data stays on your device'),
+                  ],
+                ),
+              ),
+              SizedBox(height: isCompact ? 12 : 16),
+              Text(
+                'Your plate is converted to a secure hash that even we cannot reverse.',
+                style: TextStyle(
+                  fontSize: isCompact ? 12 : 13,
+                  color: PremiumTheme.secondaryTextColor,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Your Privacy Protected',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.primaryTextColor,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                const _SecurityItem(Icons.enhanced_encryption, 'Military-grade encryption'),
-                const SizedBox(height: 10),
-                const _SecurityItem(Icons.visibility_off, 'We never see your plate number'),
-                const SizedBox(height: 10),
-                const _SecurityItem(Icons.person_off, 'No personal info required'),
-                const SizedBox(height: 10),
-                const _SecurityItem(Icons.phone_android, 'Data stays on your device'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Your plate is converted to a secure hash that even we cannot reverse.',
-            style: TextStyle(
-              fontSize: 13,
-              color: PremiumTheme.secondaryTextColor,
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        );
+
+        // For very small screens, allow scrolling; otherwise center content
+        if (constraints.maxHeight < 400) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: content,
+          );
+        }
+
+        // Center content vertically for normal screens
+        return Center(child: content);
+      },
     );
   }
 }
@@ -333,66 +373,85 @@ class _ReadyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check_rounded, size: 45, color: Colors.white),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'You\'re All Set!',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.primaryTextColor,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Register your license plate to receive alerts when someone needs you to move your car.',
-            style: TextStyle(
-              fontSize: 15,
-              color: PremiumTheme.secondaryTextColor,
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onComplete,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: PremiumTheme.accentColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 700;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: isCompact ? 64 : 80,
+                height: isCompact ? 64 : 80,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600]),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.check_rounded, size: isCompact ? 36 : 45, color: Colors.white),
               ),
-              child: const Text(
-                'Register License Plate',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              SizedBox(height: isCompact ? 16 : 24),
+              Text(
+                'You\'re All Set!',
+                style: TextStyle(
+                  fontSize: isCompact ? 24 : 28,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                ),
               ),
-            ),
+              SizedBox(height: isCompact ? 8 : 12),
+              Text(
+                'Register your license plate to receive alerts when someone needs you to move your car.',
+                style: TextStyle(
+                  fontSize: isCompact ? 14 : 15,
+                  color: PremiumTheme.secondaryTextColor,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isCompact ? 20 : 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onComplete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PremiumTheme.accentColor,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: isCompact ? 14 : 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    'Register License Plate',
+                    style: TextStyle(fontSize: isCompact ? 15 : 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              SizedBox(height: isCompact ? 8 : 12),
+              TextButton(
+                onPressed: onSkip,
+                child: Text(
+                  'Skip for now',
+                  style: TextStyle(color: PremiumTheme.secondaryTextColor),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              'Skip for now',
-              style: TextStyle(color: PremiumTheme.secondaryTextColor),
-            ),
-          ),
-        ],
-      ),
+        );
+
+        // For very small screens, allow scrolling; otherwise center content
+        if (constraints.maxHeight < 400) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: content,
+          );
+        }
+
+        // Center content vertically for normal screens
+        return Center(child: content);
+      },
     );
   }
 }

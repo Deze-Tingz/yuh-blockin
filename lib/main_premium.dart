@@ -382,6 +382,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
   // ===== INLINE ALERT MODE (Steve Jobs style - one screen) =====
   bool _isAlertModeActive = false;
+  String _alertModeType = 'i_am_blocked'; // 'i_am_blocked' or 'i_am_blocking'
   final TextEditingController _alertPlateController = TextEditingController();
   final FocusNode _alertPlateFocusNode = FocusNode();
   String _alertUrgencyLevel = 'Normal';
@@ -1815,38 +1816,41 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   Widget _buildBranding() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Animated tagline
-        AnimatedOpacity(
-          opacity: _showTagline ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 500),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              'Move with respect.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.7),
-                letterSpacing: 0.8,
-                fontStyle: FontStyle.italic,
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Animated tagline
+          AnimatedOpacity(
+            opacity: _showTagline ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 500),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                'Move with respect.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.7),
+                  letterSpacing: 0.8,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ),
-        ),
-        // Copyright - more subtle
-        Text(
-          'DezeTingz © 2026',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w300,
-            color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
-            letterSpacing: 0.8,
+          // Copyright - more subtle
+          Text(
+            'DezeTingz © 2026',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w300,
+              color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
+              letterSpacing: 0.8,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -2151,12 +2155,15 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       // Title row
                       Row(
                         children: [
-                          Text(
-                            item.isReceived ? 'Someone blocked you in' : 'You sent an alert',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: PremiumTheme.primaryTextColor,
+                          Flexible(
+                            child: Text(
+                              item.isReceived ? 'Someone blocked you in' : 'You sent an alert',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: PremiumTheme.primaryTextColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (item.isReceived && !hasResponse) ...[
@@ -2793,6 +2800,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     letterSpacing: 1.0,
                     fontFamily: 'monospace',
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -2810,6 +2819,221 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       return;
     }
 
+    // If alert mode is already active, just close it
+    if (_isAlertModeActive) {
+      _closeAlertMode();
+      return;
+    }
+
+    // Show choice bottom sheet
+    HapticFeedback.lightImpact();
+    _showAlertTypeChoice();
+  }
+
+  void _showAlertTypeChoice() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: PremiumTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 20,
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: PremiumTheme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Title
+            Text(
+              'What would you like to do?',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: PremiumTheme.primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Option 1: I'm Blocked (Free with limits)
+            _buildAlertTypeOption(
+              icon: Icons.block_rounded,
+              title: "I'm Blocked",
+              subtitle: 'Alert the driver blocking me',
+              isPremium: false,
+              onTap: () async {
+                Navigator.pop(context);
+                // Check subscription limit for free users
+                if (!await _subscriptionService.canSendAlert()) {
+                  HapticFeedback.mediumImpact();
+                  if (mounted) {
+                    PaywallDialog.show(context, remainingAlerts: 0);
+                  }
+                  return;
+                }
+                _openAlertMode('i_am_blocked');
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            // Option 2: I'm Blocking (Premium Only)
+            _buildAlertTypeOption(
+              icon: Icons.notifications_active_rounded,
+              title: "I'm Blocking",
+              subtitle: 'Alert the driver I blocked them',
+              isPremium: true,
+              onTap: () async {
+                Navigator.pop(context);
+                // Check if user is premium
+                if (!_subscriptionService.isPremium) {
+                  HapticFeedback.mediumImpact();
+                  if (mounted) {
+                    PaywallDialog.show(
+                      context,
+                      remainingAlerts: 0,
+                      customMessage: 'Notify drivers you\'re blocking with Premium',
+                    );
+                  }
+                  return;
+                }
+                _openAlertMode('i_am_blocking');
+              },
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertTypeOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isPremium,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: PremiumTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isPremium
+                ? PremiumTheme.accentColor.withValues(alpha: 0.3)
+                : PremiumTheme.dividerColor.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isPremium
+                    ? PremiumTheme.accentColor.withValues(alpha: 0.1)
+                    : PremiumTheme.dividerColor.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: isPremium ? PremiumTheme.accentColor : PremiumTheme.secondaryTextColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: PremiumTheme.primaryTextColor,
+                        ),
+                      ),
+                      if (isPremium) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            gradient: PremiumTheme.heroGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'PRO',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: PremiumTheme.secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: PremiumTheme.tertiaryTextColor,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openAlertMode(String modeType) {
+    setState(() {
+      _alertModeType = modeType;
+      _isAlertModeActive = true;
+    });
+    _alertModeController.forward();
+    // Focus on plate input after animation
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) _alertPlateFocusNode.requestFocus();
+    });
+  }
+
+  // Legacy handler for direct alert mode toggle
+  void _handleAlertTapLegacy() async {
     // Check if user can send alert (subscription limit check)
     if (!await _subscriptionService.canSendAlert()) {
       HapticFeedback.mediumImpact();
@@ -2819,7 +3043,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       return;
     }
 
-    // Toggle inline alert mode - Steve Jobs style, everything on one screen
+    // Toggle inline alert mode
     HapticFeedback.lightImpact();
 
     if (_isAlertModeActive) {
@@ -3464,258 +3688,138 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     final isSmallScreen = screenSize.height < 600;
 
     _showPremiumDialog(
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       child: Dialog(
         backgroundColor: PremiumTheme.surfaceColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: isTablet ? 420 : 340,
-            maxHeight: screenSize.height * 0.8,
+            maxWidth: isTablet ? 380 : 320,
           ),
-          padding: EdgeInsets.all(isSmallScreen ? 20 : 28),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header with icon
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.green.withValues(alpha: 0.15),
-                            Colors.green.withValues(alpha: 0.08),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.trending_up,
-                        color: Colors.green.shade600,
-                        size: isSmallScreen ? 20 : 24,
-                      ),
-                    ),
-                    SizedBox(width: isSmallScreen ? 8 : 12),
-                    Flexible(
-                      child: Text(
-                        'Your Impact',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 16 : 18,
-                          fontWeight: FontWeight.w600,
-                          color: PremiumTheme.primaryTextColor,
-                          letterSpacing: 0.3,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+          padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Text(
+                'Your Impact',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 20 : 22,
+                  fontWeight: FontWeight.w700,
+                  color: PremiumTheme.primaryTextColor,
                 ),
+              ),
 
-                SizedBox(height: isSmallScreen ? 16 : 20),
+              SizedBox(height: isSmallScreen ? 20 : 24),
 
-                // Stats in a premium container
-                Container(
-                  padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.green.shade50.withValues(alpha: 0.3),
-                        Colors.green.shade50.withValues(alpha: 0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.green.withValues(alpha: 0.1),
-                      width: 1,
+              // Two stat cards side by side
+              Row(
+                children: [
+                  // I Moved
+                  Expanded(
+                    child: _buildImpactCard(
+                      count: _userStats.carsFreed,
+                      label: 'I Moved',
+                      icon: Icons.directions_car_rounded,
+                      color: PremiumTheme.accentColor,
+                      isSmallScreen: isSmallScreen,
                     ),
                   ),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // I Moved stats
-                        Expanded(
-                          child: _buildDialogStatCounter(
-                            count: _userStats.carsFreed,
-                            label: 'I Moved',
-                            emoji: '🚗',
-                            color: PremiumTheme.accentColor,
-                            isCompact: isSmallScreen,
-                          ),
-                        ),
-
-                        // Divider
-                        Container(
-                          width: 1,
-                          height: isSmallScreen ? 45 : 50,
-                          color: Colors.green.withValues(alpha: 0.15),
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-
-                        // Others Moved stats
-                        Expanded(
-                          child: _buildDialogStatCounter(
-                            count: _userStats.situationsResolved,
-                            label: 'Others Moved',
-                            icon: Icons.thumb_up_outlined,
-                            color: Colors.green.shade600,
-                            isCompact: isSmallScreen,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(width: 12),
+                  // They Moved
+                  Expanded(
+                    child: _buildImpactCard(
+                      count: _userStats.situationsResolved,
+                      label: 'They Moved',
+                      icon: Icons.handshake_rounded,
+                      color: Colors.green.shade600,
+                      isSmallScreen: isSmallScreen,
                     ),
                   ),
-                ),
+                ],
+              ),
 
-                SizedBox(height: isSmallScreen ? 12 : 16),
+              SizedBox(height: isSmallScreen ? 20 : 24),
 
-                // Impact description
-                Container(
-                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                  decoration: BoxDecoration(
-                    color: PremiumTheme.accentColor.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: PremiumTheme.accentColor.withValues(alpha: 0.1),
-                      width: 1,
+              // Close button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PremiumTheme.accentColor,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 12 : 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
                   child: Text(
-                    _userStats.impactDescription,
+                    'Done',
                     style: TextStyle(
-                      fontSize: isSmallScreen ? 12 : 14,
-                      fontWeight: FontWeight.w500,
-                      color: PremiumTheme.primaryTextColor,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-
-                SizedBox(height: isSmallScreen ? 12 : 16),
-
-                // Detailed insights section
-                Container(
-                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.blue.shade50.withValues(alpha: 0.3),
-                        Colors.blue.shade50.withValues(alpha: 0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.lightbulb_outline,
-                            size: isSmallScreen ? 14 : 16,
-                            color: Colors.blue.shade600,
-                          ),
-                          SizedBox(width: isSmallScreen ? 6 : 8),
-                          Text(
-                            'Your Impact Details',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 12 : 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue.shade700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isSmallScreen ? 8 : 10),
-                      _buildInsightRow(
-                        icon: Icons.check_circle_outline,
-                        text: '${_userStats.carsFreed} times you helped others by moving',
-                        color: PremiumTheme.accentColor,
-                        isSmallScreen: isSmallScreen,
-                      ),
-                      SizedBox(height: isSmallScreen ? 6 : 8),
-                      _buildInsightRow(
-                        icon: Icons.people_outline,
-                        text: '${_userStats.situationsResolved} times others moved for you',
-                        color: Colors.green.shade600,
-                        isSmallScreen: isSmallScreen,
-                      ),
-                      if (_userStats.alertsSent > 0) ...[
-                        SizedBox(height: isSmallScreen ? 6 : 8),
-                        _buildInsightRow(
-                          icon: Icons.send_outlined,
-                          text: '${_userStats.alertsSent} respectful alerts sent',
-                          color: Colors.orange.shade600,
-                          isSmallScreen: isSmallScreen,
-                        ),
-                      ],
-                      if (_userStats.alertsReceived > 0) ...[
-                        SizedBox(height: isSmallScreen ? 6 : 8),
-                        _buildInsightRow(
-                          icon: Icons.notifications_outlined,
-                          text: '${_userStats.alertsReceived} alerts received',
-                          color: Colors.purple.shade600,
-                          isSmallScreen: isSmallScreen,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: isSmallScreen ? 16 : 20),
-
-                // Close button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 16 : 20,
-                        vertical: isSmallScreen ? 10 : 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Got it',
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      fontSize: isSmallScreen ? 15 : 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImpactCard({
+    required int count,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isSmallScreen,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: isSmallScreen ? 16 : 20,
+        horizontal: isSmallScreen ? 12 : 16,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: isSmallScreen ? 28 : 32,
+          ),
+          SizedBox(height: isSmallScreen ? 8 : 10),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 28 : 32,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 4 : 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 13,
+              fontWeight: FontWeight.w500,
+              color: PremiumTheme.secondaryTextColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -3874,101 +3978,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           ),
         ),
       ),
-    );
-  }
-
-  /// Stats counter for dialog display (supports both emoji and icon)
-  Widget _buildDialogStatCounter({
-    required int count,
-    required String label,
-    String? emoji,
-    IconData? icon,
-    required Color color,
-    bool isCompact = false,
-  }) {
-    return Column(
-      children: [
-        if (emoji != null) ...[
-          Container(
-            padding: EdgeInsets.all(isCompact ? 8 : 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              emoji,
-              style: TextStyle(fontSize: isCompact ? 20 : 24),
-            ),
-          ),
-        ] else if (icon != null) ...[
-          Container(
-            padding: EdgeInsets.all(isCompact ? 8 : 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: isCompact ? 20 : 24,
-            ),
-          ),
-        ],
-        SizedBox(height: isCompact ? 8 : 12),
-        Text(
-          count.toString(),
-          style: TextStyle(
-            fontSize: isCompact ? 22 : 28,
-            fontWeight: FontWeight.w700,
-            color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.5,
-          ),
-        ),
-        SizedBox(height: isCompact ? 2 : 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isCompact ? 12 : 14,
-            fontWeight: FontWeight.w600,
-            color: color.withValues(alpha: 0.8),
-            letterSpacing: 0.3,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  /// Helper to build insight row with icon and text
-  Widget _buildInsightRow({
-    required IconData icon,
-    required String text,
-    required Color color,
-    required bool isSmallScreen,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: isSmallScreen ? 14 : 16,
-          color: color.withValues(alpha: 0.8),
-        ),
-        SizedBox(width: isSmallScreen ? 6 : 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: isSmallScreen ? 11 : 12,
-              fontWeight: FontWeight.w500,
-              color: PremiumTheme.secondaryTextColor,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -4784,6 +4793,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           color: Colors.white.withValues(alpha: 0.9),
                           height: 1.3,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
 
                       const SizedBox(height: 20),
@@ -4998,9 +5009,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   Widget _buildAlertModeHeader(bool isTablet) {
+    final isNotifyMode = _alertModeType == 'i_am_blocking';
+
     return Row(
       children: [
-        // Accent line
+        // Accent line - different color for notify mode
         Container(
           width: 4,
           height: isTablet ? 28 : 24,
@@ -5008,10 +5021,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                PremiumTheme.accentColor,
-                PremiumTheme.accentColor.withValues(alpha: 0.5),
-              ],
+              colors: isNotifyMode
+                  ? [Colors.green.shade400, Colors.green.shade600]
+                  : [PremiumTheme.accentColor, PremiumTheme.accentColor.withValues(alpha: 0.5)],
             ),
             borderRadius: BorderRadius.circular(2),
           ),
@@ -5021,18 +5033,43 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Send Alert',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
-                  fontWeight: FontWeight.w700,
-                  color: PremiumTheme.primaryTextColor,
-                  letterSpacing: -0.3,
-                ),
+              Row(
+                children: [
+                  Text(
+                    isNotifyMode ? 'Notify Driver' : 'Send Alert',
+                    style: TextStyle(
+                      fontSize: isTablet ? 22 : 18,
+                      fontWeight: FontWeight.w700,
+                      color: PremiumTheme.primaryTextColor,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  if (isNotifyMode) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        gradient: PremiumTheme.heroGradient,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'PREMIUM',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               Text(
-                'Politely notify the driver',
+                isNotifyMode
+                    ? 'Let them know you parked behind them'
+                    : 'Politely notify the driver blocking you',
                 style: TextStyle(
                   fontSize: isTablet ? 13 : 12,
                   fontWeight: FontWeight.w400,
@@ -5361,6 +5398,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
   Widget _buildInlineSendButton(bool isTablet) {
     final canSend = _isAlertPlateValid && !_isSendingAlert;
+    final isNotifyMode = _alertModeType == 'i_am_blocking';
+    final buttonColor = isNotifyMode ? Colors.green.shade500 : PremiumTheme.accentColor;
 
     return GestureDetector(
       onTap: canSend ? _sendInlineAlert : null,
@@ -5375,8 +5414,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    PremiumTheme.accentColor,
-                    PremiumTheme.accentColor.withValues(alpha: 0.85),
+                    buttonColor,
+                    buttonColor.withValues(alpha: 0.85),
                   ],
                 )
               : LinearGradient(
@@ -5391,12 +5430,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           boxShadow: canSend
               ? [
                   BoxShadow(
-                    color: PremiumTheme.accentColor.withValues(alpha: 0.35),
+                    color: buttonColor.withValues(alpha: 0.35),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
                   BoxShadow(
-                    color: PremiumTheme.accentColor.withValues(alpha: 0.2),
+                    color: buttonColor.withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -5421,14 +5460,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: Text(
-                      _alertSelectedEmoji ?? '🚗',
+                      _alertSelectedEmoji ?? (isNotifyMode ? '👋' : '🚗'),
                       key: ValueKey(_alertSelectedEmoji),
                       style: TextStyle(fontSize: isTablet ? 20 : 18),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Send Alert',
+                    isNotifyMode ? 'Send Notification' : 'Send Alert',
                     style: TextStyle(
                       fontSize: isTablet ? 16 : 15,
                       fontWeight: FontWeight.w600,
@@ -5441,7 +5480,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     opacity: canSend ? 1.0 : 0.5,
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      Icons.send_rounded,
+                      isNotifyMode ? Icons.notifications_active_rounded : Icons.send_rounded,
                       size: isTablet ? 18 : 16,
                       color: canSend ? Colors.white : PremiumTheme.tertiaryTextColor,
                     ),
