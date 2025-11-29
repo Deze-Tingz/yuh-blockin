@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:lottie/lottie.dart';
 
 import 'core/theme/premium_theme.dart';
 import 'core/services/plate_storage_service.dart';
@@ -250,18 +251,44 @@ class _AppInitializerState extends State<AppInitializer>
                 // Spacer to push logo 20% above center
                 const Spacer(flex: 2),
 
-                // Logo with animations
+                // Logo with shimmer overlay
                 Transform.translate(
                   offset: Offset(0, _logoSlide.value),
                   child: FadeTransition(
                     opacity: _logoFade,
                     child: ScaleTransition(
                       scale: _logoScale,
-                      child: Image.asset(
-                        'assets/images/app_icon.png',
+                      child: SizedBox(
                         width: 200,
                         height: 200,
-                        fit: BoxFit.contain,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Main logo
+                            Image.asset(
+                              'assets/images/app_icon.png',
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.contain,
+                            ),
+                            // Lottie shimmer overlay
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(40),
+                              child: Lottie.network(
+                                'https://lottie.host/e4bd4a4f-5a6c-4893-9f49-f593e9b7e426/QiCBGqJhNE.json',
+                                width: 200,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                repeat: true,
+                                frameRate: FrameRate.max,
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Fallback: no shimmer if network fails
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
