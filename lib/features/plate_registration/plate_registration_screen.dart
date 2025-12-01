@@ -632,6 +632,265 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
     );
   }
 
+  /// Show dialog to recover a plate using secret ownership key
+  Future<void> _showRecoverPlateDialog(bool isTablet) async {
+    final plateController = TextEditingController();
+    final keyController = TextEditingController();
+    bool isRecovering = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: PremiumTheme.surfaceColor,
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.accentColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.key_rounded,
+                      color: PremiumTheme.accentColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Recover Plate',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: PremiumTheme.primaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your plate number and the secret ownership key you saved when registering.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: PremiumTheme.secondaryTextColor,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Plate number input
+                    Text(
+                      'License Plate',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: PremiumTheme.primaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: plateController,
+                      textCapitalization: TextCapitalization.characters,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: PremiumTheme.primaryTextColor,
+                        letterSpacing: 1,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g., ABC-1234',
+                        hintStyle: TextStyle(
+                          color: PremiumTheme.tertiaryTextColor,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        filled: true,
+                        fillColor: PremiumTheme.backgroundColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Secret key input
+                    Text(
+                      'Secret Ownership Key',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: PremiumTheme.primaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: keyController,
+                      textCapitalization: TextCapitalization.characters,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'monospace',
+                        color: PremiumTheme.primaryTextColor,
+                        letterSpacing: 1,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'YB-XXXX-XXXX-XXXX',
+                        hintStyle: TextStyle(
+                          color: PremiumTheme.tertiaryTextColor,
+                          fontWeight: FontWeight.w400,
+                          fontFamily: 'monospace',
+                        ),
+                        filled: true,
+                        fillColor: PremiumTheme.backgroundColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isRecovering ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: PremiumTheme.tertiaryTextColor,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isRecovering ? null : () async {
+                    final plateNumber = plateController.text.trim();
+                    final ownershipKey = keyController.text.trim();
+
+                    if (plateNumber.isEmpty || ownershipKey.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter both plate number and key'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Get current user ID
+                    final prefs = await SharedPreferences.getInstance();
+                    final userId = prefs.getString('user_id');
+                    if (userId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('User not found. Please restart the app.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setDialogState(() => isRecovering = true);
+
+                    try {
+                      final result = await _verificationService.verifyOwnership(
+                        plateNumber: plateNumber,
+                        ownershipKey: ownershipKey,
+                        userId: userId,
+                      );
+
+                      if (result.success) {
+                        // Save to local storage
+                        await _storageService.addPlate(plateNumber);
+                        await _verificationService.saveKeyLocally(
+                          plateNumber: plateNumber,
+                          ownershipKey: ownershipKey,
+                        );
+
+                        // Reload plates
+                        await _loadExistingPlates();
+
+                        if (mounted) {
+                          Navigator.of(dialogContext).pop();
+                          HapticFeedback.mediumImpact();
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result.message ?? 'Plate recovered successfully!'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } else {
+                        setDialogState(() => isRecovering = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result.error ?? 'Recovery failed'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      setDialogState(() => isRecovering = false);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PremiumTheme.accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isRecovering
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Recover',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   /// Show error dialog when plate is already registered by another user
   void _showDuplicatePlateError() {
     showDialog(
@@ -1095,7 +1354,34 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
           textAlign: TextAlign.center,
         ),
 
-        SizedBox(height: isCompact ? 20 : 28),
+        SizedBox(height: isCompact ? 8 : 12),
+
+        // Recover plate link
+        GestureDetector(
+          onTap: () => _showRecoverPlateDialog(isTablet),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.key_rounded,
+                size: 14,
+                color: PremiumTheme.accentColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Recover plate with secret key',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: PremiumTheme.accentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: isCompact ? 16 : 20),
 
         // Show input or max capacity message
         if (_isAtMaxCapacity)
