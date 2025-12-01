@@ -303,6 +303,12 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         await _showOwnershipKeyDialog(plateNumber, ownershipKey);
       }
 
+    } on PlateAlreadyRegisteredException catch (e) {
+      // Plate belongs to another user
+      if (kDebugMode) {
+        debugPrint('❌ Plate already registered: $e');
+      }
+      _showDuplicatePlateError();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Multi-user registration failed: $e');
@@ -623,6 +629,105 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+    );
+  }
+
+  /// Show error dialog when plate is already registered by another user
+  void _showDuplicatePlateError() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: PremiumTheme.surfaceColor,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.red.shade400,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Already Registered',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This license plate is already registered by another user.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: PremiumTheme.secondaryTextColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: Colors.orange.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'If this is your vehicle, please contact support.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade800,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: PremiumTheme.accentColor,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

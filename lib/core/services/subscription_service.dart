@@ -1,8 +1,10 @@
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../config/payment_config.dart';
 
 /// Subscription Service for managing premium features
 /// Integrates with RevenueCat for payments and Supabase for server-side validation
@@ -11,16 +13,15 @@ class SubscriptionService {
   factory SubscriptionService() => _instance;
   SubscriptionService._internal();
 
-  // RevenueCat Public API Key
-  // Test key for development - replace with production key before release
-  static const String _revenueCatApiKey = 'test_WQsERIofLdSzQyuTszjVbFSEdvu';
+  // Get API key from secure configuration
+  static String get _revenueCatApiKey => PaymentConfig.getApiKey(isIOS: Platform.isIOS);
 
-  // Product identifiers - Must match Google Play Console
-  static const String monthlyProductId = 'yuh_blockin_monthly';
-  static const String lifetimeProductId = 'yuh_blockin_lifetime';
+  // Product identifiers from config
+  static String get monthlyProductId => PaymentConfig.monthlyProductId;
+  static String get lifetimeProductId => PaymentConfig.lifetimeProductId;
 
-  // Free tier limits
-  static const int freeDailyAlertLimit = 3;
+  // Free tier limits from config
+  static int get freeDailyAlertLimit => PaymentConfig.freeDailyAlertLimit;
 
   // State
   bool _isInitialized = false;
@@ -29,6 +30,7 @@ class SubscriptionService {
   int _dailyAlertsUsed = 0;
   DateTime? _lastUsageDate;
   String? _currentUserId;
+  DateTime? _lastEntitlementRefresh;
 
   // Getters
   bool get isPremium => _isPremium;
@@ -44,8 +46,8 @@ class SubscriptionService {
     _currentUserId = userId;
 
     try {
-      // Configure RevenueCat
-      if (_revenueCatApiKey != 'YOUR_REVENUECAT_API_KEY') {
+      // Configure RevenueCat only if API key is available
+      if (_revenueCatApiKey.isNotEmpty) {
         await Purchases.configure(
           PurchasesConfiguration(_revenueCatApiKey)..appUserID = userId,
         );
@@ -54,6 +56,12 @@ class SubscriptionService {
         Purchases.addCustomerInfoUpdateListener((customerInfo) {
           _handleCustomerInfoUpdate(customerInfo);
         });
+
+        if (kDebugMode) {
+          debugPrint('✅ RevenueCat configured with ${PaymentConfig.isConfiguredForProduction ? "PRODUCTION" : "TEST"} key');
+        }
+      } else if (kDebugMode) {
+        debugPrint('⚠️ RevenueCat not configured - no API key available');
       }
 
       // Load cached subscription status
@@ -83,7 +91,7 @@ class SubscriptionService {
     }
   }
 
-  /// Check if user can send an alert
+  /// Check if user can send an alert (client-side check)
   Future<bool> canSendAlert() async {
     if (_isPremium) return true;
 
@@ -91,6 +99,108 @@ class SubscriptionService {
     await _checkAndResetDailyUsage();
 
     return _dailyAlertsUsed < freeDailyAlertLimit;
+  }
+
+  /// Server-side validation before sending an alert
+  /// Returns a ValidationResult with success status and error message if failed
+  Future<ValidationResult> validateAlertPermission() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Call server-side function to validate user's alert permission
+      final response = await supabase.rpc('validate_alert_permission', params: {
+        'p_user_id': _currentUserId,
+      });
+
+      if (response is Map<String, dynamic>) {
+        final allowed = response['allowed'] as bool? ?? false;
+        final reason = response['reason'] as String?;
+        final remaining = response['remaining'] as int? ?? 0;
+
+        if (!allowed) {
+          // Sync with server's view of subscription status
+          if (response['is_premium'] == true && !_isPremium) {
+            _isPremium = true;
+            _subscriptionStatus = 'premium';
+            await _saveCachedStatus();
+          }
+        }
+
+        return ValidationResult(
+          allowed: allowed,
+          reason: reason,
+          remainingAlerts: remaining,
+        );
+      }
+
+      // If response format is unexpected, fall back to client-side check
+      final canSend = await canSendAlert();
+      return ValidationResult(
+        allowed: canSend,
+        reason: canSend ? null : 'Daily limit reached',
+        remainingAlerts: remainingAlerts,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Server validation failed, using client-side check: $e');
+      }
+
+      // Fall back to client-side check if server validation fails
+      final canSend = await canSendAlert();
+      return ValidationResult(
+        allowed: canSend,
+        reason: canSend ? null : 'Daily limit reached',
+        remainingAlerts: remainingAlerts,
+        isOfflineCheck: true,
+      );
+    }
+  }
+
+  /// Refresh entitlements from RevenueCat
+  /// Call this periodically (e.g., on app resume) to ensure status is up-to-date
+  Future<void> refreshEntitlements({bool force = false}) async {
+    // Don't refresh if recently refreshed (within 5 minutes) unless forced
+    if (!force && _lastEntitlementRefresh != null) {
+      final timeSinceRefresh = DateTime.now().difference(_lastEntitlementRefresh!);
+      if (timeSinceRefresh.inMinutes < 5) {
+        if (kDebugMode) {
+          debugPrint('⏳ Skipping entitlement refresh (last refresh ${timeSinceRefresh.inMinutes}m ago)');
+        }
+        return;
+      }
+    }
+
+    try {
+      if (_revenueCatApiKey.isNotEmpty) {
+        // Refresh from RevenueCat
+        final customerInfo = await Purchases.getCustomerInfo();
+        await _handleCustomerInfoUpdate(customerInfo);
+        _lastEntitlementRefresh = DateTime.now();
+
+        if (kDebugMode) {
+          debugPrint('✅ Entitlements refreshed from RevenueCat');
+        }
+      } else {
+        // Refresh from server only
+        await _syncSubscriptionStatus();
+        _lastEntitlementRefresh = DateTime.now();
+
+        if (kDebugMode) {
+          debugPrint('✅ Entitlements refreshed from server');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Failed to refresh entitlements: $e');
+      }
+    }
+  }
+
+  /// Check if entitlements should be refreshed (e.g., on app resume)
+  bool get shouldRefreshEntitlements {
+    if (_lastEntitlementRefresh == null) return true;
+    final timeSinceRefresh = DateTime.now().difference(_lastEntitlementRefresh!);
+    return timeSinceRefresh.inHours >= 1; // Refresh every hour
   }
 
   /// Increment daily usage after sending an alert
@@ -130,10 +240,10 @@ class SubscriptionService {
   /// Restore purchases
   Future<PurchaseResult> restorePurchases() async {
     try {
-      if (_revenueCatApiKey == 'YOUR_REVENUECAT_API_KEY') {
+      if (_revenueCatApiKey.isEmpty) {
         return PurchaseResult(
           success: false,
-          error: 'Payment system not configured yet',
+          error: 'Payment system not configured. Please contact support.',
         );
       }
 
@@ -159,7 +269,7 @@ class SubscriptionService {
   /// Get available offerings from RevenueCat
   Future<Offerings?> getOfferings() async {
     try {
-      if (_revenueCatApiKey == 'YOUR_REVENUECAT_API_KEY') {
+      if (_revenueCatApiKey.isEmpty) {
         return null;
       }
       return await Purchases.getOfferings();
@@ -175,16 +285,18 @@ class SubscriptionService {
 
   Future<PurchaseResult> _purchaseProduct(String productId) async {
     try {
-      if (_revenueCatApiKey == 'YOUR_REVENUECAT_API_KEY') {
-        // Demo mode - simulate purchase for testing
-        if (kDebugMode) {
+      // Check if payment system is configured
+      if (_revenueCatApiKey.isEmpty) {
+        // Only allow demo mode in debug builds AND when explicitly not production
+        if (kDebugMode && !PaymentConfig.isConfiguredForProduction) {
           debugPrint('🧪 Demo mode: Simulating purchase of $productId');
-          await _simulatePurchase(productId);
-          return PurchaseResult(success: true, message: 'Demo purchase successful!');
+          debugPrint('⚠️ This is a TEST purchase - will not work in production');
+          await _simulatePurchase(productId, isDemo: true);
+          return PurchaseResult(success: true, message: 'Demo purchase successful (TEST MODE)');
         }
         return PurchaseResult(
           success: false,
-          error: 'Payment system not configured. Contact support.',
+          error: 'Payment system not available. Please contact ${PaymentConfig.supportEmail}',
         );
       }
 
@@ -226,12 +338,13 @@ class SubscriptionService {
   }
 
   /// Simulate purchase for demo/testing mode
-  Future<void> _simulatePurchase(String productId) async {
+  /// @param isDemo - marks the subscription as a demo in the database
+  Future<void> _simulatePurchase(String productId, {bool isDemo = false}) async {
     _isPremium = true;
     _subscriptionStatus = productId == lifetimeProductId ? 'lifetime' : 'premium';
     await _saveCachedStatus();
 
-    // Update server
+    // Update server - mark as demo if applicable
     try {
       final supabase = Supabase.instance.client;
       await supabase.from('subscriptions').upsert({
@@ -242,7 +355,13 @@ class SubscriptionService {
         'expires_at': productId == lifetimeProductId
             ? null
             : DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'is_demo': isDemo, // Mark as demo purchase for tracking
+        'source': isDemo ? 'demo_mode' : 'revenuecat',
       });
+
+      if (kDebugMode && isDemo) {
+        debugPrint('📝 Demo subscription recorded in database (marked as demo)');
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Failed to update server subscription: $e');
@@ -399,4 +518,25 @@ class PurchaseResult {
     this.message,
     this.error,
   });
+}
+
+/// Result of server-side alert permission validation
+class ValidationResult {
+  final bool allowed;
+  final String? reason;
+  final int remainingAlerts;
+  final bool isOfflineCheck;
+
+  ValidationResult({
+    required this.allowed,
+    this.reason,
+    this.remainingAlerts = 0,
+    this.isOfflineCheck = false,
+  });
+
+  /// Human-readable message for the user
+  String get userMessage {
+    if (allowed) return 'You can send an alert';
+    return reason ?? 'You have reached your daily alert limit';
+  }
 }

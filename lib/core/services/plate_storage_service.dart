@@ -324,13 +324,25 @@ class PlateStorageService {
       final prefs = await SharedPreferences.getInstance();
       final lastSyncedUserId = prefs.getString('yuh_last_synced_user_id');
 
+      // Also check the backup user_id to prevent false positives
+      final backupUserId = prefs.getString('user_id_backup');
+
       if (lastSyncedUserId != null && lastSyncedUserId != userId) {
-        // User changed! Clear local data to prevent cross-account data leak
-        if (kDebugMode) {
-          debugPrint('⚠️ User ID changed from $lastSyncedUserId to $userId - clearing local plates');
+        // Check if this is a genuine account change or just a sync issue
+        if (backupUserId == userId) {
+          // The backup matches current user - this is likely a recovery, not a change
+          if (kDebugMode) {
+            debugPrint('🔄 User ID sync mismatch but backup matches - updating sync ID');
+          }
+          await prefs.setString('yuh_last_synced_user_id', userId);
+        } else {
+          // Genuine user change - clear local data to prevent cross-account data leak
+          if (kDebugMode) {
+            debugPrint('⚠️ User ID changed from $lastSyncedUserId to $userId - clearing local plates');
+          }
+          await clearAllPlates();
+          await prefs.setString('yuh_last_synced_user_id', userId);
         }
-        await clearAllPlates();
-        await prefs.setString('yuh_last_synced_user_id', userId);
       } else if (lastSyncedUserId == null) {
         await prefs.setString('yuh_last_synced_user_id', userId);
       }

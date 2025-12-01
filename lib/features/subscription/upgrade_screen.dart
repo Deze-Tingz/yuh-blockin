@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
+import '../../config/payment_config.dart';
 
 /// Full screen upgrade/purchase UI
 class UpgradeScreen extends StatefulWidget {
@@ -15,6 +17,46 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isLoading = false;
   String? _selectedPlan; // 'monthly' or 'lifetime'
+
+  /// Open Terms of Service URL
+  Future<void> _openTermsOfService() async {
+    final uri = Uri.parse(PaymentConfig.termsOfServiceUrl);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open Terms of Service')),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to open Terms URL: $e');
+      }
+    }
+  }
+
+  /// Open Privacy Policy URL
+  Future<void> _openPrivacyPolicy() async {
+    final uri = Uri.parse(PaymentConfig.privacyPolicyUrl);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open Privacy Policy')),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to open Privacy URL: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -380,9 +422,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton(
-              onPressed: () {
-                // Open terms of service
-              },
+              onPressed: _openTermsOfService,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: Size.zero,
@@ -404,9 +444,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                // Open privacy policy
-              },
+              onPressed: _openPrivacyPolicy,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: Size.zero,

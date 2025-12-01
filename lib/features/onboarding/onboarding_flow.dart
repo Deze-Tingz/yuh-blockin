@@ -15,16 +15,56 @@ class OnboardingFlow extends StatefulWidget {
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-class _OnboardingFlowState extends State<OnboardingFlow> {
+class _OnboardingFlowState extends State<OnboardingFlow>
+    with TickerProviderStateMixin {
   late PageController _pageController;
   int _currentPage = 0;
   final int _totalPages = 3;
   bool _imagesPreloaded = false;
 
+  // Entrance animation for seamless splash transition
+  late AnimationController _entranceController;
+  late Animation<double> _contentFade;
+  late Animation<double> _contentScale;
+  late Animation<double> _headerSlide;
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    // Premium entrance animation
+    _entranceController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    // Content fades in
+    _contentFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    // Content scales from slightly larger (matching splash exit)
+    _contentScale = Tween<double>(begin: 1.05, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Header slides down
+    _headerSlide = Tween<double>(begin: -20.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Start entrance animation
+    _entranceController.forward();
   }
 
   @override
@@ -39,6 +79,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   void dispose() {
+    _entranceController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -114,29 +155,44 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const ClampingScrollPhysics(),
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                  // Defer haptic feedback to avoid interfering with animation
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    HapticFeedback.selectionClick();
-                  });
-                },
-                children: [
-                  const _WelcomePage(),
-                  const _SecurityPage(),
-                  _ReadyPage(onComplete: _completeOnboarding, onSkip: _skipToMainApp),
-                ],
+        child: AnimatedBuilder(
+          animation: _entranceController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _contentScale.value,
+              child: Opacity(
+                opacity: _contentFade.value,
+                child: Column(
+                  children: [
+                    // Animated header with slide down
+                    Transform.translate(
+                      offset: Offset(0, _headerSlide.value),
+                      child: _buildHeader(),
+                    ),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const ClampingScrollPhysics(),
+                        onPageChanged: (index) {
+                          setState(() => _currentPage = index);
+                          // Defer haptic feedback to avoid interfering with animation
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            HapticFeedback.selectionClick();
+                          });
+                        },
+                        children: [
+                          const _WelcomePage(),
+                          const _SecurityPage(),
+                          _ReadyPage(onComplete: _completeOnboarding, onSkip: _skipToMainApp),
+                        ],
+                      ),
+                    ),
+                    _buildFooter(),
+                  ],
+                ),
               ),
-            ),
-            _buildFooter(),
-          ],
+            );
+          },
         ),
       ),
     );

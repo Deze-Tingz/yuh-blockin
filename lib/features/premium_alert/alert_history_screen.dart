@@ -136,8 +136,27 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
       if (success && mounted) {
         HapticFeedback.lightImpact();
 
-        // No need to manually update local list - the stream listener will
-        // automatically receive the updated alert from the database and update the UI
+        // Update local list immediately for responsive UI
+        // (Stream may take a moment to update)
+        setState(() {
+          final index = _receivedAlerts.indexWhere((a) => a.id == alert.id);
+          if (index != -1) {
+            // Create updated alert with response
+            final updatedAlert = Alert(
+              id: alert.id,
+              senderId: alert.senderId,
+              receiverId: alert.receiverId,
+              plateHash: alert.plateHash,
+              message: alert.message,
+              response: response,
+              responseMessage: null,
+              createdAt: alert.createdAt,
+              readAt: DateTime.now(),
+              responseAt: DateTime.now(),
+            );
+            _receivedAlerts[index] = updatedAlert;
+          }
+        });
 
         // Show success message - clear any existing snackbars first
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -149,7 +168,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           ),
         );
 
-        debugPrint('✅ Response sent successfully - waiting for stream update');
+        debugPrint('✅ Response sent successfully');
       } else {
         throw Exception('Failed to send response');
       }
@@ -553,9 +572,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.06),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
+                  bottomRight: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
                 ),
               ),
               child: Row(
@@ -577,9 +596,481 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                 ],
               ),
             ),
+          // Follow-up options for "5 minutes" response
+          if (alert.response == '5_minutes')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.08),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.orange.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Follow up',
+                    style: TextStyle(
+                      fontSize: isTablet ? 13 : 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildFollowUpButton(
+                          label: 'Car moved!',
+                          icon: Icons.check_circle_outline,
+                          color: Colors.green,
+                          onTap: () => _showResolutionDialog(alert, 'resolved'),
+                          isTablet: isTablet,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildFollowUpButton(
+                          label: 'Send reminder',
+                          icon: Icons.notification_important_outlined,
+                          color: Colors.orange,
+                          onTap: () => _showReminderDialog(alert),
+                          isTablet: isTablet,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildFollowUpButton(
+                          label: 'Still waiting',
+                          icon: Icons.hourglass_bottom,
+                          color: Colors.blue,
+                          onTap: () => _showStillWaitingDialog(alert),
+                          isTablet: isTablet,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildFollowUpButton(
+                          label: 'Give up',
+                          icon: Icons.close,
+                          color: Colors.grey,
+                          onTap: () => _showResolutionDialog(alert, 'gave_up'),
+                          isTablet: isTablet,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Widget _buildFollowUpButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isTablet,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: isTablet ? 10 : 8,
+            horizontal: 8,
+          ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: isTablet ? 16 : 14, color: color),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isTablet ? 12 : 10,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showResolutionDialog(Alert alert, String resolution) {
+    final isResolved = resolution == 'resolved';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              isResolved ? Icons.check_circle : Icons.cancel,
+              color: isResolved ? Colors.green : Colors.grey,
+            ),
+            const SizedBox(width: 8),
+            Text(isResolved ? 'Resolved!' : 'Give up?'),
+          ],
+        ),
+        content: Text(
+          isResolved
+              ? 'Great! The car has moved and the situation is resolved.'
+              : 'Are you sure you want to give up on this alert?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _markAlertResolved(alert, resolution);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isResolved ? Colors.green : Colors.grey,
+            ),
+            child: Text(isResolved ? 'Confirm' : 'Give up'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReminderDialog(Alert alert) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.notification_important, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Send Reminder'),
+          ],
+        ),
+        content: const Text(
+          'Send a gentle reminder that you\'re still waiting for them to move?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _sendReminder(alert);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Send Reminder'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStillWaitingDialog(Alert alert) {
+    final timeSinceResponse = alert.responseAt != null
+        ? DateTime.now().difference(alert.responseAt!).inMinutes
+        : 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.hourglass_bottom, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Still Waiting'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'They said 5 minutes, it\'s been $timeSinceResponse minutes.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'What would you like to do?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep waiting'),
+          ),
+          if (timeSinceResponse >= 5)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _sendReminder(alert);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('Send Reminder'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markAlertResolved(Alert alert, String resolution) async {
+    // For now, just show a confirmation - in future could update DB
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            resolution == 'resolved'
+                ? '✓ Marked as resolved'
+                : 'Alert closed',
+          ),
+          backgroundColor: resolution == 'resolved' ? Colors.green : Colors.grey,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _handleClearOption(String option) {
+    switch (option) {
+      case 'clear_received':
+        _showClearConfirmationDialog(
+          title: 'Clear Received Alerts',
+          message: 'Are you sure you want to delete all ${_receivedAlerts.length} received alerts? This cannot be undone.',
+          onConfirm: () => _clearReceivedAlerts(),
+        );
+        break;
+      case 'clear_sent':
+        _showClearConfirmationDialog(
+          title: 'Clear Sent Alerts',
+          message: 'Are you sure you want to delete all ${_sentAlerts.length} sent alerts? This cannot be undone.',
+          onConfirm: () => _clearSentAlerts(),
+        );
+        break;
+      case 'clear_all':
+        _showClearConfirmationDialog(
+          title: 'Clear All Alerts',
+          message: 'Are you sure you want to delete all ${_receivedAlerts.length + _sentAlerts.length} alerts? This cannot be undone.',
+          onConfirm: () => _clearAllAlerts(),
+        );
+        break;
+    }
+  }
+
+  void _showClearConfirmationDialog({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange[700]),
+            const SizedBox(width: 8),
+            Flexible(child: Text(title)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearReceivedAlerts() async {
+    try {
+      final count = await _alertService.deleteReceivedAlerts(widget.userId);
+      if (mounted) {
+        setState(() {
+          _receivedAlerts.clear();
+          _seenReceivedAlertIds.clear();
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deleted $count received alerts'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing received alerts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to clear alerts'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearSentAlerts() async {
+    try {
+      final count = await _alertService.deleteSentAlerts(widget.userId);
+      if (mounted) {
+        setState(() {
+          _sentAlerts.clear();
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deleted $count sent alerts'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing sent alerts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to clear alerts'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearAllAlerts() async {
+    try {
+      final count = await _alertService.deleteAllAlerts(widget.userId);
+      if (mounted) {
+        setState(() {
+          _receivedAlerts.clear();
+          _sentAlerts.clear();
+          _seenReceivedAlertIds.clear();
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deleted $count alerts'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing all alerts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to clear alerts'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendReminder(Alert alert) async {
+    try {
+      // Send a reminder directly to the receiver using their ID
+      final result = await _alertService.sendReminderAlert(
+        receiverUserId: alert.receiverId,
+        senderUserId: widget.userId,
+        plateHash: alert.plateHash,
+        message: '⏰ Reminder: Still waiting for you to move',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reminder sent!'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not send reminder: ${result.error}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending reminder: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to send reminder'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -600,6 +1091,49 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[800]),
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.grey[700]),
+            tooltip: 'Clear alerts',
+            onSelected: (value) => _handleClearOption(value),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'clear_received',
+                enabled: _receivedAlerts.isNotEmpty,
+                child: Row(
+                  children: [
+                    Icon(Icons.inbox, size: 20, color: Colors.orange[700]),
+                    const SizedBox(width: 12),
+                    const Text('Clear received'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_sent',
+                enabled: _sentAlerts.isNotEmpty,
+                child: Row(
+                  children: [
+                    Icon(Icons.send, size: 20, color: Colors.blue[700]),
+                    const SizedBox(width: 12),
+                    const Text('Clear sent'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'clear_all',
+                enabled: _receivedAlerts.isNotEmpty || _sentAlerts.isNotEmpty,
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep, size: 20, color: Colors.red[700]),
+                    const SizedBox(width: 12),
+                    const Text('Clear all'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: TabBar(

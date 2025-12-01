@@ -100,6 +100,24 @@ class NotificationService {
       await initialize();
     }
 
+    // Premium rhythm vibration: da-da-da-DAAAA pattern (attention-grabbing)
+    final vibrationPattern = Int64List.fromList([
+      0,    // Start immediately
+      200,  // Short buzz
+      100,  // Pause
+      200,  // Short buzz
+      100,  // Pause
+      200,  // Short buzz
+      200,  // Longer pause
+      600,  // Long buzz (attention!)
+      300,  // Pause
+      200,  // Short buzz
+      100,  // Pause
+      200,  // Short buzz
+      100,  // Pause
+      600,  // Long final buzz
+    ]);
+
     // Android notification details - HIGH priority for lock screen visibility
     final androidDetails = AndroidNotificationDetails(
       'yuh_blockin_alerts',
@@ -109,11 +127,11 @@ class NotificationService {
       priority: Priority.max,
       playSound: playSound,
       enableVibration: vibrate,
-      vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500]), // Premium vibration pattern
+      vibrationPattern: vibrationPattern,
       enableLights: true,
       ledColor: const Color(0xFF4CAF50), // Green LED
-      ledOnMs: 1000,
-      ledOffMs: 500,
+      ledOnMs: 500,
+      ledOffMs: 250,
       fullScreenIntent: true, // Shows on lock screen
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public, // Show on lock screen
@@ -154,27 +172,55 @@ class NotificationService {
   }
 
   /// Vibrate even when phone is on silent
-  /// Uses a premium pattern: short-short-long
+  /// Uses a premium rhythm pattern: quick-quick-quick-LONG, quick-quick-LONG
   Future<void> _vibrateForSilentMode() async {
     try {
       final hasVibrator = await Vibration.hasVibrator();
-      if (hasVibrator == true) {
-        // Check if custom vibration is available
-        final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
+      if (hasVibrator != true) return;
 
-        if (hasAmplitudeControl == true) {
-          // Premium vibration with amplitude control
-          await Vibration.vibrate(
-            pattern: [0, 200, 100, 200, 100, 400],
-            intensities: [0, 255, 0, 255, 0, 255],
-          );
-        } else {
-          // Fallback pattern
-          await Vibration.vibrate(
-            pattern: [0, 200, 100, 200, 100, 400],
-          );
-        }
+      final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
+
+      // First wave: da-da-da-DAAAA
+      if (hasAmplitudeControl == true) {
+        await Vibration.vibrate(
+          pattern: [
+            0,    // Start
+            150,  // Quick
+            80,   // Pause
+            150,  // Quick
+            80,   // Pause
+            150,  // Quick
+            150,  // Pause
+            500,  // LONG
+          ],
+          intensities: [0, 200, 0, 200, 0, 200, 0, 255],
+        );
+      } else {
+        await Vibration.vibrate(
+          pattern: [0, 150, 80, 150, 80, 150, 150, 500],
+        );
       }
+
+      // Pause between waves
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Second wave: da-da-DAAAA
+      if (hasAmplitudeControl == true) {
+        await Vibration.vibrate(
+          pattern: [0, 150, 80, 150, 150, 500],
+          intensities: [0, 200, 0, 200, 0, 255],
+        );
+      } else {
+        await Vibration.vibrate(
+          pattern: [0, 150, 80, 150, 150, 500],
+        );
+      }
+
+      // Final attention pulse after brief pause
+      await Future.delayed(const Duration(milliseconds: 500));
+      await Vibration.vibrate(
+        pattern: [0, 300, 150, 600],
+      );
     } catch (e) {
       debugPrint('Vibration error: $e');
     }

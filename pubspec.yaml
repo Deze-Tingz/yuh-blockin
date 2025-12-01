@@ -20,6 +20,7 @@ dependencies:
   supabase_flutter: ^2.5.6
   # flutter_native_splash: ^2.4.0  # Disabled - using custom AppInitializer splash
   lottie: ^3.1.0
+  shimmer: ^3.0.0  # Premium shimmer effect for splash screen
 
   # Notification & connectivity packages
   flutter_local_notifications: ^17.2.2
@@ -27,8 +28,16 @@ dependencies:
   vibration: ^2.0.0
   permission_handler: ^11.3.1
 
+  # Background service for reliable notifications when locked
+  flutter_background_service: ^5.0.5
+  flutter_background_service_android: ^6.2.3
+  device_info_plus: ^10.1.0
+
   # In-app purchases via RevenueCat
   purchases_flutter: ^8.0.0
+
+  # URL launcher for opening terms/privacy links
+  url_launcher: ^6.2.5
 
   # Optional: Keep these only if you want advanced state management
   # hooks_riverpod: ^2.5.1

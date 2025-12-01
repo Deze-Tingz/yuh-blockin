@@ -96,7 +96,48 @@ class SimpleAlertService {
     }
   }
 
+  /// Check if a plate is already registered by any user
+  Future<PlateCheckResult> checkPlateAvailability({
+    required String plateNumber,
+    required String userId,
+  }) async {
+    _ensureInitialized();
+
+    final plateHash = _hashPlate(plateNumber);
+
+    try {
+      final result = await _supabase
+          .from('plates')
+          .select('user_id')
+          .eq('plate_hash', plateHash)
+          .maybeSingle();
+
+      if (result == null) {
+        // Plate not registered - available
+        return PlateCheckResult(
+          isAvailable: true,
+          isOwnedByCurrentUser: false,
+        );
+      }
+
+      // Plate exists - check if it belongs to current user
+      final existingUserId = result['user_id'] as String;
+      final isOwned = existingUserId == userId;
+
+      return PlateCheckResult(
+        isAvailable: false,
+        isOwnedByCurrentUser: isOwned,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Plate availability check failed: $e');
+      }
+      rethrow;
+    }
+  }
+
   /// Register a license plate
+  /// Throws PlateAlreadyRegisteredException if plate belongs to another user
   Future<void> registerPlate({
     required String plateNumber,
     required String userId,
@@ -104,6 +145,30 @@ class SimpleAlertService {
     _ensureInitialized();
 
     final plateHash = _hashPlate(plateNumber);
+
+    // Check if plate is already registered
+    final availability = await checkPlateAvailability(
+      plateNumber: plateNumber,
+      userId: userId,
+    );
+
+    if (!availability.isAvailable) {
+      if (availability.isOwnedByCurrentUser) {
+        // User already owns this plate - just return success
+        if (kDebugMode) {
+          debugPrint('ℹ️ Plate already registered by this user: $plateNumber');
+        }
+        return;
+      } else {
+        // Plate belongs to someone else
+        if (kDebugMode) {
+          debugPrint('❌ Plate already registered by another user: $plateNumber');
+        }
+        throw PlateAlreadyRegisteredException(
+          'This license plate is already registered by another user.',
+        );
+      }
+    }
 
     try {
       await _supabase.from('plates').insert({
@@ -161,6 +226,46 @@ class SimpleAlertService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Alert failed: $e');
+      }
+      return AlertResult(
+        success: false,
+        recipients: 0,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Send a reminder alert directly to a specific user
+  Future<AlertResult> sendReminderAlert({
+    required String receiverUserId,
+    required String senderUserId,
+    required String plateHash,
+    String? message,
+  }) async {
+    _ensureInitialized();
+
+    try {
+      // Insert directly into alerts table
+      final response = await _supabase.from('alerts').insert({
+        'sender_id': senderUserId,
+        'receiver_id': receiverUserId,
+        'plate_hash': plateHash,
+        'message': message ?? '⏰ Reminder: Still waiting',
+      }).select().single();
+
+      if (kDebugMode) {
+        debugPrint('📢 Reminder sent to user: $receiverUserId');
+      }
+
+      return AlertResult(
+        success: true,
+        recipients: 1,
+        error: null,
+        alertId: response['id']?.toString(),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Reminder failed: $e');
       }
       return AlertResult(
         success: false,
@@ -299,6 +404,105 @@ class SimpleAlertService {
     }
   }
 
+  /// Delete a single alert by ID
+  Future<bool> deleteAlert(String alertId) async {
+    _ensureInitialized();
+
+    try {
+      await _supabase.from('alerts').delete().eq('id', alertId);
+
+      if (kDebugMode) {
+        debugPrint('🗑️ Deleted alert: $alertId');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to delete alert: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Delete all received alerts for a user
+  Future<int> deleteReceivedAlerts(String userId) async {
+    _ensureInitialized();
+
+    try {
+      final response = await _supabase
+          .from('alerts')
+          .delete()
+          .eq('receiver_id', userId)
+          .select();
+
+      final count = (response as List).length;
+      if (kDebugMode) {
+        debugPrint('🗑️ Deleted $count received alerts for user: $userId');
+      }
+      return count;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to delete received alerts: $e');
+      }
+      return 0;
+    }
+  }
+
+  /// Delete all sent alerts for a user
+  Future<int> deleteSentAlerts(String userId) async {
+    _ensureInitialized();
+
+    try {
+      final response = await _supabase
+          .from('alerts')
+          .delete()
+          .eq('sender_id', userId)
+          .select();
+
+      final count = (response as List).length;
+      if (kDebugMode) {
+        debugPrint('🗑️ Deleted $count sent alerts for user: $userId');
+      }
+      return count;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to delete sent alerts: $e');
+      }
+      return 0;
+    }
+  }
+
+  /// Delete all alerts (both sent and received) for a user
+  Future<int> deleteAllAlerts(String userId) async {
+    _ensureInitialized();
+
+    try {
+      // Delete received alerts
+      final receivedResponse = await _supabase
+          .from('alerts')
+          .delete()
+          .eq('receiver_id', userId)
+          .select();
+
+      // Delete sent alerts
+      final sentResponse = await _supabase
+          .from('alerts')
+          .delete()
+          .eq('sender_id', userId)
+          .select();
+
+      final totalCount = (receivedResponse as List).length + (sentResponse as List).length;
+      if (kDebugMode) {
+        debugPrint('🗑️ Deleted $totalCount total alerts for user: $userId');
+      }
+      return totalCount;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to delete all alerts: $e');
+      }
+      return 0;
+    }
+  }
+
   // Private helpers
 
   String _hashPlate(String plateNumber) {
@@ -402,4 +606,25 @@ class Alert {
         return 'No response';
     }
   }
+}
+
+/// Result of checking plate availability
+class PlateCheckResult {
+  final bool isAvailable;
+  final bool isOwnedByCurrentUser;
+
+  PlateCheckResult({
+    required this.isAvailable,
+    required this.isOwnedByCurrentUser,
+  });
+}
+
+/// Exception thrown when trying to register a plate that belongs to another user
+class PlateAlreadyRegisteredException implements Exception {
+  final String message;
+
+  PlateAlreadyRegisteredException(this.message);
+
+  @override
+  String toString() => message;
 }

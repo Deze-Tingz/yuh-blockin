@@ -225,3 +225,48 @@ The app already uses these patterns - follow them:
 3. **Don't assume screen height** - always use LayoutBuilder/MediaQuery
 4. **Don't forget keyboard insets** - use `MediaQuery.of(context).viewInsets.bottom`
 5. **Don't put unbounded widgets in Column** - ListView, GridView need constraints
+
+---
+
+## PAYMENT SYSTEM CONFIGURATION
+
+The app uses RevenueCat for in-app purchases. **API keys must be provided via environment variables** (not hardcoded in source).
+
+### Running the App (Development)
+
+```bash
+# Android
+flutter run --dart-define=REVENUECAT_API_KEY=goog_YourKeyHere
+
+# iOS (when you have an iOS key)
+flutter run --dart-define=REVENUECAT_API_KEY=goog_YourKeyHere --dart-define=REVENUECAT_IOS_API_KEY=appl_YourKeyHere
+```
+
+### Building for Production
+
+```bash
+# Android APK
+flutter build apk --dart-define=REVENUECAT_API_KEY=goog_YourKeyHere
+
+# Android App Bundle (for Play Store)
+flutter build appbundle --dart-define=REVENUECAT_API_KEY=goog_YourKeyHere
+
+# iOS
+flutter build ios --dart-define=REVENUECAT_API_KEY=goog_YourKeyHere
+```
+
+> **Your Google Play Key:** Store securely and never commit to version control!
+
+### Product IDs (must match RevenueCat & Play Console)
+
+- `yuh_blockin_monthly` - Monthly subscription
+- `yuh_blockin_lifetime` - One-time lifetime purchase
+
+### Entitlements (must match RevenueCat dashboard)
+
+- `premium` - For monthly subscribers
+- `lifetime` - For lifetime purchases
+
+### Configuration File
+
+`lib/config/payment_config.dart` - Contains product IDs, URLs, and limits
