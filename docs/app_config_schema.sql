@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS app_config (
 
 -- Insert ATH Móvil business path
 INSERT INTO app_config (key, value, description)
-VALUES ('ath_movil_path', 'dezetingz', 'ATH Móvil business path for payments')
+VALUES ('ath_movil_path', '/dezetingz', 'ATH Móvil business path for payments')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 
 -- Enable RLS

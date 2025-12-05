@@ -99,13 +99,13 @@ class AthMovilService {
   /// Get the full ATH Móvil deep link URL
   Future<String> getAthDeepLink() async {
     final path = await getAthPath();
-    return 'athmovil://business/$path';
+    // Path already includes leading slash (e.g., "/dezetingz")
+    return 'athmovil://business$path';
   }
 
-  /// Get formatted display path (with leading slash)
+  /// Get formatted display path (already includes leading slash)
   Future<String> getDisplayPath() async {
-    final path = await getAthPath();
-    return '/$path';
+    return await getAthPath();
   }
 
   /// Validate phone number for ATH Móvil
