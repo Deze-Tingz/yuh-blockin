@@ -38,6 +38,7 @@ dependencies:
 
   # URL launcher for opening terms/privacy links
   url_launcher: ^6.2.5
+  qr_flutter: ^4.1.0
 
   # Optional: Keep these only if you want advanced state management
   # hooks_riverpod: ^2.5.1

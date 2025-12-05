@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/ath_movil_service.dart';
@@ -26,6 +27,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   bool _isLoading = false;
   String? _selectedPlan; // 'monthly' or 'lifetime'
   String _paymentMethod = 'google_play'; // 'google_play' or 'ath_movil'
+  String _athInputMethod = 'phone'; // 'phone' or 'qr'
   String? _phoneError;
 
   @override
@@ -165,10 +167,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                     const SizedBox(height: 24),
                     // Payment method toggle
                     _buildPaymentMethodToggle(),
-                    // Phone number input (ATH Móvil only)
+                    // ATH Móvil input section (phone or QR)
                     if (_paymentMethod == 'ath_movil') ...[
                       const SizedBox(height: 16),
-                      _buildPhoneInput(),
+                      _buildAthInputTabs(),
+                      const SizedBox(height: 12),
+                      if (_athInputMethod == 'phone')
+                        _buildPhoneInput()
+                      else
+                        _buildQrCodeSection(),
                     ],
                     const SizedBox(height: 24),
                     // Pricing cards
@@ -336,6 +343,233 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAthInputTabs() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PremiumTheme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _athInputMethod = 'phone'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _athInputMethod == 'phone'
+                      ? PremiumTheme.accentColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.phone_rounded,
+                      size: 16,
+                      color: _athInputMethod == 'phone'
+                          ? PremiumTheme.accentColor
+                          : PremiumTheme.secondaryTextColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Phone',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _athInputMethod == 'phone'
+                            ? PremiumTheme.accentColor
+                            : PremiumTheme.secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _athInputMethod = 'qr'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _athInputMethod == 'qr'
+                      ? PremiumTheme.accentColor.withValues(alpha: 0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.qr_code_rounded,
+                      size: 16,
+                      color: _athInputMethod == 'qr'
+                          ? PremiumTheme.accentColor
+                          : PremiumTheme.secondaryTextColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'QR Code',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _athInputMethod == 'qr'
+                            ? PremiumTheme.accentColor
+                            : PremiumTheme.secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrCodeSection() {
+    final amount = _selectedPlan == 'lifetime'
+        ? PaymentConfig.athLifetimePrice
+        : PaymentConfig.athMonthlyPrice;
+    final planName = _selectedPlan == 'lifetime' ? 'Lifetime' : 'Monthly';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PremiumTheme.dividerColor),
+      ),
+      child: Column(
+        children: [
+          // QR Code
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: QrImageView(
+              data: 'athmovil://business/dezetingz',
+              version: QrVersions.auto,
+              size: 160,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Color(0xFFE31837),
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Instructions
+          Text(
+            'Scan with ATH Móvil',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: PremiumTheme.primaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Or search "/dezetingz" in the app',
+            style: TextStyle(
+              fontSize: 13,
+              color: PremiumTheme.secondaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Amount reminder
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE31837).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Color(0xFFE31837),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Pay exactly \$${amount.toStringAsFixed(2)} for $planName',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE31837),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Phone input for verification
+          Text(
+            'After paying, enter your ATH phone to verify:',
+            style: TextStyle(
+              fontSize: 12,
+              color: PremiumTheme.tertiaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: PremiumTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: PremiumTheme.dividerColor),
+            ),
+            child: TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: TextStyle(
+                fontSize: 15,
+                color: PremiumTheme.primaryTextColor,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+                _PhoneNumberFormatter(),
+              ],
+              decoration: InputDecoration(
+                hintText: 'Your ATH phone number',
+                hintStyle: TextStyle(
+                  color: PremiumTheme.tertiaryTextColor,
+                  fontSize: 14,
+                ),
+                prefixIcon: Icon(
+                  Icons.phone_rounded,
+                  size: 20,
+                  color: PremiumTheme.secondaryTextColor,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
