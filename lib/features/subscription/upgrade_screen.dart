@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/ath_movil_service.dart';
@@ -455,10 +454,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   }
 
   Widget _buildQrCodeSection() {
-    final amount = _selectedPlan == 'lifetime'
-        ? PaymentConfig.athLifetimePrice
-        : PaymentConfig.athMonthlyPrice;
-    final planName = _selectedPlan == 'lifetime' ? 'Lifetime' : 'Monthly';
+    // QR code is preset for monthly payment
+    const amount = PaymentConfig.athMonthlyPrice;
+    const planName = 'Monthly';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -469,33 +467,22 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       ),
       child: Column(
         children: [
-          // QR Code
+          // QR Code - Using actual ATH Móvil QR code image (monthly preset)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: _athPathLoaded
-                ? QrImageView(
-                    data: 'athmovil://business/$_athPath',
-                    version: QrVersions.auto,
-                    size: 160,
-                    backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFFE31837),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Colors.black87,
-                    ),
-                  )
-                : const SizedBox(
-                    width: 160,
-                    height: 160,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/images/yuhblockin_monthly_qrcode_ath.jpeg',
+                width: 160,
+                height: 160,
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -510,7 +497,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _athPathLoaded ? 'Or search "/$_athPath" in the app' : 'Loading...',
+            _athPathLoaded ? 'Or search "$_athPath" in the app' : 'Loading...',
             style: TextStyle(
               fontSize: 13,
               color: PremiumTheme.secondaryTextColor,
@@ -673,7 +660,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               Flexible(
                 child: Text(
                   _athPathLoaded
-                      ? 'Or search "/$_athPath" in ATH Móvil'
+                      ? 'Or search "$_athPath" in ATH Móvil'
                       : 'Or search in ATH Móvil',
                   style: TextStyle(
                     fontSize: 12,
