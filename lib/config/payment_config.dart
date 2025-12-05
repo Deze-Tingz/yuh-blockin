@@ -1,12 +1,14 @@
 /// Payment Configuration for Yuh Blockin'
 ///
-/// IMPORTANT: For production, set these values via:
-/// 1. Environment variables (preferred for CI/CD)
-/// 2. Or create a payment_config_secrets.dart file (add to .gitignore)
+/// IMPORTANT: For production, set these values via environment variables:
 ///
-/// To use environment variables, run:
-/// flutter run --dart-define=REVENUECAT_API_KEY=your_production_key
-/// flutter run --dart-define=REVENUECAT_IOS_API_KEY=your_ios_key (if different)
+/// RevenueCat (Google Play/App Store):
+///   flutter run --dart-define=REVENUECAT_API_KEY=goog_xxx
+///   flutter run --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx (if different)
+///
+/// ATH Móvil:
+///   flutter run --dart-define=ATH_MOVIL_PUBLIC_TOKEN=your_public_token
+///   (Private key is stored in Supabase Edge Functions - NEVER in app)
 class PaymentConfig {
   PaymentConfig._();
 
@@ -74,4 +76,35 @@ class PaymentConfig {
 
   /// Support email
   static const String supportEmail = 'support@yuhblockin.com';
+
+  // ============================================
+  // ATH Móvil Configuration
+  // ============================================
+
+  /// ATH Móvil Public Token - Set via environment variable
+  ///
+  /// This token is safe to include in the app - it only identifies your business.
+  /// The PRIVATE KEY must ONLY be stored in Supabase Edge Functions.
+  ///
+  /// flutter run --dart-define=ATH_MOVIL_PUBLIC_TOKEN=your_public_token
+  static const String athMovilPublicToken = String.fromEnvironment(
+    'ATH_MOVIL_PUBLIC_TOKEN',
+    defaultValue: '',
+  );
+
+  /// Check if ATH Móvil is configured
+  static bool get isAthMovilConfigured => athMovilPublicToken.isNotEmpty;
+
+  /// ATH Móvil product prices (must match Supabase Edge Function)
+  static const double athMonthlyPrice = 2.99;
+  static const double athLifetimePrice = 19.99;
+
+  /// ATH Móvil payment timeout (seconds)
+  static const int athPaymentTimeout = 600; // 10 minutes
+
+  /// Grace period for monthly ATH Móvil renewals (days)
+  static const int athGracePeriodDays = 3;
+
+  /// Days before expiry to show renewal reminder
+  static const int athRenewalReminderDays = 3;
 }

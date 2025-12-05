@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
+import '../../core/services/ath_movil_service.dart';
 import '../../config/payment_config.dart';
+import 'ath_payment_dialog.dart';
 
 /// Full screen upgrade/purchase UI
 class UpgradeScreen extends StatefulWidget {
@@ -15,8 +19,21 @@ class UpgradeScreen extends StatefulWidget {
 
 class _UpgradeScreenState extends State<UpgradeScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
+  final AthMovilService _athMovilService = AthMovilService();
+  final TextEditingController _phoneController = TextEditingController();
+  final FocusNode _phoneFocusNode = FocusNode();
+
   bool _isLoading = false;
   String? _selectedPlan; // 'monthly' or 'lifetime'
+  String _paymentMethod = 'google_play'; // 'google_play' or 'ath_movil'
+  String? _phoneError;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _phoneFocusNode.dispose();
+    super.dispose();
+  }
 
   /// Open Terms of Service URL
   Future<void> _openTermsOfService() async {
@@ -145,7 +162,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                     const SizedBox(height: 32),
                     // Benefits
                     _buildBenefitsSection(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    // Payment method toggle
+                    _buildPaymentMethodToggle(),
+                    // Phone number input (ATH Móvil only)
+                    if (_paymentMethod == 'ath_movil') ...[
+                      const SizedBox(height: 16),
+                      _buildPhoneInput(),
+                    ],
+                    const SizedBox(height: 24),
                     // Pricing cards
                     _buildPricingCards(),
                     const SizedBox(height: 24),
@@ -234,6 +259,173 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildPaymentMethodToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PremiumTheme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildPaymentMethodButton(
+              id: 'google_play',
+              icon: Icons.play_arrow_rounded,
+              label: 'Google Play',
+            ),
+          ),
+          Expanded(
+            child: _buildPaymentMethodButton(
+              id: 'ath_movil',
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'ATH Móvil',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodButton({
+    required String id,
+    required IconData icon,
+    required String label,
+  }) {
+    final isSelected = _paymentMethod == id;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _paymentMethod = id;
+          _phoneError = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: PremiumTheme.fastDuration,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? PremiumTheme.accentColor
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.white : PremiumTheme.secondaryTextColor,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : PremiumTheme.secondaryTextColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: PremiumTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _phoneError != null
+                  ? Colors.red.shade400
+                  : PremiumTheme.dividerColor,
+            ),
+          ),
+          child: TextField(
+            controller: _phoneController,
+            focusNode: _phoneFocusNode,
+            keyboardType: TextInputType.phone,
+            style: TextStyle(
+              fontSize: 16,
+              color: PremiumTheme.primaryTextColor,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+              _PhoneNumberFormatter(),
+            ],
+            decoration: InputDecoration(
+              hintText: 'Enter your ATH phone number',
+              hintStyle: TextStyle(
+                color: PremiumTheme.tertiaryTextColor,
+                fontSize: 15,
+              ),
+              prefixIcon: Icon(
+                Icons.phone_android_rounded,
+                color: PremiumTheme.secondaryTextColor,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              if (_phoneError != null) {
+                setState(() => _phoneError = null);
+              }
+            },
+          ),
+        ),
+        if (_phoneError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              _phoneError!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red.shade400,
+              ),
+            ),
+          ),
+        // Helper tip about ATH path
+        Padding(
+          padding: const EdgeInsets.only(top: 8, left: 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                size: 14,
+                color: PremiumTheme.tertiaryTextColor,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Or search "/dezetingz" in ATH Móvil',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: PremiumTheme.tertiaryTextColor,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -467,6 +659,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   Future<void> _purchase() async {
     if (_selectedPlan == null) return;
 
+    // Route to appropriate payment method
+    if (_paymentMethod == 'ath_movil') {
+      await _purchaseWithAthMovil();
+    } else {
+      await _purchaseWithGooglePlay();
+    }
+  }
+
+  Future<void> _purchaseWithGooglePlay() async {
     setState(() => _isLoading = true);
 
     try {
@@ -487,6 +688,77 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     } catch (e) {
       if (kDebugMode) {
         print('Purchase error: $e');
+      }
+      if (mounted) {
+        _showErrorSnackbar('An error occurred. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _purchaseWithAthMovil() async {
+    // Validate phone number
+    final phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    final validPhone = _athMovilService.validatePhoneNumber(phone);
+
+    if (validPhone == null) {
+      setState(() {
+        _phoneError = 'Enter a valid 10-digit phone number';
+      });
+      _phoneFocusNode.requestFocus();
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Get user ID
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        _showErrorSnackbar('Please sign in to continue');
+        return;
+      }
+
+      // Determine product type
+      final productType = _selectedPlan == 'lifetime'
+          ? AthProductType.lifetime
+          : AthProductType.monthly;
+
+      // Create payment
+      final result = await _athMovilService.createPayment(
+        userId: userId,
+        productType: productType,
+        phoneNumber: validPhone,
+      );
+
+      if (!mounted) return;
+
+      if (!result.success) {
+        _showErrorSnackbar(result.error ?? 'Failed to create payment');
+        return;
+      }
+
+      // Show payment dialog
+      final paymentResult = await AthPaymentDialog.show(
+        context: context,
+        transactionId: result.transactionId!,
+        amount: result.amount!,
+        productType: productType,
+      );
+
+      if (!mounted) return;
+
+      if (paymentResult == true) {
+        // Payment successful - refresh subscription status
+        await _subscriptionService.refreshEntitlements(force: true);
+        _showSuccessDialog();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ATH Móvil purchase error: $e');
       }
       if (mounted) {
         _showErrorSnackbar('An error occurred. Please try again.');
@@ -613,6 +885,37 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         ),
         margin: const EdgeInsets.all(16),
       ),
+    );
+  }
+}
+
+/// Phone number formatter for Puerto Rico numbers (787-XXX-XXXX)
+class _PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+
+    // Just return digits as-is for the internal value
+    // The display formatting is handled by the hint
+    if (text.isEmpty) {
+      return newValue;
+    }
+
+    // Format as XXX-XXX-XXXX for display
+    final buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      if (i == 3 || i == 6) {
+        buffer.write('-');
+      }
+      buffer.write(text[i]);
+    }
+
+    return TextEditingValue(
+      text: buffer.toString(),
+      selection: TextSelection.collapsed(offset: buffer.length),
     );
   }
 }
