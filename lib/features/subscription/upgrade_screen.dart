@@ -29,12 +29,30 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   String _paymentMethod = 'google_play'; // 'google_play' or 'ath_movil'
   String _athInputMethod = 'phone'; // 'phone' or 'qr'
   String? _phoneError;
+  String _athPath = ''; // Loaded from Supabase
+  bool _athPathLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAthPath();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
     _phoneFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAthPath() async {
+    final path = await _athMovilService.getAthPath();
+    if (mounted) {
+      setState(() {
+        _athPath = path;
+        _athPathLoaded = true;
+      });
+    }
   }
 
   /// Open Terms of Service URL
@@ -458,20 +476,26 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: QrImageView(
-              data: 'athmovil://business/dezetingz',
-              version: QrVersions.auto,
-              size: 160,
-              backgroundColor: Colors.white,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: Color(0xFFE31837),
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: Colors.black87,
-              ),
-            ),
+            child: _athPathLoaded
+                ? QrImageView(
+                    data: 'athmovil://business/$_athPath',
+                    version: QrVersions.auto,
+                    size: 160,
+                    backgroundColor: Colors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFFE31837),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Colors.black87,
+                    ),
+                  )
+                : const SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
           ),
           const SizedBox(height: 16),
 
@@ -486,7 +510,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Or search "/dezetingz" in the app',
+            _athPathLoaded ? 'Or search "/$_athPath" in the app' : 'Loading...',
             style: TextStyle(
               fontSize: 13,
               color: PremiumTheme.secondaryTextColor,
@@ -648,7 +672,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  'Or search "/dezetingz" in ATH Móvil',
+                  _athPathLoaded
+                      ? 'Or search "/$_athPath" in ATH Móvil'
+                      : 'Or search in ATH Móvil',
                   style: TextStyle(
                     fontSize: 12,
                     color: PremiumTheme.tertiaryTextColor,

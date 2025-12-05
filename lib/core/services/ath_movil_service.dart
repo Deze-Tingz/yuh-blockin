@@ -38,6 +38,7 @@ class AthMovilService {
   // Persistence key for pending transactions
   static const String _pendingTransactionKey = 'ath_pending_transaction';
   static const String _pendingUserIdKey = 'ath_pending_user_id';
+  static const String _athPathCacheKey = 'ath_movil_path';
 
   // Poll configuration
   static const Duration _pollInterval = Duration(seconds: 3);
@@ -46,10 +47,66 @@ class AthMovilService {
   Timer? _pollTimer;
   StreamController<AthPaymentStatus>? _statusController;
   bool _isPolling = false;
+  String? _cachedAthPath;
 
   /// Check if ATH Móvil payments are available
   /// Currently always returns true - could be enhanced to check locale
   bool get isAvailable => true;
+
+  /// Get ATH Móvil business path from Supabase config
+  /// Caches the value to avoid repeated DB calls
+  Future<String> getAthPath() async {
+    // Return cached value if available
+    if (_cachedAthPath != null) return _cachedAthPath!;
+
+    try {
+      // Try to get from SharedPreferences first (offline support)
+      final prefs = await SharedPreferences.getInstance();
+      final cachedPath = prefs.getString(_athPathCacheKey);
+
+      // Fetch from Supabase
+      final supabase = Supabase.instance.client;
+      final result = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', 'ath_movil_path')
+          .maybeSingle();
+
+      if (result != null && result['value'] != null) {
+        final path = result['value'] as String;
+        _cachedAthPath = path;
+        // Cache locally for offline use
+        await prefs.setString(_athPathCacheKey, path);
+        return path;
+      }
+
+      // Fall back to cached value if DB fetch failed
+      if (cachedPath != null) {
+        _cachedAthPath = cachedPath;
+        return cachedPath;
+      }
+
+      // Default fallback (should not happen if DB is configured)
+      return 'dezetingz';
+    } catch (e) {
+      debugPrint('Error fetching ATH path: $e');
+      // Try cached value
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_athPathCacheKey) ?? 'dezetingz';
+    }
+  }
+
+  /// Get the full ATH Móvil deep link URL
+  Future<String> getAthDeepLink() async {
+    final path = await getAthPath();
+    return 'athmovil://business/$path';
+  }
+
+  /// Get formatted display path (with leading slash)
+  Future<String> getDisplayPath() async {
+    final path = await getAthPath();
+    return '/$path';
+  }
 
   /// Validate phone number for ATH Móvil
   /// Accepts: 7875551234, 787-555-1234, (787) 555-1234, etc.
