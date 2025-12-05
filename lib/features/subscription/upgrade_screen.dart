@@ -467,20 +467,23 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       ),
       child: Column(
         children: [
-          // QR Code - Using actual ATH Móvil QR code image (monthly preset)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                'assets/images/yuhblockin_monthly_qrcode_ath.jpeg',
-                width: 160,
-                height: 160,
-                fit: BoxFit.contain,
+          // QR Code - Cropped to show only the ATH card portion
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: 240,
+              height: 320,
+              child: FittedBox(
+                fit: BoxFit.cover,
+                alignment: const Alignment(0.0, 0.15), // Center on the QR card
+                child: SizedBox(
+                  width: 300,
+                  height: 650,
+                  child: Image.asset(
+                    'assets/images/yuhblockin_monthly_qrcode_ath.jpeg',
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
             ),
           ),
@@ -488,7 +491,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
           // Instructions
           Text(
-            'Scan with ATH Móvil',
+            'Scan or screenshot this QR code',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -497,39 +500,10 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _athPathLoaded ? 'Or search "$_athPath" in the app' : 'Loading...',
+            'Open ATH Móvil and scan to pay \$${amount.toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: 13,
               color: PremiumTheme.secondaryTextColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Amount reminder
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE31837).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: Color(0xFFE31837),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Pay exactly \$${amount.toStringAsFixed(2)} for $planName',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE31837),
-                  ),
-                ),
-              ],
             ),
           ),
           const SizedBox(height: 16),
