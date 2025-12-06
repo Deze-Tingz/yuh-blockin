@@ -201,51 +201,61 @@ class PremiumTheme {
 
       // Text Theme - Clean, elevated, minimal
       // Note: Removed letterSpacing to fix iOS text spacing issues
+      // Added explicit height: 1.2 for consistent line spacing on iOS and Android
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w300, // Light for elegance
           color: primaryTextColor,
+          height: 1.2,
         ),
         displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w300,
           color: primaryTextColor,
+          height: 1.2,
         ),
         headlineLarge: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          height: 1.2,
         ),
         headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w500,
           color: primaryTextColor,
+          height: 1.25,
         ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: primaryTextColor,
+          height: 1.25,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: primaryTextColor,
+          height: 1.3,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          height: 1.4,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: secondaryTextColor,
+          height: 1.4,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: tertiaryTextColor,
+          height: 1.4,
         ),
       ),
 

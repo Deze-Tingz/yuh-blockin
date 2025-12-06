@@ -61,11 +61,20 @@ class PremiumYuhBlockinApp extends StatelessWidget {
       create: (_) => ThemeNotifier(),
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, child) {
-          return MaterialApp(
-            title: PremiumConfig.appName,
-            debugShowCheckedModeBanner: false,
-            theme: themeNotifier.currentTheme,
-            home: const AppInitializer(),
+          // Wrap in DefaultTextHeightBehavior to normalize text rendering
+          // across iOS and Android - prevents the "double spacing" on iOS
+          return DefaultTextHeightBehavior(
+            textHeightBehavior: const TextHeightBehavior(
+              applyHeightToFirstAscent: false,
+              applyHeightToLastDescent: false,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+            child: MaterialApp(
+              title: PremiumConfig.appName,
+              debugShowCheckedModeBanner: false,
+              theme: themeNotifier.currentTheme,
+              home: const AppInitializer(),
+            ),
           );
         },
       ),
