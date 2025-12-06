@@ -6,11 +6,20 @@ import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Comprehensive Notification Service
+///
 /// Handles system notifications for alerts when:
 /// - Phone is locked
-/// - App is in background
+/// - App is in background (but still running)
 /// - User is on another screen
 /// - Phone is on silent (vibration fallback)
+///
+/// ARCHITECTURE NOTES:
+/// - Works WITH BackgroundAlertService for complete coverage
+/// - This service runs in the MAIN FLUTTER ISOLATE
+/// - BackgroundAlertService runs in a SEPARATE ISOLATE for when app is killed
+/// - Both use the same notification channel ID to prevent duplicates
+///
+/// SEE ALSO: BackgroundAlertService for the background isolate counterpart
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;

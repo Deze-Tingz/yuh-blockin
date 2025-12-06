@@ -10,8 +10,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
 
 /// Background Alert Service
-/// Keeps Supabase realtime connection alive when phone is locked/app is background
-/// Critical for receiving parking alerts reliably
+///
+/// ARCHITECTURE NOTES:
+/// - This service runs as a SEPARATE ISOLATE (Android foreground service)
+/// - It works independently from the main app's NotificationService
+/// - Purpose: Ensure alerts are received even when app is KILLED or in deep background
+///
+/// RELATIONSHIP TO NotificationService:
+/// - NotificationService: Handles notifications when app is running (foreground/light background)
+/// - BackgroundAlertService: Handles notifications when app is fully killed or suspended
+/// - Both use the same notification channel ID to prevent duplicates
+/// - The same alert ID is used (alertId.hashCode) to deduplicate system notifications
+///
+/// This dual-service approach ensures reliable alert delivery across all app states.
 class BackgroundAlertService {
   static final BackgroundAlertService _instance = BackgroundAlertService._internal();
   factory BackgroundAlertService() => _instance;

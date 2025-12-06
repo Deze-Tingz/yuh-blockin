@@ -417,14 +417,19 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                           _buildEmojiSelector(),
 
                           SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
-
-                          // Send alert button
-                          _buildSendButton(),
-
-                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
                         ],
                       ),
                     ),
+                  ),
+
+                  // Send alert button - FIXED at bottom, outside scroll view
+                  // This ensures keyboard doesn't cover the button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: 8.0,
+                      bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8.0 : 0,
+                    ),
+                    child: _buildSendButton(),
                   ),
                     ],
                   ),

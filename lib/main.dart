@@ -2059,7 +2059,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             },
             child: Container(
               color: Colors.transparent,
-              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   Icon(
@@ -2933,8 +2933,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-
-                    fontFamily: 'monospace',
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -4813,9 +4811,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   /// Premium incoming alert notification banner
   Widget _buildIncomingAlertBanner(bool isTablet) {
     // Calculate top offset to avoid blocking header icons
+    // IMPORTANT: Include safe area padding for iOS notch/dynamic island
+    final safeAreaTop = MediaQuery.of(context).padding.top;
     final iconSpaceHeight = isTablet ? 56 : 48;
     final additionalMargin = isTablet ? 8 : 6;
-    final topOffset = (iconSpaceHeight + additionalMargin).toDouble();
+    final topOffset = safeAreaTop + (iconSpaceHeight + additionalMargin).toDouble();
 
     return Positioned(
       top: topOffset,

@@ -463,9 +463,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            fontFamily: 'monospace',
                             color: PremiumTheme.primaryTextColor,
-
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -737,16 +735,13 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'monospace',
                         color: PremiumTheme.primaryTextColor,
-
                       ),
                       decoration: InputDecoration(
                         hintText: 'YB-XXXX-XXXX-XXXX',
                         hintStyle: TextStyle(
                           color: PremiumTheme.tertiaryTextColor,
                           fontWeight: FontWeight.w400,
-                          fontFamily: 'monospace',
                         ),
                         filled: true,
                         fillColor: PremiumTheme.backgroundColor,
@@ -1029,8 +1024,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),

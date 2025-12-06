@@ -288,8 +288,6 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-
-                            fontFamily: 'monospace',
                           ),
                         ),
                       ),
