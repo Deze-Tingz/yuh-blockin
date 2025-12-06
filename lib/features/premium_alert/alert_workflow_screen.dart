@@ -879,7 +879,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                                         ? emoji.accentColor
                                         : PremiumTheme.secondaryTextColor,
                                     letterSpacing: 0.1,
-                                    height: 1.2, // Tighter line height
+                                     // Tighter line height
                                   ),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
@@ -1301,7 +1301,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: PremiumTheme.secondaryTextColor,
-                height: 1.4,
+                
               ),
               textAlign: TextAlign.center,
             ),

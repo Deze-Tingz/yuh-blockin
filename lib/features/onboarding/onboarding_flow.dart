@@ -397,7 +397,6 @@ class _SecurityPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isCompact ? 12 : 13,
                   color: PremiumTheme.secondaryTextColor,
-                  height: 1.4,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -464,7 +463,6 @@ class _ReadyPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isCompact ? 14 : 15,
                   color: PremiumTheme.secondaryTextColor,
-                  height: 1.4,
                 ),
                 textAlign: TextAlign.center,
               ),

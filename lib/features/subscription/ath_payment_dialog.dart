@@ -382,7 +382,7 @@ class _AthPaymentDialogState extends State<AthPaymentDialog>
             '1. Check your ATH Móvil app\n'
             '2. Tap the payment from Yuh Blockin\n'
             '3. Confirm to complete',
-            style: TextStyle(fontSize: 13, height: 1.5),
+            style: TextStyle(fontSize: 13),
           ),
         ],
       ),

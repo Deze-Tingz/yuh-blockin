@@ -540,7 +540,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         widget.selectedEmoji.unicode,
         style: TextStyle(
           fontSize: isTablet ? 50 : 40,
-          height: 1.0,
+          
         ),
       );
     } else {
@@ -563,7 +563,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontWeight: FontWeight.w500,
             color: PremiumTheme.primaryTextColor,
             letterSpacing: 0.1,
-            height: 1.4,
+            
           ),
           textAlign: TextAlign.center,
           maxLines: 3,

@@ -114,7 +114,7 @@ class PaywallDialog extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       color: PremiumTheme.secondaryTextColor,
-                      height: 1.4,
+                      
                     ),
                   ),
                   const SizedBox(height: 20),

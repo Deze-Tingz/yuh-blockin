@@ -175,7 +175,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         color: PremiumTheme.secondaryTextColor,
-                        height: 1.4,
+                        
                       ),
                     ),
                     const SizedBox(height: 32),
