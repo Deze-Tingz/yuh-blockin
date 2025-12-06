@@ -410,7 +410,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
+
           ),
         ),
 
@@ -483,7 +483,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
               fontSize: isTablet ? 24 : 20,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 2.0,
+
             ),
           ),
         ),
@@ -497,7 +497,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.secondaryTextColor,
-            letterSpacing: 0.2,
+
           ),
         ),
       ],
@@ -561,7 +561,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 18,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
+
           ),
           textAlign: TextAlign.center,
           maxLines: 3,
@@ -651,7 +651,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
                           color: isActive
                               ? PremiumTheme.accentColor
                               : PremiumTheme.tertiaryTextColor,
-                          letterSpacing: 0.1,
+
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

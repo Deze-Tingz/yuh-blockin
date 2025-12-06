@@ -141,7 +141,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  letterSpacing: 1,
+
                 ),
               ),
             ),

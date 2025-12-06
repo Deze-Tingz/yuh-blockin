@@ -405,7 +405,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.accentColor,
-                    letterSpacing: 2,
+
                   ),
                 ),
 
@@ -465,7 +465,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                             fontWeight: FontWeight.w700,
                             fontFamily: 'monospace',
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 1.5,
+
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -702,7 +702,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1,
+
                       ),
                       decoration: InputDecoration(
                         hintText: 'e.g., ABC-1234',
@@ -739,7 +739,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontWeight: FontWeight.w500,
                         fontFamily: 'monospace',
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1,
+
                       ),
                       decoration: InputDecoration(
                         hintText: 'YB-XXXX-XXXX-XXXX',
@@ -1029,7 +1029,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 2.0,
+
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -1318,7 +1318,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   fontSize: isCompact ? 22 : 26,
                   fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: -0.3,
+
                 ),
               ),
 
@@ -1346,7 +1346,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
             fontSize: isCompact ? 13 : 14,
             fontWeight: FontWeight.w400,
             color: PremiumTheme.secondaryTextColor,
-            letterSpacing: 0.1,
+
           ),
           textAlign: TextAlign.center,
         ),
@@ -1485,14 +1485,14 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
               fontSize: isCompact ? 20 : 24,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 2.5,
+
             ),
             decoration: InputDecoration(
               hintText: 'ABC-1234',
               hintStyle: TextStyle(
                 color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.4),
                 fontWeight: FontWeight.w400,
-                letterSpacing: 2.0,
+
               ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: isCompact ? 20 : 24,
@@ -1597,7 +1597,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                 style: TextStyle(
                   fontSize: isCompact ? 14 : 15,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
+
                 ),
               ),
       ),
@@ -1632,7 +1632,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   fontSize: isCompact ? 14 : 16,
                   fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: 0.3,
+
                 ),
               ),
             ),
@@ -1713,7 +1713,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontSize: isCompact ? 15 : 16,
                         fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1.5,
+
                       ),
                     ),
                   ),
@@ -1731,7 +1731,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
-                          letterSpacing: 0.5,
+
                         ),
                       ),
                     ),
@@ -1933,7 +1933,7 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 0.3,
+
                           ),
                         ),
                         const SizedBox(height: 8),

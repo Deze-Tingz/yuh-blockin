@@ -716,7 +716,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                         fontSize: 24,
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 0.2,
+
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -824,7 +824,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: _selectedEmoji!.accentColor,
-                                letterSpacing: 0.8,
+
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -854,7 +854,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                       fontSize: 24,
                                       fontWeight: FontWeight.w700,
                                       color: PremiumTheme.primaryTextColor,
-                                      letterSpacing: 0.5,
+
                                     ),
                                   ),
                                 ),
@@ -898,7 +898,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
+
                             ),
                           ),
                         ),

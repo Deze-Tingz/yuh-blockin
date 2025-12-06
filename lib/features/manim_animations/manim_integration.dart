@@ -288,7 +288,7 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 3.0,
+
                             fontFamily: 'monospace',
                           ),
                         ),
@@ -599,7 +599,7 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                           fontSize: 28,
                           fontWeight: FontWeight.w300,
                           color: PremiumTheme.primaryTextColor,
-                          letterSpacing: -0.3,
+
                         ),
                       ),
 

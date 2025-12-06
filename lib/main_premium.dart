@@ -345,7 +345,7 @@ class _AppInitializerState extends State<AppInitializer>
                               fontSize: 17,
                               fontWeight: FontWeight.w400,
                               color: _deepBlue,
-                              letterSpacing: 0.3,
+
                             ),
                           ),
                         )
@@ -355,7 +355,7 @@ class _AppInitializerState extends State<AppInitializer>
                             fontSize: 17,
                             fontWeight: FontWeight.w400,
                             color: _deepBlue,
-                            letterSpacing: 0.3,
+
                           ),
                         ),
                 ),
@@ -397,7 +397,7 @@ class _AppInitializerState extends State<AppInitializer>
                                     fontSize: 11,
                                     fontWeight: FontWeight.w300,
                                     color: _teal.withValues(alpha: 0.5),
-                                    letterSpacing: 2.0,
+
                                   ),
                                 ),
                               ),
@@ -427,7 +427,7 @@ class _AppInitializerState extends State<AppInitializer>
                                 fontSize: 17,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
-                                letterSpacing: 2.5,
+
                               ),
                             ),
                           ),
@@ -1920,7 +1920,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           fontSize: isTablet ? 18 : 16,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
-                          letterSpacing: 2.0,
+
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1931,7 +1931,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           fontSize: isTablet ? 12 : 11,
                           fontWeight: FontWeight.w400,
                           color: Colors.white.withValues(alpha: 0.7),
-                          letterSpacing: 0.5,
+
                         ),
                       ),
                     ],
@@ -1963,7 +1963,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.7),
-                  letterSpacing: 0.8,
+
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -1976,7 +1976,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               fontSize: 11,
               fontWeight: FontWeight.w300,
               color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
-              letterSpacing: 0.8,
+
             ),
           ),
         ],
@@ -2348,7 +2348,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                                 fontSize: 8,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
-                                letterSpacing: 0.3,
+
                               ),
                             ),
                           ),
@@ -2609,7 +2609,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.secondaryTextColor,
-            letterSpacing: 0.3,
+
           ),
         ),
       ],
@@ -2847,7 +2847,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: isTablet ? 15 : 13,
                 fontWeight: FontWeight.w500,
                 color: PremiumTheme.accentColor,
-                letterSpacing: 0.2,
+
               ),
             ),
           ],
@@ -2923,7 +2923,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: PremiumTheme.secondaryTextColor,
-                    letterSpacing: 0.3,
+
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -2933,7 +2933,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 1.0,
+
                     fontFamily: 'monospace',
                   ),
                   maxLines: 1,
@@ -3127,7 +3127,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
-                              letterSpacing: 0.5,
+
                             ),
                           ),
                         ),
@@ -3398,7 +3398,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: PremiumTheme.accentColor,
-                letterSpacing: 0.2,
+
               ),
             ),
           ],
@@ -3541,7 +3541,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   fontSize: isTablet ? 15 : 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.purple.shade700,
-                  letterSpacing: 0.3,
+
                 ),
               ),
             ],
@@ -3705,7 +3705,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: isTablet ? 16 : 14,
                 fontWeight: FontWeight.w700,
                 color: PremiumTheme.primaryTextColor,
-                letterSpacing: 0.3,
+
               ),
             ),
             Text(
@@ -3714,7 +3714,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: isTablet ? 11 : 10,
                 fontWeight: FontWeight.w500,
                 color: color.withValues(alpha: 0.8),
-                letterSpacing: 0.2,
+
               ),
             ),
           ],
@@ -4024,7 +4024,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   fontSize: isSmallScreen ? 18 : 20,
                   fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: 0.3,
+
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -4321,7 +4321,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           fontSize: isSmallScreen ? 16 : 18,
                           fontWeight: FontWeight.w600,
                           color: PremiumTheme.primaryTextColor,
-                          letterSpacing: 0.3,
+
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -4453,7 +4453,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             fontSize: isCompact ? 20 : 24,
             fontWeight: FontWeight.w700,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.5,
+
           ),
         ),
         SizedBox(height: isCompact ? 2 : 4),
@@ -4463,7 +4463,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             fontSize: isCompact ? 10 : 12,
             fontWeight: FontWeight.w500,
             color: color.withValues(alpha: 0.8),
-            letterSpacing: 0.2,
+
           ),
           textAlign: TextAlign.center,
           maxLines: 1,
@@ -4783,7 +4783,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: isTablet ? 15 : 14,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 0.2,
+
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -4793,7 +4793,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: isTablet ? 13 : 12,
                     fontWeight: FontWeight.w400,
                     color: PremiumTheme.secondaryTextColor,
-                    letterSpacing: 0.1,
+
                   ),
                 ),
               ],
@@ -4914,7 +4914,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                                           fontSize: isTablet ? 14 : 12,
                                           fontWeight: FontWeight.w700,
                                           color: Colors.white,
-                                          letterSpacing: 0.3,
+
                                         ),
                                       ),
                                     ],
@@ -5131,7 +5131,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     fontSize: isTablet ? 13 : 12,
                     fontWeight: FontWeight.w600,
                     color: isPrimary ? PremiumTheme.accentColor : Colors.white,
-                    letterSpacing: 0.2,
+
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 1,
@@ -5256,7 +5256,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       fontSize: isTablet ? 22 : 18,
                       fontWeight: FontWeight.w700,
                       color: PremiumTheme.primaryTextColor,
-                      letterSpacing: -0.3,
+
                     ),
                   ),
                   if (isNotifyMode) ...[
@@ -5273,7 +5273,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           fontSize: 8,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
-                          letterSpacing: 0.5,
+
                         ),
                       ),
                     ),
@@ -5357,7 +5357,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         style: TextStyle(
           fontSize: isTablet ? 26 : 22,
           fontWeight: FontWeight.w700,
-          letterSpacing: 4,
+
           color: PremiumTheme.primaryTextColor,
         ),
         inputFormatters: [
@@ -5371,7 +5371,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           hintStyle: TextStyle(
             fontSize: isTablet ? 26 : 22,
             fontWeight: FontWeight.w400,
-            letterSpacing: 4,
+
             color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
           ),
           border: InputBorder.none,
@@ -5419,7 +5419,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: PremiumTheme.tertiaryTextColor,
-                letterSpacing: 0.2,
+
               ),
             ),
           ],
@@ -5519,7 +5519,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: PremiumTheme.tertiaryTextColor,
-                letterSpacing: 0.2,
+
               ),
             ),
           ],
@@ -5686,7 +5686,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     style: TextStyle(
                       fontSize: isTablet ? 16 : 15,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+
                       color: canSend ? Colors.white : PremiumTheme.tertiaryTextColor,
                     ),
                   ),
@@ -5912,7 +5912,7 @@ class _PremiumToastState extends State<_PremiumToast>
                         fontSize: isTablet ? 15 : 14,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
-                        letterSpacing: 0.2,
+
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

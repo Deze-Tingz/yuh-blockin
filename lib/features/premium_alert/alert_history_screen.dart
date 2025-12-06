@@ -512,7 +512,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                                 fontSize: isTablet ? 12 : 11,
                                 fontWeight: FontWeight.w600,
                                 color: statusColor,
-                                letterSpacing: 0.2,
+
                               ),
                             ),
                           ),

@@ -97,7 +97,7 @@ class PaywallDialog extends StatelessWidget {
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
                       color: PremiumTheme.primaryTextColor,
-                      letterSpacing: -0.3,
+
                     ),
                   ),
                 ],

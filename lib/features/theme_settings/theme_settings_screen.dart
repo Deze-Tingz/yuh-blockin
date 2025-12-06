@@ -37,7 +37,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
+
           ),
         ),
       ),
@@ -54,7 +54,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                   fontSize: 28,
                   fontWeight: FontWeight.w300,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: -0.3,
+
                 ),
               ),
               const SizedBox(height: 8),
@@ -129,7 +129,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: PremiumTheme.tertiaryTextColor,
-                        letterSpacing: 0.5,
+
                       ),
                     ),
                   ],
@@ -237,7 +237,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: PremiumTheme.primaryTextColor,
-                      letterSpacing: 0.1,
+
                     ),
                   ),
                   const SizedBox(height: 4),

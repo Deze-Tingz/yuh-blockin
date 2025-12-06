@@ -452,7 +452,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.2,
+
             ),
           ),
         ),
@@ -496,7 +496,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: PremiumTheme.accentColor,
-              letterSpacing: 0.2,
+
             ),
           ),
         ),
@@ -530,7 +530,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.accentColor,
-              letterSpacing: 1.0,
+
             ),
           ),
         ],
@@ -549,7 +549,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 20,
               fontWeight: FontWeight.w300,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 0.3,
+
             ),
             children: [
               TextSpan(text: 'Send '),
@@ -578,7 +578,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
+
           ),
         ),
 
@@ -604,7 +604,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 2.0,
+
             ),
             decoration: InputDecoration(
               hintText: 'ABC-123',
@@ -878,7 +878,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                                     color: isSelected
                                         ? emoji.accentColor
                                         : PremiumTheme.secondaryTextColor,
-                                    letterSpacing: 0.1,
+
                                      // Tighter line height
                                   ),
                                   textAlign: TextAlign.center,
@@ -1027,7 +1027,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
+
                         ),
                       ),
                     ],
