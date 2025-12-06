@@ -538,7 +538,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.red.shade300,
-                            
                           ),
                         ),
                       ),
@@ -682,7 +681,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         color: PremiumTheme.secondaryTextColor,
-                        
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -933,7 +931,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   color: PremiumTheme.secondaryTextColor,
-                  
                 ),
               ),
               const SizedBox(height: 16),
@@ -1443,7 +1440,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
             style: TextStyle(
               fontSize: isCompact ? 13 : 14,
               color: PremiumTheme.secondaryTextColor,
-              
             ),
             textAlign: TextAlign.center,
           ),

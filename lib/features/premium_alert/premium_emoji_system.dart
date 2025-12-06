@@ -511,7 +511,6 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
                     widget.expression.unicode,
                     style: TextStyle(
                       fontSize: widget.size,
-                      
                     ),
                   ),
                 ),
@@ -727,7 +726,6 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         color: PremiumTheme.secondaryTextColor,
-                        
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -857,7 +855,6 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                       fontWeight: FontWeight.w700,
                                       color: PremiumTheme.primaryTextColor,
                                       letterSpacing: 0.5,
-                                      
                                     ),
                                   ),
                                 ),
@@ -876,7 +873,6 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: PremiumTheme.secondaryTextColor,
-                          
                         ),
                         textAlign: TextAlign.center,
                       ),

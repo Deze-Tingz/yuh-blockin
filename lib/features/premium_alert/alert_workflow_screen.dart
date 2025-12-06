@@ -1301,7 +1301,6 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: PremiumTheme.secondaryTextColor,
-                
               ),
               textAlign: TextAlign.center,
             ),

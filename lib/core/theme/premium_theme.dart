@@ -200,60 +200,69 @@ class PremiumTheme {
       scaffoldBackgroundColor: backgroundColor,
 
       // Text Theme - Clean, elevated, minimal
-      // Note: height property removed to fix iOS text spacing issues
+      // Note: height: 1.0 ensures consistent line height across iOS and Android
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w300, // Light for elegance
           letterSpacing: -0.5,
+          height: 1.0,
           color: primaryTextColor,
         ),
         displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w300,
           letterSpacing: -0.3,
+          height: 1.0,
           color: primaryTextColor,
         ),
         headlineLarge: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.0,
+          height: 1.0,
           color: primaryTextColor,
         ),
         headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w500,
           letterSpacing: 0.15,
+          height: 1.0,
           color: primaryTextColor,
         ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.1,
+          height: 1.0,
           color: primaryTextColor,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           letterSpacing: 0.2,
+          height: 1.0,
           color: primaryTextColor,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.1,
+          height: 1.0,
           color: primaryTextColor,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.25,
+          height: 1.0,
           color: secondaryTextColor,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.4,
+          height: 1.0,
           color: tertiaryTextColor,
         ),
       ),
