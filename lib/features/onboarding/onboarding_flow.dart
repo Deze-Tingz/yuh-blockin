@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/premium_theme.dart';
 import '../plate_registration/plate_registration_screen.dart';
-import '../../main_premium.dart';
+import '../../main.dart';
 
 /// Compact Onboarding Flow - No Scrolling Required
 class OnboardingFlow extends StatefulWidget {

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/premium_theme.dart';
-import '../../main_premium.dart';
+import '../../main.dart';
 
 /// Premium theme settings screen
 /// Allows users to switch between Light, Dark, and Caribbean Sunset modes

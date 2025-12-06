@@ -10,7 +10,7 @@ import '../../core/theme/premium_theme.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/plate_verification_service.dart';
-import '../../main_premium.dart';
+import '../../main.dart';
 
 /// License Plate Registration Screen
 ///
