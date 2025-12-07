@@ -28,6 +28,8 @@ import 'features/subscription/upgrade_screen.dart';
 import 'features/subscription/subscription_status_screen.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/plate_verification_service.dart';
+import 'core/services/sound_preferences_service.dart';
+import 'features/alert_sound_settings/alert_sound_settings_screen.dart';
 
 /// Premium flagship-quality Yuh Blockin' app
 /// Inspired by Uber, Airbnb, Apple Human Interface guidelines
@@ -554,6 +556,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   final ConnectivityService _connectivityService = ConnectivityService();
   final SubscriptionService _subscriptionService = SubscriptionService();
   final BackgroundAlertService _backgroundAlertService = BackgroundAlertService();
+  final SoundPreferencesService _soundPreferencesService = SoundPreferencesService();
   bool _isOffline = false;
   bool _showOfflineBanner = false;
   bool _isActivityFeedExpanded = true; // Activity feed collapse state
@@ -972,16 +975,22 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   /// Play premium alert sound when receiving an incoming alert
-  Future<void> _playPremiumAlertSound() async {
+  /// Uses user's selected sound based on urgency level (Low/Normal/High)
+  Future<void> _playPremiumAlertSound([String urgencyLevel = 'Normal']) async {
     try {
-      // Use WAV file - two-tone alert (A5 to C6) that's attention-grabbing but pleasant
-      await _alertAudioPlayer.play(AssetSource('sounds/alert_sound.wav'));
+      // Get user's selected sound for this urgency level
+      final soundPath = await _soundPreferencesService.getSoundForLevel(urgencyLevel);
+      await _alertAudioPlayer.play(AssetSource(soundPath));
     } catch (e) {
       debugPrint('Failed to play alert sound: $e');
-      // Fallback to vibration if sound fails
+      // Fallback to default sound, then vibration
       try {
-        await _notificationService.vibrateOnly();
-      } catch (_) {}
+        await _alertAudioPlayer.play(AssetSource('sounds/alert_sound.wav'));
+      } catch (_) {
+        try {
+          await _notificationService.vibrateOnly();
+        } catch (_) {}
+      }
     }
   }
 
@@ -1822,6 +1831,23 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   ),
                 );
                 await _refreshAllData();
+              } else if (value == 'sounds') {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(-1.0, 0.0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: PremiumTheme.standardCurve,
+                      )),
+                      child: const AlertSoundSettingsScreen(),
+                    ),
+                    transitionDuration: PremiumTheme.mediumDuration,
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -1857,6 +1883,26 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     const SizedBox(width: 12),
                     Text(
                       'Themes',
+                      style: TextStyle(
+                        color: PremiumTheme.primaryTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'sounds',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.volume_up_outlined,
+                      color: PremiumTheme.accentColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Alert Sounds',
                       style: TextStyle(
                         color: PremiumTheme.primaryTextColor,
                         fontWeight: FontWeight.w500,
@@ -4189,11 +4235,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       onTap: () async {
         HapticFeedback.lightImpact();
 
-        // Reset counter immediately when opening notifications
-        setState(() {
-          _unacknowledgedAlertsCount = 0;
-        });
-
+        // Navigate to alert history
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => AlertHistoryScreen(
@@ -4201,9 +4243,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             ),
           ),
         );
+
         // Sync and refresh unacknowledged alerts after viewing alert history
+        // Counter will show correct count based on actual unacknowledged alerts
         if (mounted) {
-          // Force sync by fetching all sent alerts and marking acknowledged ones
           await _syncUnacknowledgedAlerts();
           await _loadUnacknowledgedAlertsCount();
         }
