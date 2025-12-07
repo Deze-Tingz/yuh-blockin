@@ -346,32 +346,30 @@ class _AppInitializerState extends State<AppInitializer>
                             height: _logoSize,
                             fit: BoxFit.contain,
                           ),
-                          // Subtle shimmer overlay - extremely minimal
+                          // Jewelry-like thin shimmer highlight
                           if (_showShimmer)
-                            Opacity(
-                              opacity: 0.15, // Very subtle overlay
-                              child: Shimmer(
-                                period: const Duration(milliseconds: 2500),
-                                direction: ShimmerDirection.ltr,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.transparent,
-                                    Colors.white.withValues(alpha: 0.8),
-                                    Colors.transparent,
-                                    Colors.transparent,
-                                  ],
-                                  stops: const [0.0, 0.42, 0.5, 0.58, 1.0],
-                                ),
-                                child: Container(
-                                  width: _logoSize,
-                                  height: _logoSize,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
+                            Shimmer(
+                              period: const Duration(milliseconds: 2500),
+                              direction: ShimmerDirection.ltr,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.transparent,
+                                  Colors.white.withValues(alpha: 0.35),
+                                  Colors.transparent,
+                                  Colors.transparent,
+                                ],
+                                // Very thin line (~2% width) for jewelry sparkle effect
+                                stops: const [0.0, 0.49, 0.5, 0.51, 1.0],
+                              ),
+                              child: Container(
+                                width: _logoSize,
+                                height: _logoSize,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
                             ),
@@ -379,38 +377,6 @@ class _AppInitializerState extends State<AppInitializer>
                       ),
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Tagline with premium shimmer on text
-                FadeTransition(
-                  opacity: _taglineFade,
-                  child: _showShimmer
-                      ? Shimmer.fromColors(
-                          baseColor: _deepBlue,
-                          highlightColor: _teal.withValues(alpha: 0.7),
-                          period: const Duration(milliseconds: 2000),
-                          direction: ShimmerDirection.ltr,
-                          child: Text(
-                            'Move with respect.',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w400,
-                              color: _deepBlue,
-
-                            ),
-                          ),
-                        )
-                      : Text(
-                          'Move with respect.',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w400,
-                            color: _deepBlue,
-
-                          ),
-                        ),
                 ),
 
                 // Spacer to balance layout
@@ -1580,6 +1546,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -1589,6 +1556,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         icon: icon,
         screenWidth: screenSize.width,
         bottomPadding: bottomPadding,
+        keyboardHeight: keyboardHeight,
         duration: duration ?? const Duration(milliseconds: 1800),
         onDismiss: () {
           entry.remove();
@@ -5909,6 +5877,7 @@ class _PremiumToast extends StatefulWidget {
   final IconData? icon;
   final double screenWidth;
   final double bottomPadding;
+  final double keyboardHeight;
   final Duration duration;
   final VoidCallback onDismiss;
 
@@ -5918,6 +5887,7 @@ class _PremiumToast extends StatefulWidget {
     this.icon,
     required this.screenWidth,
     required this.bottomPadding,
+    this.keyboardHeight = 0,
     required this.duration,
     required this.onDismiss,
   });
@@ -6015,9 +5985,13 @@ class _PremiumToastState extends State<_PremiumToast>
   @override
   Widget build(BuildContext context) {
     final isTablet = widget.screenWidth > 600;
+    // Position above keyboard if keyboard is visible, otherwise use safe area
+    final bottomOffset = widget.keyboardHeight > 0
+        ? widget.keyboardHeight + 16 // Just above keyboard
+        : widget.bottomPadding + (isTablet ? 40 : 32);
 
     return Positioned(
-      bottom: widget.bottomPadding + (isTablet ? 40 : 32),
+      bottom: bottomOffset,
       left: 0,
       right: 0,
       child: AnimatedBuilder(
