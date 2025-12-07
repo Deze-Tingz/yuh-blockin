@@ -123,8 +123,8 @@ class _AppInitializerState extends State<AppInitializer>
   static const Color _deepBlue = Color(0xFF045C71);
   static const Color _softTeal = Color(0xFFE8F6F8);
 
-  // Logo size
-  static const double _logoSize = 260.0;
+  // Logo size - larger for prominent splash
+  static const double _logoSize = 300.0;
 
   @override
   void initState() {
@@ -324,114 +324,112 @@ class _AppInitializerState extends State<AppInitializer>
                 opacity: exitOpacity,
                 child: Transform.scale(
                   scale: exitScale,
-                  child: Column(
-              children: [
-                // Spacer to push logo 20% above center
-                const Spacer(flex: 2),
-
-                // Logo with premium thin diagonal shimmer line
-                Transform.translate(
-                  offset: Offset(0, _logoSlide.value),
-                  child: FadeTransition(
-                    opacity: _logoFade,
-                    child: ScaleTransition(
-                      scale: _logoScale,
-                      // Shimmer wraps the logo directly - shine passes over the visible image
-                      child: Shimmer(
-                        duration: const Duration(seconds: 3),
-                        interval: const Duration(seconds: 2),
-                        color: Colors.white,
-                        colorOpacity: 0.25, // Subtle jewelry-like shine
-                        enabled: _showShimmer,
-                        direction: const ShimmerDirection.fromLTRB(),
-                        child: Image.asset(
-                          'assets/images/app_icon.png',
-                          width: _logoSize,
-                          height: _logoSize,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Spacer to balance layout
-                const Spacer(flex: 3),
-
-                // Premium footer with slide-up animation
-                Transform.translate(
-                  offset: Offset(0, _footerSlide.value),
-                  child: FadeTransition(
-                    opacity: _footerFade,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 48.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // "from" with decorative lines - delicate premium styling
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 20,
-                                height: 0.5,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.transparent,
-                                      _teal.withValues(alpha: 0.25),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: Text(
-                                  'from',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w300,
-                                    letterSpacing: 1.5,
-                                    color: _teal.withValues(alpha: 0.45),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                width: 20,
-                                height: 0.5,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      _teal.withValues(alpha: 0.25),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          // "DezeTingz" with brand gradient - lighter weight for premium feel
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [_teal, _coral],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'DezeTingz',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: 0.5,
+                  child: Stack(
+                    children: [
+                      // Centered logo with shimmer
+                      Center(
+                        child: Transform.translate(
+                          offset: Offset(0, _logoSlide.value),
+                          child: FadeTransition(
+                            opacity: _logoFade,
+                            child: ScaleTransition(
+                              scale: _logoScale,
+                              // Shimmer wraps the logo directly
+                              child: Shimmer(
+                                duration: const Duration(seconds: 2),
+                                interval: const Duration(milliseconds: 500),
                                 color: Colors.white,
+                                colorOpacity: 0.5, // Visible shine
+                                enabled: _showShimmer,
+                                direction: const ShimmerDirection.fromLTRB(),
+                                child: Image.asset(
+                                  'assets/images/app_icon.png',
+                                  width: _logoSize,
+                                  height: _logoSize,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              ],
+
+                      // Footer positioned at bottom (doesn't affect logo centering)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 48,
+                        child: Transform.translate(
+                          offset: Offset(0, _footerSlide.value),
+                          child: FadeTransition(
+                            opacity: _footerFade,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // "from" with decorative lines
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 20,
+                                      height: 0.5,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.transparent,
+                                            _teal.withValues(alpha: 0.25),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      child: Text(
+                                        'from',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w300,
+                                          letterSpacing: 1.5,
+                                          color: _teal.withValues(alpha: 0.45),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 20,
+                                      height: 0.5,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            _teal.withValues(alpha: 0.25),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                // "DezeTingz" with brand gradient
+                                ShaderMask(
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [_teal, _coral],
+                                  ).createShader(bounds),
+                                  child: const Text(
+                                    'DezeTingz',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w400,
+                                      letterSpacing: 0.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
