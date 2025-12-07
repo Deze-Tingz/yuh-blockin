@@ -327,19 +327,32 @@ class _AppInitializerState extends State<AppInitializer>
                 // Spacer to push logo 20% above center
                 const Spacer(flex: 2),
 
-                // Logo - clean without shimmer
+                // Logo with shimmer effect (same as tagline)
                 Transform.translate(
                   offset: Offset(0, _logoSlide.value),
                   child: FadeTransition(
                     opacity: _logoFade,
                     child: ScaleTransition(
                       scale: _logoScale,
-                      child: Image.asset(
-                        'assets/images/app_icon.png',
-                        width: _logoSize,
-                        height: _logoSize,
-                        fit: BoxFit.contain,
-                      ),
+                      child: _showShimmer
+                          ? Shimmer.fromColors(
+                              baseColor: _deepBlue,
+                              highlightColor: _teal.withValues(alpha: 0.7),
+                              period: const Duration(milliseconds: 2000),
+                              direction: ShimmerDirection.ltr,
+                              child: Image.asset(
+                                'assets/images/app_icon.png',
+                                width: _logoSize,
+                                height: _logoSize,
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          : Image.asset(
+                              'assets/images/app_icon.png',
+                              width: _logoSize,
+                              height: _logoSize,
+                              fit: BoxFit.contain,
+                            ),
                     ),
                   ),
                 ),
