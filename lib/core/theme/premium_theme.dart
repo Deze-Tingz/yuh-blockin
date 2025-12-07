@@ -280,7 +280,7 @@ class PremiumTheme {
 
   static ThemeData get currentTheme {
     return ThemeData(
-      useMaterial3: true,
+      useMaterial3: false, // Material2 for consistent text rendering across iOS/Android
       fontFamily: fontFamily,
 
       // Font fallbacks for emoji support across all platforms
@@ -303,62 +303,52 @@ class PremiumTheme {
       // Background
       scaffoldBackgroundColor: backgroundColor,
 
-      // Text Theme - iOS-native typography with platform-specific letter spacing
-      // Uses Apple's SF Pro text metrics for iOS, clean defaults for Android
+      // Text Theme - Consistent typography across platforms (no letterSpacing overrides)
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 34,
           fontWeight: FontWeight.w700,
           color: primaryTextColor,
-          letterSpacing: isIOS ? 0.37 : 0.0,
         ),
         displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
-          letterSpacing: isIOS ? 0.36 : 0.0,
         ),
         headlineLarge: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
-          letterSpacing: isIOS ? -0.26 : 0.0,
         ),
         headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
-          letterSpacing: isIOS ? -0.45 : 0.0,
         ),
         titleLarge: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w600,
           color: primaryTextColor,
-          letterSpacing: isIOS ? -0.41 : 0.0,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: primaryTextColor,
-          letterSpacing: isIOS ? -0.32 : 0.0,
         ),
         bodyLarge: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
-          letterSpacing: isIOS ? -0.41 : 0.0,
         ),
         bodyMedium: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w400,
           color: secondaryTextColor,
-          letterSpacing: isIOS ? -0.24 : 0.0,
         ),
         bodySmall: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w400,
           color: tertiaryTextColor,
-          letterSpacing: isIOS ? -0.08 : 0.0,
         ),
       ),
 
