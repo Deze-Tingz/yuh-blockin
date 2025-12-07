@@ -852,9 +852,8 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                     'Yuh Blockin!',
                                     style: TextStyle(
                                       fontSize: 24,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       color: PremiumTheme.primaryTextColor,
-
                                     ),
                                   ),
                                 ),

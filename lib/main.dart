@@ -61,17 +61,12 @@ class PremiumYuhBlockinApp extends StatelessWidget {
       create: (_) => ThemeNotifier(),
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, child) {
-          // Normalize text leading distribution across iOS and Android
-          return DefaultTextHeightBehavior(
-            textHeightBehavior: const TextHeightBehavior(
-              leadingDistribution: TextLeadingDistribution.even,
-            ),
-            child: MaterialApp(
-              title: PremiumConfig.appName,
-              debugShowCheckedModeBanner: false,
-              theme: themeNotifier.currentTheme,
-              home: const AppInitializer(),
-            ),
+          // iOS-native typography is handled in PremiumTheme with proper letter spacing
+          return MaterialApp(
+            title: PremiumConfig.appName,
+            debugShowCheckedModeBanner: false,
+            theme: themeNotifier.currentTheme,
+            home: const AppInitializer(),
           );
         },
       ),
@@ -401,7 +396,7 @@ class _AppInitializerState extends State<AppInitializer>
                                   'from',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w300,
+                                    fontWeight: FontWeight.w400,
                                     color: _teal.withValues(alpha: 0.5),
 
                                   ),
@@ -1556,7 +1551,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 'Exit Yuh Blockin?',
                 style: TextStyle(
                   color: PremiumTheme.primaryTextColor,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               content: Text(
@@ -1924,7 +1919,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                         'YUH BLOCKIN\'',
                         style: TextStyle(
                           fontSize: isTablet ? 18 : 16,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
 
                         ),
@@ -1980,7 +1975,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             'DezeTingz © 2026',
             style: TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w400,
               color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.5),
 
             ),
@@ -2352,7 +2347,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                               'NEW',
                               style: TextStyle(
                                 fontSize: 8,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                                 color: Colors.white,
 
                               ),
@@ -3129,7 +3124,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                             'PRO',
                             style: TextStyle(
                               fontSize: 9,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
 
                             ),
@@ -3612,7 +3607,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             count.toString(),
             style: TextStyle(
               fontSize: isTablet ? 18 : 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
             ),
           ),
@@ -3654,7 +3649,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             count.toString(),
             style: TextStyle(
               fontSize: isTablet ? 18 : 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
             ),
           ),
@@ -3707,7 +3702,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               count.toString(),
               style: TextStyle(
                 fontSize: isTablet ? 16 : 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: PremiumTheme.primaryTextColor,
 
               ),
@@ -3821,7 +3816,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     totalImpact > 99 ? '99+' : '$totalImpact',
                     style: TextStyle(
                       fontSize: isTablet ? 13 : 12,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
@@ -3860,7 +3855,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 'Your Impact',
                 style: TextStyle(
                   fontSize: isSmallScreen ? 20 : 22,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
                 ),
               ),
@@ -3958,7 +3953,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             '$count',
             style: TextStyle(
               fontSize: isSmallScreen ? 28 : 32,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               color: color,
             ),
           ),
@@ -4256,7 +4251,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     badgeCount > 99 ? '99+' : '$badgeCount',
                     style: TextStyle(
                       fontSize: isTablet ? 11 : 10,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
@@ -4455,7 +4450,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           count.toString(),
           style: TextStyle(
             fontSize: isCompact ? 20 : 24,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
 
           ),
@@ -4918,7 +4913,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                                         'Move Request',
                                         style: TextStyle(
                                           fontSize: isTablet ? 14 : 12,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
                                           color: Colors.white,
 
                                         ),
@@ -5260,7 +5255,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     isNotifyMode ? 'Notify Driver' : 'Send Alert',
                     style: TextStyle(
                       fontSize: isTablet ? 22 : 18,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: PremiumTheme.primaryTextColor,
 
                     ),
@@ -5277,7 +5272,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                         'PREMIUM',
                         style: TextStyle(
                           fontSize: 8,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
 
                         ),
@@ -5362,7 +5357,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: isTablet ? 26 : 22,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
 
           color: PremiumTheme.primaryTextColor,
         ),

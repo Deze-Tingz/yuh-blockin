@@ -1,8 +1,112 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 /// Premium theme system inspired by Apple, Uber, Airbnb design languages
 /// Professional, minimal, with subtle 2025 glow signature
 class PremiumTheme {
+  // MARK: - iOS-Native Typography Helpers
+
+  /// Check if running on iOS
+  static bool get isIOS => Platform.isIOS;
+
+  /// iOS-optimized letter spacing (tighter text for premium look)
+  static double get _tightLetterSpacing => isIOS ? -0.3 : 0.0;
+  static double get _normalLetterSpacing => isIOS ? -0.2 : 0.0;
+  static double get _wideLetterSpacing => isIOS ? 0.0 : 0.0;
+
+  /// Premium text style factory - creates iOS-native looking text
+  static TextStyle premiumText({
+    required double fontSize,
+    FontWeight fontWeight = FontWeight.w400,
+    Color? color,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color ?? primaryTextColor,
+      letterSpacing: letterSpacing ?? (fontSize > 20 ? _tightLetterSpacing : _normalLetterSpacing),
+      height: height,
+    );
+  }
+
+  /// Large title style (iOS native: 34pt, bold)
+  static TextStyle get largeTitle => premiumText(
+    fontSize: 34,
+    fontWeight: FontWeight.w700,
+    letterSpacing: isIOS ? 0.37 : 0.0,
+  );
+
+  /// Title 1 style (iOS native: 28pt, regular)
+  static TextStyle get title1 => premiumText(
+    fontSize: 28,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? 0.36 : 0.0,
+  );
+
+  /// Title 2 style (iOS native: 22pt, regular)
+  static TextStyle get title2 => premiumText(
+    fontSize: 22,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.26 : 0.0,
+  );
+
+  /// Title 3 style (iOS native: 20pt, regular)
+  static TextStyle get title3 => premiumText(
+    fontSize: 20,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.45 : 0.0,
+  );
+
+  /// Headline style (iOS native: 17pt, semibold)
+  static TextStyle get headline => premiumText(
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    letterSpacing: isIOS ? -0.41 : 0.0,
+  );
+
+  /// Body style (iOS native: 17pt, regular)
+  static TextStyle get body => premiumText(
+    fontSize: 17,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.41 : 0.0,
+  );
+
+  /// Callout style (iOS native: 16pt, regular)
+  static TextStyle get callout => premiumText(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.32 : 0.0,
+  );
+
+  /// Subhead style (iOS native: 15pt, regular)
+  static TextStyle get subhead => premiumText(
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.24 : 0.0,
+  );
+
+  /// Footnote style (iOS native: 13pt, regular)
+  static TextStyle get footnote => premiumText(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? -0.08 : 0.0,
+  );
+
+  /// Caption 1 style (iOS native: 12pt, regular)
+  static TextStyle get caption1 => premiumText(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? 0.0 : 0.0,
+  );
+
+  /// Caption 2 style (iOS native: 11pt, regular)
+  static TextStyle get caption2 => premiumText(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    letterSpacing: isIOS ? 0.07 : 0.0,
+  );
   // MARK: - Premium Theme Modes
 
   /// Theme mode enumeration
@@ -199,54 +303,62 @@ class PremiumTheme {
       // Background
       scaffoldBackgroundColor: backgroundColor,
 
-      // Text Theme - Clean, elevated, minimal
-      // Note: Removed letterSpacing and height to fix iOS text issues
-      // Using DefaultTextHeightBehavior in main.dart for cross-platform consistency
+      // Text Theme - iOS-native typography with platform-specific letter spacing
+      // Uses Apple's SF Pro text metrics for iOS, clean defaults for Android
       textTheme: TextTheme(
         displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w300,
+          fontSize: 34,
+          fontWeight: FontWeight.w700,
           color: primaryTextColor,
+          letterSpacing: isIOS ? 0.37 : 0.0,
         ),
         displayMedium: TextStyle(
           fontSize: 28,
-          fontWeight: FontWeight.w300,
-          color: primaryTextColor,
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 24,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          letterSpacing: isIOS ? 0.36 : 0.0,
+        ),
+        headlineLarge: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w400,
+          color: primaryTextColor,
+          letterSpacing: isIOS ? -0.26 : 0.0,
         ),
         headlineMedium: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          letterSpacing: isIOS ? -0.45 : 0.0,
         ),
         titleLarge: TextStyle(
-          fontSize: 18,
+          fontSize: 17,
           fontWeight: FontWeight.w600,
           color: primaryTextColor,
+          letterSpacing: isIOS ? -0.41 : 0.0,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: primaryTextColor,
+          letterSpacing: isIOS ? -0.32 : 0.0,
         ),
         bodyLarge: TextStyle(
-          fontSize: 16,
+          fontSize: 17,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          letterSpacing: isIOS ? -0.41 : 0.0,
         ),
         bodyMedium: TextStyle(
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w400,
           color: secondaryTextColor,
+          letterSpacing: isIOS ? -0.24 : 0.0,
         ),
         bodySmall: TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w400,
           color: tertiaryTextColor,
+          letterSpacing: isIOS ? -0.08 : 0.0,
         ),
       ),
 

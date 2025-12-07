@@ -493,9 +493,8 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
           text: TextSpan(
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w400,
               color: PremiumTheme.primaryTextColor,
-
             ),
             children: [
               const TextSpan(text: 'Send '),

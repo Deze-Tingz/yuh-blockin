@@ -392,7 +392,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   'Plate Registered!',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
                   ),
                 ),
@@ -462,7 +462,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           ownershipKey,
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
                           ),
                           textAlign: TextAlign.center,
@@ -1722,7 +1722,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         'PRIMARY',
                         style: TextStyle(
                           fontSize: 9,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
 
                         ),

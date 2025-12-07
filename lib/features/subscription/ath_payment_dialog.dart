@@ -207,7 +207,7 @@ class _AthPaymentDialogState extends State<AthPaymentDialog>
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
 
               ),
             ),
@@ -218,7 +218,7 @@ class _AthPaymentDialogState extends State<AthPaymentDialog>
           'ATH Móvil',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -329,7 +329,7 @@ class _AthPaymentDialogState extends State<AthPaymentDialog>
             '\$${widget.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 28,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 12),

@@ -52,9 +52,8 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 'Choose Your Vibe',
                 style: TextStyle(
                   fontSize: 28,
-                  fontWeight: FontWeight.w300,
+                  fontWeight: FontWeight.w400,
                   color: PremiumTheme.primaryTextColor,
-
                 ),
               ),
               const SizedBox(height: 8),

@@ -109,7 +109,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             isPremium ? 'Premium Member' : 'Free Plan',
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: isPremium ? Colors.white : PremiumTheme.primaryTextColor,
             ),
           ),
@@ -141,7 +141,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                 'LIFETIME',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: Colors.white,
 
                 ),
