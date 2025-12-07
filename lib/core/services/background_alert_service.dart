@@ -154,6 +154,16 @@ void onStart(ServiceInstance service) async {
     }
   }
 
+  // Sign in anonymously for authenticated role
+  if (supabase != null && supabase.auth.currentUser == null) {
+    try {
+      await supabase.auth.signInAnonymously();
+      debugPrint('Background service: Signed in anonymously');
+    } catch (e) {
+      debugPrint('Background service: Anonymous sign-in failed: $e');
+    }
+  }
+
   /// Subscribe to alerts for user
   void subscribeToAlerts(String uid) {
     alertSubscription?.cancel();

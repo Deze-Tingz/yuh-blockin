@@ -29,6 +29,16 @@ class SimpleAlertService {
       );
 
       _supabase = Supabase.instance.client;
+
+      // Sign in anonymously if not already signed in
+      // This gives users the 'authenticated' role for secure RPC calls
+      if (_supabase.auth.currentUser == null) {
+        await _supabase.auth.signInAnonymously();
+        if (kDebugMode) {
+          debugPrint('🔐 Signed in anonymously');
+        }
+      }
+
       _isInitialized = true;
 
       if (kDebugMode) {
