@@ -2414,18 +2414,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                             maxLines: 1,
                           ),
                         ),
-                        // Fixed-width badges after title
-                        if (needsAction) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Colors.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
                         // NEW badge for recent responses
                         if (showResponseHighlight) ...[
                           const SizedBox(width: 6),
