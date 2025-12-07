@@ -12,6 +12,7 @@ import '../../core/services/simple_alert_service.dart';
 import '../../core/services/user_stats_service.dart';
 import '../../core/services/unacknowledged_alert_service.dart';
 import '../../core/services/subscription_service.dart';
+import '../../core/services/sound_preferences_service.dart';
 import 'alert_confirmation_screen.dart';
 import 'premium_emoji_system.dart';
 
@@ -179,6 +180,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   final SimpleAlertService _alertService = SimpleAlertService();
   final UserStatsService _statsService = UserStatsService();
   final UnacknowledgedAlertService _unacknowledgedAlertService = UnacknowledgedAlertService();
+  final SoundPreferencesService _soundPreferencesService = SoundPreferencesService();
 
   String _urgencyLevel = 'Normal';
   PremiumEmojiExpression? _selectedEmoji;
@@ -1129,11 +1131,15 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         await prefs.setString('user_id', senderUserId);
       }
 
-      // Send simple alert
+      // Get sender's selected sound for this urgency level
+      final soundPath = await _soundPreferencesService.getSoundForLevel(_urgencyLevel);
+
+      // Send simple alert with sound path
       final result = await _alertService.sendAlert(
         targetPlateNumber: plateNumber,
         senderUserId: senderUserId,
         message: '${_urgencyLevel} alert: ${_selectedEmoji?.description ?? 'Vehicle alert'}',
+        soundPath: soundPath,
       );
 
       if (mounted) {

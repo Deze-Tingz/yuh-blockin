@@ -991,17 +991,19 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   }
 
   /// Play premium alert sound when receiving an incoming alert
-  /// Uses user's selected sound based on urgency level (Low/Normal/High)
-  Future<void> _playPremiumAlertSound([String urgencyLevel = 'Normal']) async {
+  /// If alertSoundPath is provided, plays that specific sound (sender's choice)
+  /// Otherwise falls back to user's selected sound for the urgency level
+  Future<void> _playPremiumAlertSound({String? alertSoundPath, String urgencyLevel = 'Normal'}) async {
     try {
-      // Get user's selected sound for this urgency level
-      final soundPath = await _soundPreferencesService.getSoundForLevel(urgencyLevel);
+      // Use sender's sound if provided, otherwise use receiver's preference
+      final soundPath = alertSoundPath ??
+          await _soundPreferencesService.getSoundForLevel(urgencyLevel);
       await _alertAudioPlayer.play(AssetSource(soundPath));
     } catch (e) {
       debugPrint('Failed to play alert sound: $e');
       // Fallback to default sound, then vibration
       try {
-        await _alertAudioPlayer.play(AssetSource('sounds/alert_sound.wav'));
+        await _alertAudioPlayer.play(AssetSource('sounds/normal/normal_alert.wav'));
       } catch (_) {
         try {
           await _notificationService.vibrateOnly();
@@ -1331,8 +1333,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       _loadUserStats(); // Refresh stats display
     });
 
-    // Play premium alert sound
-    _playPremiumAlertSound();
+    // Play premium alert sound (sender's chosen sound)
+    _playPremiumAlertSound(alertSoundPath: alert.soundPath);
 
     // Only show system notification when app is NOT in foreground
     // (for lock screen, background, other apps - not when user is in the app)
@@ -3355,10 +3357,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         return;
       }
 
+      // Get sender's selected sound for this urgency level
+      final soundPath = await _soundPreferencesService.getSoundForLevel(_alertUrgencyLevel);
+
       final result = await _alertService.sendAlert(
         targetPlateNumber: plateNumber,
         senderUserId: _currentUserId!,
         message: _alertSelectedEmoji ?? '🚗',
+        soundPath: soundPath,
       );
 
       if (mounted) {

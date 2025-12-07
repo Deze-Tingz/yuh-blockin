@@ -192,6 +192,7 @@ class SimpleAlertService {
     required String targetPlateNumber,
     required String senderUserId,
     String? message,
+    String? soundPath,
   }) async {
     _ensureInitialized();
 
@@ -202,6 +203,7 @@ class SimpleAlertService {
         'sender_user_id': senderUserId,
         'target_plate_hash': plateHash,
         'alert_message': message,
+        'alert_sound_path': soundPath,
       });
 
       final result = response as Map<String, dynamic>;
@@ -554,6 +556,7 @@ class Alert {
   final String receiverId;
   final String plateHash;
   final String? message;
+  final String? soundPath; // Sound to play on receiver's phone
   final String? response; // moving_now, 5_minutes, cant_move, wrong_car
   final String? responseMessage; // optional custom response
   final DateTime createdAt;
@@ -566,6 +569,7 @@ class Alert {
     required this.receiverId,
     required this.plateHash,
     this.message,
+    this.soundPath,
     this.response,
     this.responseMessage,
     required this.createdAt,
@@ -580,6 +584,7 @@ class Alert {
       receiverId: json['receiver_id'],
       plateHash: json['plate_hash'],
       message: json['message'],
+      soundPath: json['sound_path'],
       response: json['response'],
       responseMessage: json['response_message'],
       createdAt: DateTime.parse(json['created_at']),
