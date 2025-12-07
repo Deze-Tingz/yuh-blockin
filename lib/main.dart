@@ -65,6 +65,22 @@ class PremiumYuhBlockinApp extends StatelessWidget {
             title: PremiumConfig.appName,
             debugShowCheckedModeBanner: false,
             theme: themeNotifier.currentTheme,
+            // Global text style wrapper for iOS - applies CupertinoSystemDisplay font
+            // and Apple's letter spacing to ALL text widgets
+            // Fixes Flutter Issue #150824
+            builder: (context, child) {
+              if (!PremiumTheme.isIOS) {
+                return child ?? const SizedBox.shrink();
+              }
+              // Apply iOS-native font to entire widget tree
+              return DefaultTextStyle.merge(
+                style: const TextStyle(
+                  fontFamily: 'CupertinoSystemDisplay',
+                  letterSpacing: -0.41, // Default iOS body text spacing
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: const AppInitializer(),
           );
         },

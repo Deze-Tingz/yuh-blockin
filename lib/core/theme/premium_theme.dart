@@ -3,110 +3,42 @@ import 'package:flutter/material.dart';
 
 /// Premium theme system inspired by Apple, Uber, Airbnb design languages
 /// Professional, minimal, with subtle 2025 glow signature
+///
+/// iOS Letter Spacing Fix:
+/// Flutter Issue #150824 - text rendering differs from iOS native.
+/// Solution: Use CupertinoSystemDisplay font + Apple's official letterSpacing values
+/// from Flutter's cupertino/text_theme.dart
 class PremiumTheme {
   // MARK: - iOS-Native Typography Helpers
 
   /// Check if running on iOS
   static bool get isIOS => Platform.isIOS;
 
-  /// iOS-optimized letter spacing (tighter text for premium look)
-  static double get _tightLetterSpacing => isIOS ? -0.3 : 0.0;
-  static double get _normalLetterSpacing => isIOS ? -0.2 : 0.0;
-  static double get _wideLetterSpacing => isIOS ? 0.0 : 0.0;
+  /// iOS font family - uses CupertinoSystemDisplay for proper SF Pro rendering
+  /// This fixes Flutter's default which incorrectly uses SF Pro Text for all sizes
+  /// Reference: https://github.com/flutter/flutter/issues/150824
+  static String? get _iosFontFamily => isIOS ? 'CupertinoSystemDisplay' : null;
 
-  /// Premium text style factory - creates iOS-native looking text
-  static TextStyle premiumText({
-    required double fontSize,
-    FontWeight fontWeight = FontWeight.w400,
-    Color? color,
-    double? letterSpacing,
-    double? height,
-  }) {
-    return TextStyle(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color ?? primaryTextColor,
-      letterSpacing: letterSpacing ?? (fontSize > 20 ? _tightLetterSpacing : _normalLetterSpacing),
-      height: height,
-    );
+  /// Apple's official letter spacing values from Flutter's cupertino/text_theme.dart
+  /// These match iOS native text rendering exactly
+  static double _appleLetterSpacing(double fontSize) {
+    if (!isIOS) return 0.0;
+
+    // Values from Flutter's official Cupertino theme (iOS 14+ specs)
+    if (fontSize >= 34) return 0.38;      // Large title
+    if (fontSize >= 28) return 0.36;      // Title 1
+    if (fontSize >= 22) return -0.26;     // Title 2
+    if (fontSize >= 21) return -0.6;      // Picker text
+    if (fontSize >= 20) return -0.45;     // Title 3
+    if (fontSize >= 17) return -0.41;     // Body/Headline
+    if (fontSize >= 16) return -0.32;     // Callout
+    if (fontSize >= 15) return -0.23;     // Subhead
+    if (fontSize >= 13) return -0.08;     // Footnote
+    if (fontSize >= 12) return 0.0;       // Caption 1
+    if (fontSize >= 11) return 0.07;      // Caption 2
+    if (fontSize >= 10) return -0.24;     // Tab label
+    return 0.0;
   }
-
-  /// Large title style (iOS native: 34pt, bold)
-  static TextStyle get largeTitle => premiumText(
-    fontSize: 34,
-    fontWeight: FontWeight.w700,
-    letterSpacing: isIOS ? 0.37 : 0.0,
-  );
-
-  /// Title 1 style (iOS native: 28pt, regular)
-  static TextStyle get title1 => premiumText(
-    fontSize: 28,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? 0.36 : 0.0,
-  );
-
-  /// Title 2 style (iOS native: 22pt, regular)
-  static TextStyle get title2 => premiumText(
-    fontSize: 22,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.26 : 0.0,
-  );
-
-  /// Title 3 style (iOS native: 20pt, regular)
-  static TextStyle get title3 => premiumText(
-    fontSize: 20,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.45 : 0.0,
-  );
-
-  /// Headline style (iOS native: 17pt, semibold)
-  static TextStyle get headline => premiumText(
-    fontSize: 17,
-    fontWeight: FontWeight.w600,
-    letterSpacing: isIOS ? -0.41 : 0.0,
-  );
-
-  /// Body style (iOS native: 17pt, regular)
-  static TextStyle get body => premiumText(
-    fontSize: 17,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.41 : 0.0,
-  );
-
-  /// Callout style (iOS native: 16pt, regular)
-  static TextStyle get callout => premiumText(
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.32 : 0.0,
-  );
-
-  /// Subhead style (iOS native: 15pt, regular)
-  static TextStyle get subhead => premiumText(
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.24 : 0.0,
-  );
-
-  /// Footnote style (iOS native: 13pt, regular)
-  static TextStyle get footnote => premiumText(
-    fontSize: 13,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? -0.08 : 0.0,
-  );
-
-  /// Caption 1 style (iOS native: 12pt, regular)
-  static TextStyle get caption1 => premiumText(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? 0.0 : 0.0,
-  );
-
-  /// Caption 2 style (iOS native: 11pt, regular)
-  static TextStyle get caption2 => premiumText(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    letterSpacing: isIOS ? 0.07 : 0.0,
-  );
   // MARK: - Premium Theme Modes
 
   /// Theme mode enumeration
@@ -279,9 +211,12 @@ class PremiumTheme {
   // MARK: - Theme Configuration
 
   static ThemeData get currentTheme {
+    // Use CupertinoSystemDisplay on iOS for proper SF Pro rendering
+    final fontFamilyToUse = _iosFontFamily ?? fontFamily;
+
     return ThemeData(
       useMaterial3: false, // Material2 for consistent text rendering across iOS/Android
-      fontFamily: fontFamily,
+      fontFamily: fontFamilyToUse,
 
       // Font fallbacks for emoji support across all platforms
       // This prevents the "missing Noto fonts" error for emoji characters
@@ -303,52 +238,71 @@ class PremiumTheme {
       // Background
       scaffoldBackgroundColor: backgroundColor,
 
-      // Text Theme - Consistent typography across platforms (no letterSpacing overrides)
+      // Text Theme - Uses Apple's official letter spacing values on iOS
+      // Reference: Flutter's cupertino/text_theme.dart
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 34,
           fontWeight: FontWeight.w700,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(34),
         ),
         displayMedium: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(28),
         ),
         headlineLarge: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(22),
         ),
         headlineMedium: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(20),
         ),
         titleLarge: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w600,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(17),
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(16),
         ),
         bodyLarge: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w400,
           color: primaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(17),
         ),
         bodyMedium: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w400,
           color: secondaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(15),
         ),
         bodySmall: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w400,
           color: tertiaryTextColor,
+          fontFamily: fontFamilyToUse,
+          letterSpacing: _appleLetterSpacing(13),
         ),
       ),
 
