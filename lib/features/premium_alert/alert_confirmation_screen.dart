@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -357,9 +358,14 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      body: SafeArea(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Alert Status'),
+        backgroundColor: Colors.transparent,
+        border: null,
+      ),
+      child: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: Container(
@@ -578,10 +584,10 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor.withValues(alpha: 0.7),
+            color: PremiumTheme.surfaceColor.withAlpha(178),
             borderRadius: PremiumTheme.mediumRadius,
             border: Border.all(
-              color: widget.selectedEmoji.accentColor.withValues(alpha: 0.2),
+              color: widget.selectedEmoji.accentColor.withAlpha(51),
               width: 1,
             ),
           ),

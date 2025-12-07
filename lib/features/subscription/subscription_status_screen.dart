@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,37 +26,38 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     final remaining = _subscriptionService.remainingAlerts;
     final used = _subscriptionService.dailyAlertsUsed;
 
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Subscription'),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Subscription'),
         backgroundColor: PremiumTheme.backgroundColor,
-        foregroundColor: PremiumTheme.primaryTextColor,
-        elevation: 0,
+        border: null,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Status Card
-            _buildStatusCard(isPremium, status),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Status Card
+              _buildStatusCard(isPremium, status),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Usage Card (for free users)
-            if (!isPremium) _buildUsageCard(used, remaining),
+              // Usage Card (for free users)
+              if (!isPremium) _buildUsageCard(used, remaining),
 
-            if (!isPremium) const SizedBox(height: 20),
+              if (!isPremium) const SizedBox(height: 20),
 
-            // Actions
-            _buildActionsCard(isPremium),
+              // Actions
+              _buildActionsCard(isPremium),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Help Section
-            _buildHelpCard(),
-          ],
+              // Help Section
+              _buildHelpCard(),
+            ],
+          ),
         ),
       ),
     );
@@ -71,7 +73,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                 end: Alignment.bottomRight,
                 colors: [
                   PremiumTheme.accentColor,
-                  PremiumTheme.accentColor.withValues(alpha: 0.8),
+                  PremiumTheme.accentColor.withAlpha(204),
                 ],
               )
             : null,
@@ -89,12 +91,12 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             height: 64,
             decoration: BoxDecoration(
               color: isPremium
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : PremiumTheme.accentColor.withValues(alpha: 0.1),
+                  ? Colors.white.withAlpha(51)
+                  : PremiumTheme.accentColor.withAlpha(25),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isPremium ? Icons.workspace_premium : Icons.person_outline,
+              isPremium ? CupertinoIcons.star_fill : CupertinoIcons.person,
               size: 32,
               color: isPremium ? Colors.white : PremiumTheme.accentColor,
             ),
@@ -121,7 +123,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             style: TextStyle(
               fontSize: 14,
               color: isPremium
-                  ? Colors.white.withValues(alpha: 0.9)
+                  ? Colors.white.withAlpha(230)
                   : PremiumTheme.secondaryTextColor,
             ),
           ),
@@ -132,12 +134,12 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: Colors.white.withAlpha(51),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                status == 'lifetime' ? 'LIFETIME' : 'MONTHLY',
-                style: const TextStyle(
+              child: const Text(
+                'LIFETIME',
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -168,7 +170,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           Row(
             children: [
               Icon(
-                Icons.notifications_active_outlined,
+                CupertinoIcons.bell_fill,
                 color: PremiumTheme.accentColor,
                 size: 20,
               ),
@@ -193,7 +195,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
               value: progress,
               backgroundColor: PremiumTheme.dividerColor,
               valueColor: AlwaysStoppedAnimation<Color>(
-                remaining > 0 ? PremiumTheme.accentColor : Colors.red,
+                remaining > 0 ? PremiumTheme.accentColor : CupertinoColors.systemRed,
               ),
               minHeight: 8,
             ),
@@ -216,7 +218,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: remaining > 0 ? PremiumTheme.accentColor : Colors.red,
+                  color: remaining > 0 ? PremiumTheme.accentColor : CupertinoColors.systemRed,
                 ),
               ),
             ],
@@ -230,13 +232,13 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: PremiumTheme.accentColor.withValues(alpha: 0.1),
+                color: PremiumTheme.accentColor.withAlpha(25),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.rocket_launch,
+                    CupertinoIcons.rocket_fill,
                     color: PremiumTheme.accentColor,
                     size: 18,
                   ),
@@ -252,7 +254,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                     ),
                   ),
                   Icon(
-                    Icons.arrow_forward_ios,
+                    CupertinoIcons.right_chevron,
                     color: PremiumTheme.accentColor,
                     size: 14,
                   ),
@@ -276,39 +278,39 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
         children: [
           if (!isPremium)
             _buildActionTile(
-              icon: Icons.workspace_premium,
+              icon: CupertinoIcons.star_fill,
               title: 'Upgrade to Premium',
               subtitle: 'Unlock unlimited alerts',
-              iconColor: Colors.amber,
+              iconColor: CupertinoColors.systemYellow,
               onTap: _openUpgradeScreen,
             ),
 
           _buildActionTile(
-            icon: Icons.restore,
+            icon: CupertinoIcons.arrow_3_trianglepath,
             title: 'Restore Purchases',
             subtitle: 'Restore previous purchases',
-            iconColor: Colors.blue,
+            iconColor: CupertinoColors.systemBlue,
             isLoading: _isRestoring,
             onTap: _restorePurchases,
           ),
 
           if (isPremium)
             _buildActionTile(
-              icon: Icons.manage_accounts,
+              icon: CupertinoIcons.gear_alt_fill,
               title: 'Manage Subscription',
-              subtitle: 'View or cancel in Play Store',
-              iconColor: Colors.green,
-              onTap: _openPlayStoreSubscriptions,
+              subtitle: 'View or cancel in App Store',
+              iconColor: CupertinoColors.systemGreen,
+              onTap: _openAppStoreSubscriptions,
               showDivider: false,
             ),
 
           if (!isPremium)
             _buildActionTile(
-              icon: Icons.manage_accounts,
+              icon: CupertinoIcons.gear_alt_fill,
               title: 'Manage Subscription',
-              subtitle: 'View in Play Store',
-              iconColor: Colors.green,
-              onTap: _openPlayStoreSubscriptions,
+              subtitle: 'View in App Store',
+              iconColor: CupertinoColors.systemGreen,
+              onTap: _openAppStoreSubscriptions,
               showDivider: false,
             ),
         ],
@@ -327,52 +329,65 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
   }) {
     return Column(
       children: [
-        ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: isLoading
-                ? Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-                    ),
-                  )
-                : Icon(icon, color: iconColor, size: 22),
-          ),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.primaryTextColor,
-            ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 13,
-              color: PremiumTheme.tertiaryTextColor,
-            ),
-          ),
-          trailing: Icon(
-            Icons.arrow_forward_ios,
-            size: 16,
-            color: PremiumTheme.tertiaryTextColor,
-          ),
+        GestureDetector(
           onTap: isLoading ? null : () {
             HapticFeedback.lightImpact();
             onTap();
           },
+          child: Container(
+            color: Colors.transparent,
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconColor.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CupertinoActivityIndicator(),
+                        )
+                      : Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: PremiumTheme.primaryTextColor,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: PremiumTheme.tertiaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  CupertinoIcons.right_chevron,
+                  size: 16,
+                  color: PremiumTheme.tertiaryTextColor,
+                ),
+              ],
+            ),
+          ),
         ),
         if (showDivider)
           Divider(
             height: 1,
-            indent: 72,
+            indent: 64,
             color: PremiumTheme.dividerColor,
           ),
       ],
@@ -400,19 +415,19 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           ),
           const SizedBox(height: 12),
           _buildHelpLink(
-            icon: Icons.email_outlined,
+            icon: CupertinoIcons.mail_solid,
             label: 'Contact Support',
             onTap: _contactSupport,
           ),
           const SizedBox(height: 8),
           _buildHelpLink(
-            icon: Icons.description_outlined,
+            icon: CupertinoIcons.doc_text_fill,
             label: 'Terms of Service',
             onTap: _openTerms,
           ),
           const SizedBox(height: 8),
           _buildHelpLink(
-            icon: Icons.privacy_tip_outlined,
+            icon: CupertinoIcons.shield_fill,
             label: 'Privacy Policy',
             onTap: _openPrivacy,
           ),
@@ -473,15 +488,17 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
       final result = await _subscriptionService.restorePurchases();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.success
-                  ? result.message ?? 'Purchases restored!'
-                  : result.error ?? 'No purchases found',
-            ),
-            backgroundColor: result.success ? Colors.green : Colors.orange,
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: Text(result.success ? 'Purchases Restored' : 'Restore Failed'),
+            content: Text(result.message ?? (result.success ? 'Your purchases have been restored.' : 'No purchases found.')),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         );
 
@@ -491,10 +508,17 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to restore purchases'),
-            backgroundColor: Colors.red,
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Restore Failed'),
+            content: const Text('Failed to restore purchases. Please try again.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         );
       }
@@ -505,17 +529,27 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     }
   }
 
-  Future<void> _openPlayStoreSubscriptions() async {
-    // Deep link to Play Store subscriptions
-    final uri = Uri.parse('https://play.google.com/store/account/subscriptions');
+  Future<void> _openAppStoreSubscriptions() async {
+    // Deep link to App Store subscriptions
+    final uri = Uri.parse('https://apps.apple.com/account/subscriptions');
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Play Store')),
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: const Text('Could Not Open App Store'),
+            content: const Text('Please open the App Store and navigate to your subscriptions.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
         );
       }
     }

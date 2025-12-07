@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -43,7 +44,6 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      requestCriticalPermission: true, // For important alerts
     );
 
     const initSettings = InitializationSettings(
@@ -65,24 +65,26 @@ class NotificationService {
   }
 
   /// Request notification permissions
-  Future<bool> _requestPermissions() async {
+  Future<bool> _requestPermissions({bool critical = false}) async {
     if (Platform.isAndroid) {
       // Android 13+ requires explicit notification permission
       final status = await Permission.notification.request();
       return status.isGranted;
     } else if (Platform.isIOS) {
       final result = await _notifications
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(
             alert: true,
             badge: true,
             sound: true,
-            critical: true,
+            critical: critical,
           );
       return result ?? false;
     }
     return true;
   }
+
 
   /// Handle notification tap
   void _onNotificationResponse(NotificationResponse response) {
@@ -101,6 +103,7 @@ class NotificationService {
   Future<void> showAlertNotification({
     required String title,
     required String body,
+    String? subtitle,
     String? payload,
     bool playSound = true,
     bool vibrate = true,
@@ -153,13 +156,16 @@ class NotificationService {
     );
 
     // iOS notification details
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
+      presentSound: playSound,
       interruptionLevel: InterruptionLevel.timeSensitive,
       threadIdentifier: 'yuh_blockin_alerts',
+      subtitle: subtitle,
+      sound: playSound ? 'alert_sound.wav' : null,
     );
+
 
     final details = NotificationDetails(
       android: androidDetails,
@@ -186,6 +192,20 @@ class NotificationService {
     try {
       final hasVibrator = await Vibration.hasVibrator();
       if (hasVibrator != true) return;
+
+      if (Platform.isIOS) {
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 300));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        return;
+      }
+
 
       final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
 

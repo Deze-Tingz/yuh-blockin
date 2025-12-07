@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -152,9 +153,14 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      body: SafeArea(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Welcome'),
+        backgroundColor: Colors.transparent,
+        border: null,
+      ),
+      child: SafeArea(
         child: AnimatedBuilder(
           animation: _entranceController,
           builder: (context, child) {

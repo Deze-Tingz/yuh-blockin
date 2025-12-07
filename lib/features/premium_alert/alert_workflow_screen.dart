@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -359,153 +360,93 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
           );
         }
       },
-      child: Scaffold(
-      backgroundColor: widget.isEmbedded ? Colors.transparent : PremiumTheme.backgroundColor.withValues(alpha: 0.95),
-      body: Stack(
-        children: [
-          // Main content
-          SlideTransition(
-            position: _slideAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SafeArea(
-            top: !widget.isEmbedded, // Skip top safe area when embedded (bottom sheet handles it)
-            bottom: true,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Check if we need to use responsive layout for very small screens
-                final isVerySmallScreen = constraints.maxHeight < 600;
+      child: CupertinoPageScaffold(
+        backgroundColor: widget.isEmbedded ? Colors.transparent : PremiumTheme.backgroundColor.withValues(alpha: 0.95),
+        navigationBar: widget.isEmbedded
+            ? null
+            : const CupertinoNavigationBar(
+                middle: Text('Send Alert'),
+                backgroundColor: Colors.transparent,
+                border: null,
+              ),
+        child: Stack(
+          children: [
+            // Main content
+            SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SafeArea(
+                  top: !widget.isEmbedded, // Skip top safe area when embedded (bottom sheet handles it)
+                  bottom: true,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Check if we need to use responsive layout for very small screens
+                      final isVerySmallScreen = constraints.maxHeight < 600;
 
-                return Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isVerySmallScreen ? 20.0 : 24.0,
-                    vertical: isVerySmallScreen ? 12.0 : 20.0,
+                      return Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isVerySmallScreen ? 20.0 : 24.0,
+                          vertical: isVerySmallScreen ? 12.0 : 20.0,
+                        ),
+                        child: Column(
+                          children: [
+                            SizedBox(height: isVerySmallScreen ? 12.0 : 20.0),
+
+                            // Main scrollable content for mobile
+                            Expanded(
+                              child: SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                child: Column(
+                                  children: [
+                                    // User vehicle context badge (more compact)
+                                    if (_primaryPlate != null) _buildVehicleContextBadge(),
+
+                                    // Title and description (more compact)
+                                    _buildTitle(),
+
+                                    SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
+
+                                    // License plate input
+                                    _buildPlateInput(),
+
+                                    SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
+
+                                    // Urgency selection
+                                    _buildUrgencySelection(),
+
+                                    SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
+
+                                    // Emoji expression selection
+                                    _buildEmojiSelector(),
+
+                                    SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Send alert button - FIXED at bottom, outside scroll view
+                            // This ensures keyboard doesn't cover the button
+                            Padding(
+                              padding: EdgeInsets.only(
+                                top: 8.0,
+                                bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8.0 : 0,
+                              ),
+                              child: _buildSendButton(),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                  child: Column(
-                    children: [
-                  // Header with back action
-                  _buildHeader(context),
-
-                  SizedBox(height: isVerySmallScreen ? 12.0 : 20.0),
-
-                  // Main scrollable content for mobile
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        children: [
-                          // User vehicle context badge (more compact)
-                          if (_primaryPlate != null) _buildVehicleContextBadge(),
-
-                          // Title and description (more compact)
-                          _buildTitle(),
-
-                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
-
-                          // License plate input
-                          _buildPlateInput(),
-
-                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
-
-                          // Urgency selection
-                          _buildUrgencySelection(),
-
-                          SizedBox(height: isVerySmallScreen ? 8.0 : 12.0),
-
-                          // Emoji expression selection
-                          _buildEmojiSelector(),
-
-                          SizedBox(height: isVerySmallScreen ? 10.0 : 14.0),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Send alert button - FIXED at bottom, outside scroll view
-                  // This ensures keyboard doesn't cover the button
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: 8.0,
-                      bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8.0 : 0,
-                    ),
-                    child: _buildSendButton(),
-                  ),
-                    ],
-                  ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    // For embedded mode (modal bottom sheet), show centered title only
-    if (widget.isEmbedded) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Center(
-          child: Text(
-            'Send Alert',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: PremiumTheme.primaryTextColor,
-
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Standard mode with back button
-    return Row(
-      children: [
-        // Back button
-        GestureDetector(
-          onTap: _handleBack,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: PremiumTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: PremiumTheme.subtleShadow,
-            ),
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 20,
-              color: PremiumTheme.primaryTextColor,
-            ),
-          ),
-        ),
-
-        const Spacer(),
-
-        // Progress indicator
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: PremiumTheme.accentColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Step 1 of 2',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: PremiumTheme.accentColor,
-
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -516,7 +457,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.directions_car_rounded,
+            CupertinoIcons.car_detailed,
             size: 14,
             color: PremiumTheme.accentColor.withValues(alpha: 0.7),
           ),
@@ -557,7 +498,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
             ),
             children: [
-              TextSpan(text: 'Send '),
+              const TextSpan(text: 'Send '),
               TextSpan(
                 text: 'Respectful',
                 style: TextStyle(
@@ -565,7 +506,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
                   color: PremiumTheme.accentColor,
                 ),
               ),
-              TextSpan(text: ' Alert'),
+              const TextSpan(text: ' Alert'),
             ],
           ),
         ),
@@ -601,7 +542,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               width: 1,
             ),
           ),
-          child: TextField(
+          child: CupertinoTextField(
             controller: _plateController,
             focusNode: _plateFocusNode,
             textAlign: TextAlign.center,
@@ -609,20 +550,17 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-
             ),
-            decoration: InputDecoration(
-              hintText: 'ABC-123',
-              hintStyle: TextStyle(
-                color: PremiumTheme.tertiaryTextColor,
-                fontWeight: FontWeight.w400,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
-              border: InputBorder.none,
+            placeholder: 'ABC-123',
+            placeholderStyle: TextStyle(
+              color: PremiumTheme.tertiaryTextColor,
+              fontWeight: FontWeight.w400,
             ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
+            decoration: null, // Remove default decoration to use Container's
             onChanged: _validatePlate,
             textCapitalization: TextCapitalization.characters,
             inputFormatters: [
@@ -641,7 +579,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
             child: Row(
               children: [
                 Icon(
-                  Icons.check_circle,
+                  CupertinoIcons.check_mark_circled_solid,
                   size: 16,
                   color: PremiumTheme.accentColor,
                 ),
@@ -993,46 +931,30 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: CupertinoButton.filled(
           onPressed: isEnabled ? _sendAlert : null,
-          onLongPress: _isValidPlate ? _onButtonPress : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: PremiumTheme.accentColor,
-            foregroundColor: Colors.white,
-            elevation: 2, // Reduced elevation for better performance
-            shadowColor: Colors.black26, // Simpler shadow color
-            shape: RoundedRectangleBorder(
-              borderRadius: PremiumTheme.mediumRadius,
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-            minimumSize: const Size(double.infinity, 56),
-            // Disable splash and highlight for smoother tap
-            splashFactory: NoSplash.splashFactory,
-          ),
+          borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: _isLoading
-                ? SizedBox(
-                    key: const ValueKey('loading'),
+                ? const SizedBox(
+                    key: ValueKey('loading'),
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                      strokeWidth: 2,
-                    ),
+                    child: CupertinoActivityIndicator(color: Colors.white),
                   )
                 : Row(
                     key: const ValueKey('content'),
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.send, size: 20),
+                      const Icon(CupertinoIcons.paperplane_fill, size: 20),
                       const SizedBox(width: 12),
-                      Text(
+                      const Text(
                         'Send Respectful Alert',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-
                         ),
                       ),
                     ],
@@ -1273,63 +1195,33 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   }
 
   void _showErrorDialog(String error) {
-    showDialog(
+    showCupertinoDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.3),
-      builder: (context) => AlertDialog(
-        backgroundColor: PremiumTheme.surfaceColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: PremiumTheme.largeRadius,
-        ),
-        contentPadding: const EdgeInsets.all(32),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      barrierDismissible: true,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: PremiumTheme.accentColor,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Alert Failed',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: PremiumTheme.primaryTextColor,
-              ),
-            ),
+            Icon(CupertinoIcons.exclamationmark_triangle_fill, color: CupertinoColors.systemRed),
+            SizedBox(width: 8),
+            Text('Alert Failed'),
+          ],
+        ),
+        content: Column(
+          children: [
             const SizedBox(height: 12),
             Text(
               'Unable to send alert. Please check your connection and try again.',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: PremiumTheme.secondaryTextColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: PremiumTheme.accentColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: PremiumTheme.smallRadius,
-                ),
-              ),
-              child: Text(
-                'Understood',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+              style: const TextStyle(fontSize: 16),
             ),
           ],
         ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Understood'),
+          ),
+        ],
       ),
     );
   }
@@ -1422,5 +1314,3 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     }
   }
 }
-
-

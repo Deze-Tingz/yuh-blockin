@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -62,9 +63,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open Terms of Service')),
-          );
+          _showErrorSnackbar('Could not open Terms of Service');
         }
       }
     } catch (e) {
@@ -82,9 +81,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open Privacy Policy')),
-          );
+          _showErrorSnackbar('Could not open Privacy Policy');
         }
       }
     } catch (e) {
@@ -96,40 +93,21 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      body: SafeArea(
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Go Premium'),
+        backgroundColor: PremiumTheme.backgroundColor,
+        border: null,
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: _isLoading ? null : _restorePurchases,
+          child: const Text('Restore'),
+        ),
+      ),
+      child: SafeArea(
         child: Column(
           children: [
-            // Header with close button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: PremiumTheme.secondaryTextColor,
-                    ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: PremiumTheme.surfaceColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _isLoading ? null : _restorePurchases,
-                    child: Text(
-                      'Restore',
-                      style: TextStyle(
-                        color: PremiumTheme.accentColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             // Content
             Expanded(
               child: SingleChildScrollView(
@@ -145,14 +123,14 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: PremiumTheme.accentColor.withValues(alpha: 0.3),
+                            color: PremiumTheme.accentColor.withAlpha(77),
                             blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       child: const Icon(
-                        Icons.workspace_premium_rounded,
+                        CupertinoIcons.star_fill,
                         color: Colors.white,
                         size: 44,
                       ),
@@ -214,10 +192,10 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   Widget _buildBenefitsSection() {
     final benefits = [
-      (Icons.all_inclusive_rounded, 'Unlimited Alerts', 'Send as many alerts as you need'),
-      (Icons.flash_on_rounded, 'No Daily Limits', 'Alert anytime, day or night'),
-      (Icons.favorite_rounded, 'Support Development', 'Help us improve the app'),
-      (Icons.star_rounded, 'Priority Features', 'Early access to new features'),
+      (CupertinoIcons.infinite, 'Unlimited Alerts', 'Send as many alerts as you need'),
+      (CupertinoIcons.time_solid, 'No Daily Limits', 'Alert anytime, day or night'),
+      (CupertinoIcons.heart_fill, 'Support Development', 'Help us improve the app'),
+      (CupertinoIcons.sparkles, 'Priority Features', 'Early access to new features'),
     ];
 
     return Container(
@@ -240,7 +218,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: PremiumTheme.accentColor.withValues(alpha: 0.1),
+                    color: PremiumTheme.accentColor.withAlpha(25),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -273,8 +251,8 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   ),
                 ),
                 Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.green.shade400,
+                  CupertinoIcons.check_mark_circled_solid,
+                  color: CupertinoColors.systemGreen,
                   size: 20,
                 ),
               ],
@@ -298,14 +276,14 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           Expanded(
             child: _buildPaymentMethodButton(
               id: 'google_play',
-              icon: Icons.play_arrow_rounded,
+              icon: CupertinoIcons.device_laptop,
               label: 'Google Play',
             ),
           ),
           Expanded(
             child: _buildPaymentMethodButton(
               id: 'ath_movil',
-              icon: Icons.account_balance_wallet_rounded,
+              icon: CupertinoIcons.creditcard_fill,
               label: 'ATH Móvil',
             ),
           ),
@@ -380,7 +358,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: _athInputMethod == 'phone'
-                      ? PremiumTheme.accentColor.withValues(alpha: 0.15)
+                      ? PremiumTheme.accentColor.withAlpha(38)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -388,7 +366,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.phone_rounded,
+                      CupertinoIcons.phone_fill,
                       size: 16,
                       color: _athInputMethod == 'phone'
                           ? PremiumTheme.accentColor
@@ -417,7 +395,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: _athInputMethod == 'qr'
-                      ? PremiumTheme.accentColor.withValues(alpha: 0.15)
+                      ? PremiumTheme.accentColor.withAlpha(38)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -425,7 +403,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.qr_code_rounded,
+                      CupertinoIcons.qrcode,
                       size: 16,
                       color: _athInputMethod == 'qr'
                           ? PremiumTheme.accentColor
@@ -455,7 +433,6 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   Widget _buildQrCodeSection() {
     // QR code is preset for monthly payment
     const amount = PaymentConfig.athMonthlyPrice;
-    const planName = 'Monthly';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -516,42 +493,28 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: PremiumTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: PremiumTheme.dividerColor),
+          CupertinoTextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: TextStyle(
+              fontSize: 15,
+              color: PremiumTheme.primaryTextColor,
             ),
-            child: TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: TextStyle(
-                fontSize: 15,
-                color: PremiumTheme.primaryTextColor,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-                _PhoneNumberFormatter(),
-              ],
-              decoration: InputDecoration(
-                hintText: 'Your ATH phone number',
-                hintStyle: TextStyle(
-                  color: PremiumTheme.tertiaryTextColor,
-                  fontSize: 14,
-                ),
-                prefixIcon: Icon(
-                  Icons.phone_rounded,
-                  size: 20,
-                  color: PremiumTheme.secondaryTextColor,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+              _PhoneNumberFormatter(),
+            ],
+            placeholder: 'Your ATH phone number',
+            prefix: const Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: Icon(
+                CupertinoIcons.phone_fill,
+                size: 20,
+                color: CupertinoColors.placeholderText,
               ),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
         ],
       ),
@@ -562,60 +525,45 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _phoneError != null
-                  ? Colors.red.shade400
-                  : PremiumTheme.dividerColor,
+        CupertinoTextField(
+          controller: _phoneController,
+          focusNode: _phoneFocusNode,
+          keyboardType: TextInputType.phone,
+          style: TextStyle(
+            fontSize: 16,
+            color: PremiumTheme.primaryTextColor,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+            _PhoneNumberFormatter(),
+          ],
+          placeholder: 'Enter your ATH phone number',
+          prefix: const Padding(
+            padding: EdgeInsets.only(left: 12.0),
+            child: Icon(
+              CupertinoIcons.phone_fill,
+              color: CupertinoColors.placeholderText,
             ),
           ),
-          child: TextField(
-            controller: _phoneController,
-            focusNode: _phoneFocusNode,
-            keyboardType: TextInputType.phone,
-            style: TextStyle(
-              fontSize: 16,
-              color: PremiumTheme.primaryTextColor,
-            ),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
-              _PhoneNumberFormatter(),
-            ],
-            decoration: InputDecoration(
-              hintText: 'Enter your ATH phone number',
-              hintStyle: TextStyle(
-                color: PremiumTheme.tertiaryTextColor,
-                fontSize: 15,
-              ),
-              prefixIcon: Icon(
-                Icons.phone_android_rounded,
-                color: PremiumTheme.secondaryTextColor,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-            ),
-            onChanged: (value) {
-              if (_phoneError != null) {
-                setState(() => _phoneError = null);
-              }
-            },
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
+          onChanged: (value) {
+            if (_phoneError != null) {
+              setState(() => _phoneError = null);
+            }
+          },
         ),
         if (_phoneError != null)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
               _phoneError!,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: Colors.red.shade400,
+                color: CupertinoColors.systemRed,
               ),
             ),
           ),
@@ -625,7 +573,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           child: Row(
             children: [
               Icon(
-                Icons.lightbulb_outline_rounded,
+                CupertinoIcons.lightbulb_fill,
                 size: 14,
                 color: PremiumTheme.tertiaryTextColor,
               ),
@@ -695,7 +643,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? PremiumTheme.accentColor.withValues(alpha: 0.08)
+              ? PremiumTheme.accentColor.withAlpha(20)
               : PremiumTheme.surfaceColor,
           borderRadius: PremiumTheme.mediumRadius,
           border: Border.all(
@@ -767,7 +715,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               ),
               child: isSelected
                   ? const Icon(
-                      Icons.check_rounded,
+                      CupertinoIcons.check_mark,
                       color: Colors.white,
                       size: 16,
                     )
@@ -782,26 +730,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   Widget _buildPurchaseButton() {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: CupertinoButton.filled(
         onPressed: _selectedPlan == null || _isLoading ? null : _purchase,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: PremiumTheme.accentColor,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: PremiumTheme.accentColor.withValues(alpha: 0.5),
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          elevation: 0,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        padding: const EdgeInsets.symmetric(vertical: 18),
         child: _isLoading
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
+                child: CupertinoActivityIndicator(color: Colors.white),
               )
             : Text(
                 _selectedPlan == null
@@ -833,13 +770,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextButton(
+            CupertinoButton(
               onPressed: _openTermsOfService,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 'Terms',
                 style: TextStyle(
@@ -855,13 +788,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                 color: PremiumTheme.tertiaryTextColor,
               ),
             ),
-            TextButton(
+            CupertinoButton(
               onPressed: _openPrivacyPolicy,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 'Privacy',
                 style: TextStyle(
@@ -1015,81 +944,32 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   }
 
   void _showSuccessDialog({bool isRestore = false}) {
-    showDialog(
+    showCupertinoDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor,
-            borderRadius: PremiumTheme.extraLargeRadius,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.green.shade400,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                isRestore ? 'Restored!' : 'Welcome to Premium!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: PremiumTheme.primaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isRestore
-                    ? 'Your premium access has been restored.'
-                    : 'You now have unlimited alerts!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: PremiumTheme.secondaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // Close dialog
-                    Navigator.of(context).pop(); // Close upgrade screen
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade400,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+      builder: (context) => CupertinoAlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.check_mark_circled_solid, color: CupertinoColors.systemGreen),
+            SizedBox(width: 8),
+            Text(isRestore ? 'Restored!' : 'Welcome to Premium!'),
+          ],
         ),
+        content: Text(
+          isRestore
+              ? 'Your premium access has been restored.'
+              : 'You now have unlimited alerts!',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Continue'),
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop(); // Close upgrade screen
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1098,7 +978,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red.shade400,
+        backgroundColor: CupertinoColors.systemRed,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),

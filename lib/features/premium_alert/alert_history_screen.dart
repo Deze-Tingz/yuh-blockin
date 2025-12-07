@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -22,7 +23,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   List<Alert> _receivedAlerts = [];
   List<Alert> _sentAlerts = [];
   bool _isLoading = true;
-  late TabController _tabController;
+  int _selectedSegment = 0;
 
   // Stream subscriptions for real-time updates
   StreamSubscription<Alert>? _receivedAlertsSubscription;
@@ -34,13 +35,11 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadAlertHistory();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _receivedAlertsSubscription?.cancel();
     _sentAlertsSubscription?.cancel();
     super.dispose();
@@ -383,7 +382,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
     return ElevatedButton(
       onPressed: () => _respondToAlert(alert, response),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? color : color.withValues(alpha: 0.1),
+        backgroundColor: isPrimary ? color : color.withAlpha(25),
         foregroundColor: isPrimary ? Colors.white : color,
         elevation: isPrimary ? 2 : 0,
         padding: EdgeInsets.symmetric(
@@ -454,17 +453,17 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: hasResponse
-              ? [statusColor.withValues(alpha: 0.08), statusColor.withValues(alpha: 0.03)]
-              : [Colors.blue.withValues(alpha: 0.05), Colors.grey.withValues(alpha: 0.02)],
+              ? [statusColor.withAlpha(20), statusColor.withAlpha(8)]
+              : [Colors.blue.withAlpha(13), Colors.grey.withAlpha(5)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: statusColor.withValues(alpha: 0.25),
+          color: statusColor.withAlpha(64),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withAlpha(10),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -482,7 +481,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
+                    color: statusColor.withAlpha(31),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -503,7 +502,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.15),
+                              color: statusColor.withAlpha(38),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -571,7 +570,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.06),
+                color: statusColor.withAlpha(15),
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
                   bottomRight: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
@@ -582,7 +581,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                   Icon(
                     Icons.reply,
                     size: isTablet ? 16 : 14,
-                    color: statusColor.withValues(alpha: 0.7),
+                    color: statusColor.withAlpha(178),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -602,14 +601,14 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.08),
+                color: Colors.orange.withAlpha(20),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
                 ),
                 border: Border(
                   top: BorderSide(
-                    color: Colors.orange.withValues(alpha: 0.2),
+                    color: Colors.orange.withAlpha(51),
                     width: 1,
                   ),
                 ),
@@ -702,9 +701,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
             horizontal: 8,
           ),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: color.withAlpha(25),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            border: Border.all(color: color.withAlpha(77)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1077,152 +1076,106 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   Widget build(BuildContext context) {
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
 
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(
-          'Alert History',
-          style: TextStyle(
-            fontSize: isTablet ? 24 : 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.grey[800],
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[800]),
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: Colors.grey[700]),
-            tooltip: 'Clear alerts',
-            onSelected: (value) => _handleClearOption(value),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'clear_received',
-                enabled: _receivedAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.inbox, size: 20, color: Colors.orange[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear received'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'clear_sent',
-                enabled: _sentAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.send, size: 20, color: Colors.blue[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear sent'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'clear_all',
-                enabled: _receivedAlerts.isNotEmpty || _sentAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep, size: 20, color: Colors.red[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear all'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.inbox),
-                text: 'Received (${_receivedAlerts.length})',
-              ),
-              Tab(
-                icon: const Icon(Icons.send),
-                text: 'Sent (${_sentAlerts.length})',
-              ),
-            ],
-            labelColor: Colors.blue[600],
-            unselectedLabelColor: Colors.grey[600],
-            indicatorColor: Colors.blue[600],
-          ),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Alert History'),
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () {},
+          child: const Icon(CupertinoIcons.ellipsis),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // Received alerts tab
-                _receivedAlerts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No received alerts',
-                              style: TextStyle(
-                                fontSize: isTablet ? 18 : 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 16),
-                        itemCount: _receivedAlerts.length,
-                        itemBuilder: (context, index) {
-                          return _buildReceivedAlertItem(_receivedAlerts[index]);
-                        },
-                      ),
-
-                // Sent alerts tab
-                _sentAlerts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.send,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No sent alerts',
-                              style: TextStyle(
-                                fontSize: isTablet ? 18 : 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 16),
-                        itemCount: _sentAlerts.length,
-                        itemBuilder: (context, index) {
-                          return _buildSentAlertItem(_sentAlerts[index]);
-                        },
-                      ),
-              ],
+      child: SafeArea(
+        child: Column(
+          children: [
+            CupertinoSlidingSegmentedControl<int>(
+              groupValue: _selectedSegment,
+              onValueChanged: (int? value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedSegment = value;
+                  });
+                }
+              },
+              children: {
+                0: Text('Received (${_receivedAlerts.length})'),
+                1: Text('Sent (${_sentAlerts.length})'),
+              },
             ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CupertinoActivityIndicator(),
+                    )
+                  : IndexedStack(
+                      index: _selectedSegment,
+                      children: [
+                        // Received alerts tab
+                        _receivedAlerts.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.tray,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No received alerts',
+                                      style: TextStyle(
+                                        fontSize: isTablet ? 18 : 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(top: 16),
+                                itemCount: _receivedAlerts.length,
+                                itemBuilder: (context, index) {
+                                  return _buildReceivedAlertItem(_receivedAlerts[index]);
+                                },
+                              ),
+
+                        // Sent alerts tab
+                        _sentAlerts.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.paperplane,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No sent alerts',
+                                      style: TextStyle(
+                                        fontSize: isTablet ? 18 : 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(top: 16),
+                                itemCount: _sentAlerts.length,
+                                itemBuilder: (context, index) {
+                                  return _buildSentAlertItem(_sentAlerts[index]);
+                                },
+                              ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
-
