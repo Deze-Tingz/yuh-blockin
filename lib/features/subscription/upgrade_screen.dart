@@ -93,19 +93,31 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
+    return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Go Premium'),
-        backgroundColor: PremiumTheme.backgroundColor,
-        border: null,
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _isLoading ? null : _restorePurchases,
-          child: const Text('Restore'),
+      appBar: AppBar(
+        title: Text(
+          'Go Premium',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
         ),
+        backgroundColor: PremiumTheme.backgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _restorePurchases,
+            child: Text(
+              'Restore',
+              style: TextStyle(color: PremiumTheme.accentColor),
+            ),
+          ),
+        ],
       ),
-      child: SafeArea(
+      body: SafeArea(
         child: Column(
           children: [
             // Content

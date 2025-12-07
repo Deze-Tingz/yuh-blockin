@@ -153,14 +153,23 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
+    // Use Scaffold instead of CupertinoPageScaffold to avoid yellow text highlight
+    return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Welcome'),
+      appBar: AppBar(
+        title: Text(
+          'Welcome',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
         backgroundColor: Colors.transparent,
-        border: null,
+        elevation: 0,
+        centerTitle: true,
       ),
-      child: SafeArea(
+      body: SafeArea(
         child: AnimatedBuilder(
           animation: _entranceController,
           builder: (context, child) {

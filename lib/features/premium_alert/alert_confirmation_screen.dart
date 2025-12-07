@@ -358,14 +358,22 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 768;
 
-    return CupertinoPageScaffold(
+    return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Alert Status'),
+      appBar: AppBar(
+        title: Text(
+          'Alert Status',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
         backgroundColor: Colors.transparent,
-        border: null,
+        elevation: 0,
+        centerTitle: true,
       ),
-      child: SafeArea(
+      body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: Container(

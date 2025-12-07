@@ -360,16 +360,24 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
           );
         }
       },
-      child: CupertinoPageScaffold(
+      child: Scaffold(
         backgroundColor: widget.isEmbedded ? Colors.transparent : PremiumTheme.backgroundColor.withValues(alpha: 0.95),
-        navigationBar: widget.isEmbedded
+        appBar: widget.isEmbedded
             ? null
-            : const CupertinoNavigationBar(
-                middle: Text('Send Alert'),
+            : AppBar(
+                title: Text(
+                  'Send Alert',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: PremiumTheme.primaryTextColor,
+                  ),
+                ),
                 backgroundColor: Colors.transparent,
-                border: null,
+                elevation: 0,
+                centerTitle: true,
               ),
-        child: Stack(
+        body: Stack(
           children: [
             // Main content
             SlideTransition(

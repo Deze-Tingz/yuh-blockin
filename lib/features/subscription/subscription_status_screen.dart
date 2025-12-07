@@ -26,14 +26,22 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     final remaining = _subscriptionService.remainingAlerts;
     final used = _subscriptionService.dailyAlertsUsed;
 
-    return CupertinoPageScaffold(
+    return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Subscription'),
+      appBar: AppBar(
+        title: Text(
+          'Subscription',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
         backgroundColor: PremiumTheme.backgroundColor,
-        border: null,
+        elevation: 0,
+        centerTitle: true,
       ),
-      child: SafeArea(
+      body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(

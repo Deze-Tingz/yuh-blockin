@@ -1076,17 +1076,28 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   Widget build(BuildContext context) {
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
 
-    return CupertinoPageScaffold(
-      backgroundColor: Colors.white,
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Alert History'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () {},
-          child: const Icon(CupertinoIcons.ellipsis),
+    return Scaffold(
+      backgroundColor: PremiumTheme.backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'Alert History',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
         ),
+        backgroundColor: PremiumTheme.backgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: Icon(Icons.more_horiz, color: PremiumTheme.primaryTextColor),
+          ),
+        ],
       ),
-      child: SafeArea(
+      body: SafeArea(
         child: Column(
           children: [
             CupertinoSlidingSegmentedControl<int>(
