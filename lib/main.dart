@@ -1735,7 +1735,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           // Menu button on the right
           PopupMenuButton<String>(
             icon: Container(
-              padding: const EdgeInsets.all(8),
+              width: isTablet ? 44 : 40,
+              height: isTablet ? 44 : 40,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: PremiumTheme.surfaceColor.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(12),
