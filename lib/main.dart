@@ -543,6 +543,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Alert? _currentIncomingAlert;
   String? _currentSenderAlias;
   String? _currentAlertEmoji; // Store emoji from alert message
+  String _currentAlertUrgency = 'Normal'; // Low, Normal, or High
   bool _showingAlertBanner = false;
 
   // Unacknowledged alerts tracking
@@ -1012,6 +1013,66 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     }
   }
 
+  /// Play urgency-based vibration pattern
+  Future<void> _playUrgencyVibration(String urgency) async {
+    switch (urgency) {
+      case 'Low':
+        // Gentle single vibration
+        HapticFeedback.lightImpact();
+        break;
+      case 'High':
+        // Intense repeated vibration pattern
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 80));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 80));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 80));
+        HapticFeedback.heavyImpact();
+        break;
+      default: // Normal
+        // Medium double vibration
+        HapticFeedback.mediumImpact();
+        await Future.delayed(const Duration(milliseconds: 100));
+        HapticFeedback.mediumImpact();
+    }
+  }
+
+  /// Get gradient colors for urgency level
+  List<Color> _getUrgencyGradient(String urgency) {
+    switch (urgency) {
+      case 'Low':
+        return [
+          const Color(0xFF43A047), // Green
+          const Color(0xFF2E7D32), // Deeper green
+        ];
+      case 'High':
+        return [
+          const Color(0xFFE53935), // Red
+          const Color(0xFFC62828), // Deeper red
+        ];
+      default: // Normal
+        return [
+          const Color(0xFF1E88E5), // Blue
+          const Color(0xFF1565C0), // Deeper blue
+        ];
+    }
+  }
+
+  /// Get primary color for urgency level
+  Color _getUrgencyPrimaryColor(String urgency) {
+    switch (urgency) {
+      case 'Low':
+        return const Color(0xFF43A047);
+      case 'High':
+        return const Color(0xFFE53935);
+      default:
+        return const Color(0xFF1E88E5);
+    }
+  }
+
   /// Ensure user exists in database before accessing any features
   /// Uses redundant storage and database verification to prevent data loss
   Future<void> _ensureUserExists() async {
@@ -1312,12 +1373,19 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       senderAlias = 'Anonymous';
     }
 
-    // Extract emoji from alert message (if present) using static regex
+    // Extract emoji and urgency from alert message
     String? emoji;
+    String urgency = 'Normal';
     if (alert.message != null && alert.message!.isNotEmpty) {
       final match = _emojiRegex.firstMatch(alert.message!);
       if (match != null) {
         emoji = match.group(0);
+      }
+      // Parse urgency level from message (e.g., "Low alert:", "High alert:")
+      if (alert.message!.toLowerCase().startsWith('low')) {
+        urgency = 'Low';
+      } else if (alert.message!.toLowerCase().startsWith('high')) {
+        urgency = 'High';
       }
     }
 
@@ -1325,6 +1393,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       _currentIncomingAlert = alert;
       _currentSenderAlias = senderAlias;
       _currentAlertEmoji = emoji;
+      _currentAlertUrgency = urgency;
       _showingAlertBanner = true;
     });
 
@@ -1340,7 +1409,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // (for lock screen, background, other apps - not when user is in the app)
     if (_appLifecycleState != AppLifecycleState.resumed) {
       _notificationService.showAlertNotification(
-        title: 'Someone needs you to move!',
+        title: urgency == 'High' ? '🚨 Urgent: Move your car!' : 'Someone needs you to move!',
         body: '$senderAlias is asking you to move your car${emoji != null ? ' $emoji' : ''}',
         payload: alert.id,
         playSound: true,
@@ -1348,13 +1417,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       );
     }
 
-    // Premium haptic feedback - phone vibration
-    HapticFeedback.heavyImpact();
-    // Additional vibration patterns for emphasis
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.mediumImpact();
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.heavyImpact();
+    // Urgency-based haptic feedback patterns
+    await _playUrgencyVibration(urgency);
 
     // Start shake animation for the banner
     _shakeController.repeat(reverse: true);
@@ -4968,15 +5032,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF1E88E5), // Vibrant blue
-                        const Color(0xFF1565C0), // Deeper blue
-                      ],
+                      colors: _getUrgencyGradient(_currentAlertUrgency),
                     ),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1E88E5).withValues(alpha: 0.4),
+                        color: _getUrgencyPrimaryColor(_currentAlertUrgency).withValues(alpha: 0.4),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
