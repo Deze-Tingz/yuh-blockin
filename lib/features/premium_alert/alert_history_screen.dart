@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/user_alias_service.dart';
+import '../../core/theme/premium_theme.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
   final String userId;
