@@ -2,7 +2,7 @@ name: yuh_blockin # Renamed for clarity, you can keep yuh_blockin_web if you pre
 description: "A Flutter project for Yuh Blockin'."
 publish_to: 'none'
 
-version: 1.0.0+28
+version: 1.0.0+29
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -20,7 +20,7 @@ dependencies:
   supabase_flutter: ^2.5.6
   # flutter_native_splash: ^2.4.0  # Disabled - using custom AppInitializer splash
   lottie: ^3.1.0
-  shimmer: ^3.0.0  # Premium shimmer effect for splash screen
+  shimmer_animation: ^2.2.2  # Proper shine-over-image effect for splash screen
 
   # Notification & connectivity packages
   flutter_local_notifications: ^17.2.2

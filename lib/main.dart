@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:shimmer_animation/shimmer_animation.dart';
 
 import 'core/theme/premium_theme.dart';
 import 'core/services/plate_storage_service.dart';
@@ -336,44 +336,20 @@ class _AppInitializerState extends State<AppInitializer>
                     opacity: _logoFade,
                     child: ScaleTransition(
                       scale: _logoScale,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Logo always visible
-                          Image.asset(
-                            'assets/images/app_icon.png',
-                            width: _logoSize,
-                            height: _logoSize,
-                            fit: BoxFit.contain,
-                          ),
-                          // Jewelry-like thin shimmer highlight
-                          if (_showShimmer)
-                            Shimmer(
-                              period: const Duration(milliseconds: 2500),
-                              direction: ShimmerDirection.ltr,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.transparent,
-                                  Colors.white.withValues(alpha: 0.35),
-                                  Colors.transparent,
-                                  Colors.transparent,
-                                ],
-                                // Very thin line (~2% width) for jewelry sparkle effect
-                                stops: const [0.0, 0.49, 0.5, 0.51, 1.0],
-                              ),
-                              child: Container(
-                                width: _logoSize,
-                                height: _logoSize,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                        ],
+                      // Shimmer wraps the logo directly - shine passes over the visible image
+                      child: Shimmer(
+                        duration: const Duration(seconds: 3),
+                        interval: const Duration(seconds: 2),
+                        color: Colors.white,
+                        colorOpacity: 0.25, // Subtle jewelry-like shine
+                        enabled: _showShimmer,
+                        direction: const ShimmerDirection.fromLTRB(),
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          width: _logoSize,
+                          height: _logoSize,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
