@@ -205,8 +205,8 @@ class _AppInitializerState extends State<AppInitializer>
 
     _controller.forward();
 
-    // Start shimmer after logo fades in
-    Future.delayed(const Duration(milliseconds: 400), () {
+    // Start shimmer later - after logo is fully visible
+    Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
         setState(() => _showShimmer = true);
       }
@@ -336,36 +336,47 @@ class _AppInitializerState extends State<AppInitializer>
                     opacity: _logoFade,
                     child: ScaleTransition(
                       scale: _logoScale,
-                      child: _showShimmer
-                          ? Shimmer(
-                              period: const Duration(milliseconds: 2000),
-                              direction: ShimmerDirection.ltr,
-                              // Thin diagonal line - mostly transparent with subtle highlight
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.0),
-                                  Colors.white.withValues(alpha: 0.0),
-                                  _teal.withValues(alpha: 0.4),
-                                  Colors.white.withValues(alpha: 0.0),
-                                  Colors.white.withValues(alpha: 0.0),
-                                ],
-                                stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Logo always visible
+                          Image.asset(
+                            'assets/images/app_icon.png',
+                            width: _logoSize,
+                            height: _logoSize,
+                            fit: BoxFit.contain,
+                          ),
+                          // Subtle shimmer overlay - extremely minimal
+                          if (_showShimmer)
+                            Opacity(
+                              opacity: 0.15, // Very subtle overlay
+                              child: Shimmer(
+                                period: const Duration(milliseconds: 2500),
+                                direction: ShimmerDirection.ltr,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                    Colors.white.withValues(alpha: 0.8),
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                  ],
+                                  stops: const [0.0, 0.42, 0.5, 0.58, 1.0],
+                                ),
+                                child: Container(
+                                  width: _logoSize,
+                                  height: _logoSize,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
                               ),
-                              child: Image.asset(
-                                'assets/images/app_icon.png',
-                                width: _logoSize,
-                                height: _logoSize,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          : Image.asset(
-                              'assets/images/app_icon.png',
-                              width: _logoSize,
-                              height: _logoSize,
-                              fit: BoxFit.contain,
                             ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
