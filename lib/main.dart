@@ -327,7 +327,7 @@ class _AppInitializerState extends State<AppInitializer>
                 // Spacer to push logo 20% above center
                 const Spacer(flex: 2),
 
-                // Logo with shimmer effect (same as tagline)
+                // Logo with premium thin diagonal shimmer line
                 Transform.translate(
                   offset: Offset(0, _logoSlide.value),
                   child: FadeTransition(
@@ -335,11 +335,22 @@ class _AppInitializerState extends State<AppInitializer>
                     child: ScaleTransition(
                       scale: _logoScale,
                       child: _showShimmer
-                          ? Shimmer.fromColors(
-                              baseColor: _deepBlue,
-                              highlightColor: _teal.withValues(alpha: 0.7),
+                          ? Shimmer(
                               period: const Duration(milliseconds: 2000),
                               direction: ShimmerDirection.ltr,
+                              // Thin diagonal line - mostly transparent with subtle highlight
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.0),
+                                  Colors.white.withValues(alpha: 0.0),
+                                  _teal.withValues(alpha: 0.4),
+                                  Colors.white.withValues(alpha: 0.0),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                                stops: const [0.0, 0.4, 0.5, 0.6, 1.0],
+                              ),
                               child: Image.asset(
                                 'assets/images/app_icon.png',
                                 width: _logoSize,
