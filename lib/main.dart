@@ -415,41 +415,41 @@ class _AppInitializerState extends State<AppInitializer>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // "from" with decorative lines
+                          // "from" with decorative lines - delicate premium styling
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                width: 24,
+                                width: 20,
                                 height: 0.5,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
                                       Colors.transparent,
-                                      _teal.withValues(alpha: 0.3),
+                                      _teal.withValues(alpha: 0.25),
                                     ],
                                   ),
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
                                 child: Text(
                                   'from',
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: _teal.withValues(alpha: 0.5),
-
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w300,
+                                    letterSpacing: 1.5,
+                                    color: _teal.withValues(alpha: 0.45),
                                   ),
                                 ),
                               ),
                               Container(
-                                width: 24,
+                                width: 20,
                                 height: 0.5,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      _teal.withValues(alpha: 0.3),
+                                      _teal.withValues(alpha: 0.25),
                                       Colors.transparent,
                                     ],
                                   ),
@@ -457,8 +457,8 @@ class _AppInitializerState extends State<AppInitializer>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          // "DezeTingz" with brand gradient
+                          const SizedBox(height: 6),
+                          // "DezeTingz" with brand gradient - lighter weight for premium feel
                           ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
                               colors: [_teal, _coral],
@@ -466,10 +466,10 @@ class _AppInitializerState extends State<AppInitializer>
                             child: const Text(
                               'DezeTingz',
                               style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 0.5,
                                 color: Colors.white,
-
                               ),
                             ),
                           ),
@@ -577,6 +577,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   String? _alertSelectedEmoji;
   bool _isAlertPlateValid = false;
   bool _isSendingAlert = false;
+
+  // Duplicate alert prevention - tracks recently alerted plates
+  static final Map<String, DateTime> _recentlyAlertedPlates = {};
+  static const int _duplicateAlertCooldownMinutes = 5;
+
   late AnimationController _alertModeController;
   late Animation<double> _alertModeAnimation;
 
@@ -3310,6 +3315,27 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Future<void> _sendInlineAlert() async {
     if (!_isAlertPlateValid || _isSendingAlert) return;
 
+    final plateNumber = _alertPlateController.text.trim().toUpperCase();
+    final now = DateTime.now();
+
+    // Clean up old entries (older than cooldown period)
+    _recentlyAlertedPlates.removeWhere((_, time) =>
+        now.difference(time).inMinutes >= _duplicateAlertCooldownMinutes);
+
+    // Check for duplicate alerts to the same plate
+    if (_recentlyAlertedPlates.containsKey(plateNumber)) {
+      final lastAlertTime = _recentlyAlertedPlates[plateNumber]!;
+      final minutesRemaining = _duplicateAlertCooldownMinutes -
+          now.difference(lastAlertTime).inMinutes;
+      _showPremiumSnackBar(
+        message: 'Already alerted this plate. Wait $minutesRemaining min.',
+        isSuccess: false,
+        icon: Icons.timer_outlined,
+        duration: const Duration(milliseconds: 3000),
+      );
+      return;
+    }
+
     setState(() => _isSendingAlert = true);
     HapticFeedback.mediumImpact();
 
@@ -3331,7 +3357,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       }
 
       final result = await _alertService.sendAlert(
-        targetPlateNumber: _alertPlateController.text.trim().toUpperCase(),
+        targetPlateNumber: plateNumber,
         senderUserId: _currentUserId!,
         message: _alertSelectedEmoji ?? '🚗',
       );
@@ -3339,6 +3365,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       if (mounted) {
         if (result.success) {
           HapticFeedback.heavyImpact();
+
+          // Track this plate to prevent duplicates
+          _recentlyAlertedPlates[plateNumber] = DateTime.now();
+
           // Record alert sent (increment daily usage for free users)
           await _subscriptionService.incrementDailyUsage();
 

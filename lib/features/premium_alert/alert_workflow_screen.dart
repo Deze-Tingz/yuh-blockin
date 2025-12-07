@@ -1049,15 +1049,14 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       return 'You\'ve reached the hourly limit of $_maxAlertsPerHour alerts. Please try again later.';
     }
 
-    // Check for duplicate alerts in the last 5 minutes
+    // Check for duplicate alerts to the same plate in the last 5 minutes
+    // Prevents any duplicate to the same plate regardless of urgency level
     final duplicateFound = _recentAlerts.any((alert) {
       final parts = alert.split('|');
-      if (parts.length >= 3) {
+      if (parts.length >= 2) {
         final alertPlate = parts[0];
-        final alertUrgency = parts[2];
         final timestamp = DateTime.tryParse(parts[1]);
         return alertPlate == plateNumber &&
-               alertUrgency == _urgencyLevel &&
                timestamp != null &&
                now.difference(timestamp).inMinutes < 5;
       }
@@ -1065,7 +1064,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
     });
 
     if (duplicateFound) {
-      return 'Duplicate alert detected. This exact alert was recently sent for this plate.';
+      return 'You already sent an alert to this plate. Please wait 5 minutes before sending another.';
     }
 
     return null; // No spam detected
