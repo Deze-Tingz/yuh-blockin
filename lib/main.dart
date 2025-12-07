@@ -61,11 +61,22 @@ class PremiumYuhBlockinApp extends StatelessWidget {
       create: (_) => ThemeNotifier(),
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, child) {
-          // iOS-native typography is handled in PremiumTheme with proper letter spacing
           return MaterialApp(
             title: PremiumConfig.appName,
             debugShowCheckedModeBanner: false,
             theme: themeNotifier.currentTheme,
+            // Apply consistent text styling across entire app
+            builder: (context, child) {
+              // Get iOS-specific letter spacing
+              final letterSpacing = PremiumTheme.isIOS ? -0.3 : 0.0;
+
+              return DefaultTextStyle.merge(
+                style: TextStyle(
+                  letterSpacing: letterSpacing,
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: const AppInitializer(),
           );
         },
