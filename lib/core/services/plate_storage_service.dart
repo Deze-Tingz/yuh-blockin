@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../config/payment_config.dart';
 
 /// Secure License Plate Storage Service
 ///
@@ -11,7 +12,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class PlateStorageService {
   static const String _storageKey = 'yuh_plates_secure_data';
   static const String _encryptionSalt = 'YUH_BLOCKIN_PREMIUM_2025_SALT';
-  static const int maxVehicles = 3;
+
+  /// Legacy constant - use getMaxVehicles() instead for subscription-aware limit
+  static const int maxVehicles = PaymentConfig.freeMaxPlates;
+
+  /// Get maximum vehicles allowed based on subscription status
+  static int getMaxVehicles({bool isPremium = false}) {
+    return isPremium ? PaymentConfig.premiumMaxPlates : PaymentConfig.freeMaxPlates;
+  }
+
+  /// Check if user can add more vehicles
+  static bool canAddMoreVehicles(int currentCount, {bool isPremium = false}) {
+    return currentCount < getMaxVehicles(isPremium: isPremium);
+  }
 
   /// Get all registered license plates for the current user
   Future<List<String>> getRegisteredPlates() async {
@@ -40,7 +53,8 @@ class PlateStorageService {
   }
 
   /// Add a new license plate to secure storage
-  Future<void> addPlate(String plateNumber) async {
+  /// [isPremium] - Set to true for premium users to allow more vehicles
+  Future<void> addPlate(String plateNumber, {bool isPremium = false}) async {
     try {
       final normalizedPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
 
@@ -50,10 +64,15 @@ class PlateStorageService {
       }
 
       final existingPlates = await getRegisteredPlates();
+      final maxAllowed = getMaxVehicles(isPremium: isPremium);
 
-      // Check for max vehicles limit
-      if (existingPlates.length >= maxVehicles) {
-        throw const PlateStorageException('Maximum of 3 vehicles allowed');
+      // Check for max vehicles limit based on subscription
+      if (existingPlates.length >= maxAllowed) {
+        throw PlateStorageException(
+          isPremium
+              ? 'Maximum of $maxAllowed vehicles allowed for premium users'
+              : 'Maximum of $maxAllowed vehicles allowed. Upgrade to premium for up to ${PaymentConfig.premiumMaxPlates} vehicles!',
+        );
       }
 
       // Check for duplicates

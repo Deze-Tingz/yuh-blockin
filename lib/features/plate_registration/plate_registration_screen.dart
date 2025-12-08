@@ -10,7 +10,10 @@ import '../../core/theme/premium_theme.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/plate_verification_service.dart';
+import '../../core/services/subscription_service.dart';
+import '../../config/payment_config.dart';
 import '../../main.dart';
+import '../subscription/paywall_dialog.dart';
 
 /// License Plate Registration Screen
 ///
@@ -35,13 +38,21 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
   final PlateStorageService _storageService = PlateStorageService();
   final SimpleAlertService _alertService = SimpleAlertService();
   final PlateVerificationService _verificationService = PlateVerificationService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
   List<String> _registeredPlates = [];
   String? _primaryPlate;
   bool _isValidPlate = false;
   bool _isRegistering = false;
 
-  bool get _isAtMaxCapacity => _registeredPlates.length >= PlateStorageService.maxVehicles;
+  /// Check if user is premium for plate limits
+  bool get _isPremiumUser => _subscriptionService.isPremium;
+
+  /// Get maximum vehicles allowed for this user
+  int get _maxVehicles => PlateStorageService.getMaxVehicles(isPremium: _isPremiumUser);
+
+  /// Check if at max capacity based on subscription
+  bool get _isAtMaxCapacity => _registeredPlates.length >= _maxVehicles;
 
   @override
   void initState() {
@@ -269,8 +280,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         ownershipKey: ownershipKey,
       );
 
-      // Save to local storage as well
-      await _storageService.addPlate(plateNumber);
+      // Save to local storage as well (with premium status for limit check)
+      await _storageService.addPlate(plateNumber, isPremium: _isPremiumUser);
 
       // Registration successful - refresh the plates list
       await _loadExistingPlates();
@@ -805,8 +816,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       );
 
                       if (result.success) {
-                        // Save to local storage
-                        await _storageService.addPlate(plateNumber);
+                        // Save to local storage (with premium status for limit check)
+                        await _storageService.addPlate(plateNumber, isPremium: _isPremiumUser);
                         await _verificationService.saveKeyLocally(
                           plateNumber: plateNumber,
                           ownershipKey: ownershipKey,
@@ -1400,12 +1411,12 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         color: PremiumTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.amber.withValues(alpha: 0.4),
+          color: _isPremiumUser ? Colors.amber.withValues(alpha: 0.4) : PremiumTheme.accentColor.withValues(alpha: 0.4),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withValues(alpha: 0.1),
+            color: (_isPremiumUser ? Colors.amber : PremiumTheme.accentColor).withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1416,7 +1427,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
           Icon(
             Icons.garage_outlined,
             size: isCompact ? 36 : 44,
-            color: Colors.amber.shade600,
+            color: _isPremiumUser ? Colors.amber.shade600 : PremiumTheme.accentColor,
           ),
           SizedBox(height: isCompact ? 10 : 14),
           Text(
@@ -1429,13 +1440,55 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
           ),
           SizedBox(height: isCompact ? 6 : 8),
           Text(
-            'Maximum ${PlateStorageService.maxVehicles} vehicles. Remove one to add another.',
+            'Maximum $_maxVehicles vehicles. Remove one to add another.',
             style: TextStyle(
               fontSize: isCompact ? 13 : 14,
               color: PremiumTheme.secondaryTextColor,
             ),
             textAlign: TextAlign.center,
           ),
+          // Show upgrade option for free users
+          if (!_isPremiumUser) ...[
+            SizedBox(height: isCompact ? 12 : 16),
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                // Show paywall dialog
+                PaywallDialog.show(context, remainingAlerts: 0);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withValues(alpha: 0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Upgrade for ${PaymentConfig.premiumMaxPlates} vehicles',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
