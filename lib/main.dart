@@ -349,13 +349,24 @@ class _AppInitializerState extends State<AppInitializer>
                             opacity: _logoFade,
                             child: ScaleTransition(
                               scale: _logoScale,
-                              // ClipOval removes square outline from shimmer
-                              child: ClipOval(
+                              // Shimmer with transparent edges using ShaderMask
+                              child: ShaderMask(
+                                shaderCallback: (bounds) => RadialGradient(
+                                  center: Alignment.center,
+                                  radius: 0.5,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white,
+                                    Colors.transparent,
+                                  ],
+                                  stops: const [0.0, 0.85, 1.0],
+                                ).createShader(bounds),
+                                blendMode: BlendMode.dstIn,
                                 child: Shimmer(
                                   duration: const Duration(seconds: 2),
                                   interval: const Duration(milliseconds: 500),
                                   color: Colors.white,
-                                  colorOpacity: 0.4, // Visible shine
+                                  colorOpacity: 0.35,
                                   enabled: _showShimmer,
                                   direction: const ShimmerDirection.fromLTRB(),
                                   child: Image.asset(
