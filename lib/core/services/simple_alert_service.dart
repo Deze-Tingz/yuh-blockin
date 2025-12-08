@@ -30,12 +30,20 @@ class SimpleAlertService {
 
       _supabase = Supabase.instance.client;
 
-      // Sign in anonymously if not already signed in
-      // This gives users the 'authenticated' role for secure RPC calls
+      // Try to sign in anonymously for 'authenticated' role
+      // If captcha/auth fails, continue with anon role (tables have RLS for anon)
       if (_supabase.auth.currentUser == null) {
-        await _supabase.auth.signInAnonymously();
-        if (kDebugMode) {
-          debugPrint('🔐 Signed in anonymously');
+        try {
+          await _supabase.auth.signInAnonymously();
+          if (kDebugMode) {
+            debugPrint('🔐 Signed in anonymously');
+          }
+        } catch (authError) {
+          // Captcha or other auth error - continue without authenticated role
+          if (kDebugMode) {
+            debugPrint('⚠️ Anonymous sign-in failed (captcha?): $authError');
+            debugPrint('⚠️ Continuing with anon role...');
+          }
         }
       }
 

@@ -123,8 +123,7 @@ class _AppInitializerState extends State<AppInitializer>
   static const Color _deepBlue = Color(0xFF045C71);
   static const Color _softTeal = Color(0xFFE8F6F8);
 
-  // Logo size - larger for prominent splash
-  static const double _logoSize = 300.0;
+  // Logo size calculated in build() based on screen size
 
   @override
   void initState() {
@@ -299,6 +298,20 @@ class _AppInitializerState extends State<AppInitializer>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    // Responsive logo size: 38% of screen width, clamped between 180-320px
+    final logoSize = (screenWidth * 0.38).clamp(180.0, 320.0);
+
+    // Footer distance from bottom: accounts for safe area
+    final footerBottom = bottomPadding + 32;
+
+    // Logo offset: position slightly above center (40% from top instead of 50%)
+    // This creates more balanced visual weight with footer at bottom
+    final logoVerticalOffset = -(screenHeight * 0.05);
+
     return Scaffold(
       body: Container(
         // Premium gradient background: white to soft teal
@@ -313,6 +326,7 @@ class _AppInitializerState extends State<AppInitializer>
           ),
         ),
         child: SafeArea(
+          bottom: false, // We handle bottom padding manually
           child: AnimatedBuilder(
             animation: Listenable.merge([_controller, _exitController]),
             builder: (context, child) {
@@ -326,10 +340,10 @@ class _AppInitializerState extends State<AppInitializer>
                   scale: exitScale,
                   child: Stack(
                     children: [
-                      // Centered logo with shimmer
+                      // Logo positioned slightly above center
                       Center(
                         child: Transform.translate(
-                          offset: Offset(0, _logoSlide.value),
+                          offset: Offset(0, logoVerticalOffset + _logoSlide.value),
                           child: FadeTransition(
                             opacity: _logoFade,
                             child: ScaleTransition(
@@ -344,8 +358,8 @@ class _AppInitializerState extends State<AppInitializer>
                                 direction: const ShimmerDirection.fromLTRB(),
                                 child: Image.asset(
                                   'assets/images/app_icon.png',
-                                  width: _logoSize,
-                                  height: _logoSize,
+                                  width: logoSize,
+                                  height: logoSize,
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -354,11 +368,11 @@ class _AppInitializerState extends State<AppInitializer>
                         ),
                       ),
 
-                      // Footer positioned at bottom (doesn't affect logo centering)
+                      // Footer positioned at bottom with safe area
                       Positioned(
                         left: 0,
                         right: 0,
-                        bottom: 48,
+                        bottom: footerBottom,
                         child: Transform.translate(
                           offset: Offset(0, _footerSlide.value),
                           child: FadeTransition(
