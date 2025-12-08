@@ -302,8 +302,9 @@ class _AppInitializerState extends State<AppInitializer>
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Responsive logo size: 38% of screen width, clamped between 180-320px
-    final logoSize = (screenWidth * 0.38).clamp(180.0, 320.0);
+    // Responsive logo size: 42% of screen width, clamped between 220-340px
+    // Slightly larger on iOS for better visibility
+    final logoSize = (screenWidth * 0.42).clamp(220.0, 340.0);
 
     // Footer distance from bottom: accounts for safe area
     final footerBottom = bottomPadding + 32;
