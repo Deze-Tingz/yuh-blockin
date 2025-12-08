@@ -45,6 +45,14 @@ class PremiumTheme {
   static const String lightMode = 'light';
   static const String darkMode = 'dark';
   static const String sunsetMode = 'caribbean_sunset';
+  static const String pinkMode = 'premium_pink';       // Premium theme
+  static const String cyberpunkMode = 'cyberpunk';     // Premium theme
+
+  /// Premium-only themes (require subscription)
+  static const List<String> premiumThemes = [pinkMode, cyberpunkMode];
+
+  /// Check if a theme requires premium subscription
+  static bool isPremiumTheme(String mode) => premiumThemes.contains(mode);
 
   // MARK: - Light Theme Colors
 
@@ -79,6 +87,29 @@ class PremiumTheme {
   static const Color sunsetTertiaryTextColor = Color(0xFFBF9F7A); // Muted sunset
   static const Color sunsetDividerColor = Color(0xFF4D3426); // Sunset brown divider
 
+  // MARK: - Premium Pink Theme Colors
+
+  /// Premium Pink mode - Elegant rose and blush tones with luxurious feel
+  static const Color pinkBackgroundColor = Color(0xFF1A1218); // Deep rose black
+  static const Color pinkSurfaceColor = Color(0xFF2A1F26); // Rich plum surface
+  static const Color pinkAccentColor = Color(0xFFFF6B9D); // Vibrant hot pink
+  static const Color pinkPrimaryTextColor = Color(0xFFFFF0F5); // Lavender blush
+  static const Color pinkSecondaryTextColor = Color(0xFFE8B4C8); // Muted rose
+  static const Color pinkTertiaryTextColor = Color(0xFFB87D98); // Dusty pink
+  static const Color pinkDividerColor = Color(0xFF3D2A35); // Rose divider
+
+  // MARK: - Cyberpunk Theme Colors
+
+  /// Cyberpunk mode - Neon-infused dark theme with electric accents
+  static const Color cyberpunkBackgroundColor = Color(0xFF0A0A12); // Deep cyber black
+  static const Color cyberpunkSurfaceColor = Color(0xFF12121C); // Dark tech surface
+  static const Color cyberpunkAccentColor = Color(0xFF00F5FF); // Electric cyan
+  static const Color cyberpunkSecondaryAccent = Color(0xFFFF00FF); // Neon magenta
+  static const Color cyberpunkPrimaryTextColor = Color(0xFFE0F7FA); // Ice white
+  static const Color cyberpunkSecondaryTextColor = Color(0xFF7DD3E8); // Cyber blue
+  static const Color cyberpunkTertiaryTextColor = Color(0xFF4A6670); // Muted steel
+  static const Color cyberpunkDividerColor = Color(0xFF1A1A2E); // Neon dark divider
+
   // MARK: - Dynamic Color System
 
   /// Current theme mode
@@ -91,6 +122,10 @@ class PremiumTheme {
         return darkBackgroundColor;
       case sunsetMode:
         return sunsetBackgroundColor;
+      case pinkMode:
+        return pinkBackgroundColor;
+      case cyberpunkMode:
+        return cyberpunkBackgroundColor;
       default:
         return lightBackgroundColor;
     }
@@ -102,6 +137,10 @@ class PremiumTheme {
         return darkSurfaceColor;
       case sunsetMode:
         return sunsetSurfaceColor;
+      case pinkMode:
+        return pinkSurfaceColor;
+      case cyberpunkMode:
+        return cyberpunkSurfaceColor;
       default:
         return lightSurfaceColor;
     }
@@ -113,6 +152,10 @@ class PremiumTheme {
         return darkAccentColor;
       case sunsetMode:
         return sunsetAccentColor;
+      case pinkMode:
+        return pinkAccentColor;
+      case cyberpunkMode:
+        return cyberpunkAccentColor;
       default:
         return lightAccentColor;
     }
@@ -124,6 +167,10 @@ class PremiumTheme {
         return darkPrimaryTextColor;
       case sunsetMode:
         return sunsetPrimaryTextColor;
+      case pinkMode:
+        return pinkPrimaryTextColor;
+      case cyberpunkMode:
+        return cyberpunkPrimaryTextColor;
       default:
         return lightPrimaryTextColor;
     }
@@ -135,6 +182,10 @@ class PremiumTheme {
         return darkSecondaryTextColor;
       case sunsetMode:
         return sunsetSecondaryTextColor;
+      case pinkMode:
+        return pinkSecondaryTextColor;
+      case cyberpunkMode:
+        return cyberpunkSecondaryTextColor;
       default:
         return lightSecondaryTextColor;
     }
@@ -146,6 +197,10 @@ class PremiumTheme {
         return darkTertiaryTextColor;
       case sunsetMode:
         return sunsetTertiaryTextColor;
+      case pinkMode:
+        return pinkTertiaryTextColor;
+      case cyberpunkMode:
+        return cyberpunkTertiaryTextColor;
       default:
         return lightTertiaryTextColor;
     }
@@ -157,6 +212,10 @@ class PremiumTheme {
         return darkDividerColor;
       case sunsetMode:
         return sunsetDividerColor;
+      case pinkMode:
+        return pinkDividerColor;
+      case cyberpunkMode:
+        return cyberpunkDividerColor;
       default:
         return lightDividerColor;
     }
@@ -202,7 +261,10 @@ class PremiumTheme {
 
   /// Get brightness for current theme
   static Brightness get currentBrightness {
-    if (_currentMode == darkMode || _currentMode == sunsetMode) {
+    if (_currentMode == darkMode ||
+        _currentMode == sunsetMode ||
+        _currentMode == pinkMode ||
+        _currentMode == cyberpunkMode) {
       return Brightness.dark;
     }
     return Brightness.light;

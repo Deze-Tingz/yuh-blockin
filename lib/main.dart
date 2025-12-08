@@ -348,19 +348,21 @@ class _AppInitializerState extends State<AppInitializer>
                             opacity: _logoFade,
                             child: ScaleTransition(
                               scale: _logoScale,
-                              // Shimmer wraps the logo directly
-                              child: Shimmer(
-                                duration: const Duration(seconds: 2),
-                                interval: const Duration(milliseconds: 500),
-                                color: Colors.white,
-                                colorOpacity: 0.5, // Visible shine
-                                enabled: _showShimmer,
-                                direction: const ShimmerDirection.fromLTRB(),
-                                child: Image.asset(
-                                  'assets/images/app_icon.png',
-                                  width: logoSize,
-                                  height: logoSize,
-                                  fit: BoxFit.contain,
+                              // ClipOval removes square outline from shimmer
+                              child: ClipOval(
+                                child: Shimmer(
+                                  duration: const Duration(seconds: 2),
+                                  interval: const Duration(milliseconds: 500),
+                                  color: Colors.white,
+                                  colorOpacity: 0.4, // Visible shine
+                                  enabled: _showShimmer,
+                                  direction: const ShimmerDirection.fromLTRB(),
+                                  child: Image.asset(
+                                    'assets/images/app_icon.png',
+                                    width: logoSize,
+                                    height: logoSize,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
