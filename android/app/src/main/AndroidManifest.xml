@@ -58,6 +58,23 @@
             android:foregroundServiceType="dataSync"
             android:exported="true"
             tools:replace="android:foregroundServiceType,android:exported" />
+
+        <!-- Boot receiver to start background service when device restarts -->
+        <receiver
+            android:name="id.flutter.flutter_background_service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- WakefulBroadcastReceiver for keeping device awake during notifications -->
+        <receiver
+            android:name="id.flutter.flutter_background_service.WatchdogReceiver"
+            android:enabled="true"
+            android:exported="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

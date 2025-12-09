@@ -36,14 +36,17 @@ class BackgroundAlertService {
   Future<void> initializeService() async {
     final service = FlutterBackgroundService();
 
-    // Configure notification channel for foreground service
+    // Configure notification channel for foreground service with custom sound
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _notificationChannelId,
       _notificationChannelName,
       description: 'Critical parking alert notifications',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
+      sound: RawResourceAndroidNotificationSound('alert_sound'),
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -252,6 +255,7 @@ Future<void> _showAlertNotification(
     importance: Importance.max,
     priority: Priority.max,
     playSound: true,
+    sound: const RawResourceAndroidNotificationSound('alert_sound'),
     enableVibration: true,
     vibrationPattern: vibrationPattern,
     enableLights: true,

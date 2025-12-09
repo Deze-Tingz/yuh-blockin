@@ -57,6 +57,11 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _onBackgroundNotificationResponse,
     );
 
+    // Create/update notification channel with custom sound (Android only)
+    if (Platform.isAndroid) {
+      await _createNotificationChannel();
+    }
+
     // Request permissions
     await _requestPermissions();
 
@@ -83,6 +88,30 @@ class NotificationService {
       return result ?? false;
     }
     return true;
+  }
+
+  /// Create notification channel with custom sound for alerts
+  Future<void> _createNotificationChannel() async {
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) return;
+
+    // Create the alert notification channel with custom sound
+    const alertChannel = AndroidNotificationChannel(
+      'yuh_blockin_alerts',
+      'Yuh Blockin Alerts',
+      description: 'Important parking alert notifications',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('alert_sound'),
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
+    );
+
+    await androidPlugin.createNotificationChannel(alertChannel);
+    debugPrint('Notification channel created with custom sound');
   }
 
 
@@ -138,6 +167,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       playSound: playSound,
+      sound: playSound ? const RawResourceAndroidNotificationSound('alert_sound') : null,
       enableVibration: vibrate,
       vibrationPattern: vibrationPattern,
       enableLights: true,
