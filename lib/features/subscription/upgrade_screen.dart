@@ -2,12 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/ath_movil_service.dart';
 import '../../config/payment_config.dart';
+import '../legal/legal_document_screen.dart';
 import 'ath_payment_dialog.dart';
 
 /// Full screen upgrade/purchase UI
@@ -55,40 +55,26 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     }
   }
 
-  /// Open Terms of Service URL
-  Future<void> _openTermsOfService() async {
-    final uri = Uri.parse(PaymentConfig.termsOfServiceUrl);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          _showErrorSnackbar('Could not open Terms of Service');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Failed to open Terms URL: $e');
-      }
-    }
+  /// Open Terms of Service
+  void _openTermsOfService() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => const LegalDocumentScreen(
+          documentType: LegalDocumentType.termsOfService,
+        ),
+      ),
+    );
   }
 
-  /// Open Privacy Policy URL
-  Future<void> _openPrivacyPolicy() async {
-    final uri = Uri.parse(PaymentConfig.privacyPolicyUrl);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          _showErrorSnackbar('Could not open Privacy Policy');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Failed to open Privacy URL: $e');
-      }
-    }
+  /// Open Privacy Policy
+  void _openPrivacyPolicy() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => const LegalDocumentScreen(
+          documentType: LegalDocumentType.privacyPolicy,
+        ),
+      ),
+    );
   }
 
   @override

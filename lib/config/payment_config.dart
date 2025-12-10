@@ -70,12 +70,12 @@ class PaymentConfig {
   static const int premiumMaxPlates = 10;
   static const int premiumDailyAlertLimit = 200; // Effectively unlimited
 
-  /// URLs for Terms and Privacy
+  /// URLs for Terms and Privacy (kept for backwards compatibility)
   static const String termsOfServiceUrl = 'https://yuhblockin.com/terms';
   static const String privacyPolicyUrl = 'https://yuhblockin.com/privacy';
 
   /// Support email
-  static const String supportEmail = 'support@yuhblockin.com';
+  static const String supportEmail = 'dev@dezetingz.ai';
 
   // ============================================
   // ATH Móvil Configuration

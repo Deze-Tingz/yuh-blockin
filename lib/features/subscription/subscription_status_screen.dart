@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
 import '../../config/payment_config.dart';
+import '../legal/legal_document_screen.dart';
 import 'upgrade_screen.dart';
 
 /// Subscription status and management screen
@@ -578,25 +579,23 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     }
   }
 
-  Future<void> _openTerms() async {
-    final uri = Uri.parse(PaymentConfig.termsOfServiceUrl);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      // Ignore
-    }
+  void _openTerms() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => const LegalDocumentScreen(
+          documentType: LegalDocumentType.termsOfService,
+        ),
+      ),
+    );
   }
 
-  Future<void> _openPrivacy() async {
-    final uri = Uri.parse(PaymentConfig.privacyPolicyUrl);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      // Ignore
-    }
+  void _openPrivacy() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => const LegalDocumentScreen(
+          documentType: LegalDocumentType.privacyPolicy,
+        ),
+      ),
+    );
   }
 }
