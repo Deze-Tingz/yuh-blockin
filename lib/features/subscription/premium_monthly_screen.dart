@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// App Store-compliant Premium Monthly subscription screen.
+/// iOS-ONLY App Store-compliant Premium Monthly subscription screen.
 /// Designed for App Store Connect screenshot submission.
+///
+/// This screen is specifically for iOS and uses Cupertino styling.
+/// On Android, this screen should not be shown - use the regular
+/// UpgradeScreen instead which handles Google Play billing.
 class PremiumMonthlyScreen extends StatelessWidget {
   const PremiumMonthlyScreen({super.key});
 
@@ -9,36 +15,52 @@ class PremiumMonthlyScreen extends StatelessWidget {
   static const Color _teal = Color(0xFF0B6E7D);
   static const Color _tealLight = Color(0xFF0D8A9C);
   static const Color _coral = Color(0xFFFF6B6B);
-  static const Color _coralDark = Color(0xFFE85555);
   static const Color _textPrimary = Color(0xFF1A1A1A);
   static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _background = Colors.white;
+  static const Color _background = CupertinoColors.systemBackground;
 
-  void _onSubscribePressed() {
-    print('Subscribe button pressed - wire up RevenueCat purchase here');
+  /// Check if running on iOS
+  static bool get isIOS => Platform.isIOS;
+
+  void _onSubscribePressed(BuildContext context) {
+    debugPrint('Subscribe button pressed - wire up RevenueCat iOS purchase here');
+    // TODO: Wire up to SubscriptionService.purchaseMonthly()
   }
 
-  void _onRestorePressed() {
-    print('Restore purchases pressed - wire up RevenueCat restore here');
+  void _onRestorePressed(BuildContext context) {
+    debugPrint('Restore purchases pressed - wire up RevenueCat iOS restore here');
+    // TODO: Wire up to SubscriptionService.restorePurchases()
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // Guard: Only show on iOS
+    if (!Platform.isIOS) {
+      return const Scaffold(
+        body: Center(
+          child: Text('This screen is only available on iOS'),
+        ),
+      );
+    }
 
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: _background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close, color: _textSecondary),
+      navigationBar: CupertinoNavigationBar(
+        backgroundColor: _background,
+        border: null,
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.xmark,
+            color: _textSecondary,
+            size: 22,
+          ),
         ),
       ),
-      body: SafeArea(
+      child: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, 8, 24, bottomPadding + 24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -47,26 +69,28 @@ class PremiumMonthlyScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
               // Title
-              Text(
+              const Text(
                 'Premium Monthly',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
                   color: _teal,
                   letterSpacing: -0.5,
+                  decoration: TextDecoration.none,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
 
               // Subtitle
-              Text(
+              const Text(
                 'Unlock all Yuh Blockin\' premium features.',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w400,
                   color: _textSecondary,
                   height: 1.4,
+                  decoration: TextDecoration.none,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -76,15 +100,15 @@ class PremiumMonthlyScreen extends StatelessWidget {
               _buildBenefitsList(),
               const SizedBox(height: 48),
 
-              // Subscribe button
-              _buildSubscribeButton(),
+              // Subscribe button (iOS style)
+              _buildSubscribeButton(context),
               const SizedBox(height: 16),
 
               // Restore purchases
-              _buildRestoreButton(),
+              _buildRestoreButton(context),
               const SizedBox(height: 24),
 
-              // Legal disclaimer
+              // Legal disclaimer (required by Apple)
               _buildDisclaimer(),
             ],
           ),
@@ -94,10 +118,9 @@ class PremiumMonthlyScreen extends StatelessWidget {
   }
 
   Widget _buildLogoArea() {
-    // Placeholder for logo overlay - shows app name as text
     return Column(
       children: [
-        // Space for logo (you can overlay your actual logo here)
+        // Placeholder for app icon
         Container(
           width: 80,
           height: 80,
@@ -105,34 +128,37 @@ class PremiumMonthlyScreen extends StatelessWidget {
             color: _teal.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Center(
+          child: const Center(
             child: Text(
               'YB',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
                 color: _teal,
+                decoration: TextDecoration.none,
               ),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Text(
+        const Text(
           'Yuh Blockin\'',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
             color: _teal,
+            decoration: TextDecoration.none,
           ),
         ),
         const SizedBox(height: 4),
-        Text(
+        const Text(
           'Move with respect.',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: _textSecondary,
             fontStyle: FontStyle.italic,
+            decoration: TextDecoration.none,
           ),
         ),
       ],
@@ -141,10 +167,10 @@ class PremiumMonthlyScreen extends StatelessWidget {
 
   Widget _buildBenefitsList() {
     final benefits = [
-      (Icons.directions_car_rounded, 'Multi-vehicle plate management'),
-      (Icons.notifications_active_rounded, 'Priority notifications and alerts'),
-      (Icons.shield_rounded, 'Enhanced privacy and control'),
-      (Icons.auto_awesome_rounded, 'Early access to new features'),
+      (CupertinoIcons.car_detailed, 'Multi-vehicle plate management'),
+      (CupertinoIcons.bell_fill, 'Priority notifications and alerts'),
+      (CupertinoIcons.shield_fill, 'Enhanced privacy and control'),
+      (CupertinoIcons.sparkles, 'Early access to new features'),
     ];
 
     return Container(
@@ -180,15 +206,16 @@ class PremiumMonthlyScreen extends StatelessWidget {
                 Expanded(
                   child: Text(
                     benefit.$2,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: _textPrimary,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.check_circle_rounded,
+                const Icon(
+                  CupertinoIcons.checkmark_circle_fill,
                   color: _tealLight,
                   size: 22,
                 ),
@@ -200,53 +227,45 @@ class PremiumMonthlyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscribeButton() {
+  Widget _buildSubscribeButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _onSubscribePressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _coral,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        color: _coral,
+        borderRadius: BorderRadius.circular(14),
+        onPressed: () => _onSubscribePressed(context),
         child: const Text(
           'Subscribe – Premium Monthly',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.2,
+            color: CupertinoColors.white,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRestoreButton() {
-    return TextButton(
-      onPressed: _onRestorePressed,
-      style: TextButton.styleFrom(
-        foregroundColor: _teal,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      ),
+  Widget _buildRestoreButton(BuildContext context) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      onPressed: () => _onRestorePressed(context),
       child: const Text(
         'Restore Purchases',
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w500,
+          color: _teal,
         ),
       ),
     );
   }
 
   Widget _buildDisclaimer() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Text(
         'Subscription will be charged to your Apple ID account and will automatically renew unless cancelled at least 24 hours before the end of the current period.',
         style: TextStyle(
@@ -254,6 +273,7 @@ class PremiumMonthlyScreen extends StatelessWidget {
           fontWeight: FontWeight.w400,
           color: _textSecondary,
           height: 1.5,
+          decoration: TextDecoration.none,
         ),
         textAlign: TextAlign.center,
       ),
@@ -262,25 +282,29 @@ class PremiumMonthlyScreen extends StatelessWidget {
 }
 
 // =============================================================
-// HOW TO NAVIGATE TO THIS SCREEN
+// iOS-ONLY SCREEN - HOW TO NAVIGATE
 // =============================================================
 //
-// From any widget, use:
+// This screen should ONLY be shown on iOS devices.
+// For Android, use UpgradeScreen instead.
 //
-// Navigator.push(
-//   context,
-//   MaterialPageRoute(
-//     builder: (context) => const PremiumMonthlyScreen(),
-//   ),
-// );
+// Example usage:
 //
-// Or as a modal (recommended for paywalls):
+// import 'dart:io';
 //
-// Navigator.push(
-//   context,
-//   MaterialPageRoute(
-//     fullscreenDialog: true,
-//     builder: (context) => const PremiumMonthlyScreen(),
-//   ),
-// );
+// if (Platform.isIOS) {
+//   Navigator.push(
+//     context,
+//     CupertinoPageRoute(
+//       fullscreenDialog: true,
+//       builder: (context) => const PremiumMonthlyScreen(),
+//     ),
+//   );
+// } else {
+//   // Android - use regular UpgradeScreen
+//   Navigator.push(
+//     context,
+//     MaterialPageRoute(builder: (context) => const UpgradeScreen()),
+//   );
+// }
 // =============================================================
