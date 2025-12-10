@@ -13,6 +13,13 @@ class PlateStorageService {
   static const String _storageKey = 'yuh_plates_secure_data';
   static const String _encryptionSalt = 'YUH_BLOCKIN_PREMIUM_2025_SALT';
 
+  // Cached SharedPreferences instance to avoid repeated disk reads
+  static SharedPreferences? _cachedPrefs;
+
+  // Hash cache to avoid recomputing SHA256 for the same plates
+  final Map<String, String> _hashCache = {};
+  static const int _maxHashCacheSize = 50;
+
   /// Legacy constant - use getMaxVehicles() instead for subscription-aware limit
   static const int maxVehicles = PaymentConfig.freeMaxPlates;
 
@@ -26,10 +33,16 @@ class PlateStorageService {
     return currentCount < getMaxVehicles(isPremium: isPremium);
   }
 
+  /// Get or create cached SharedPreferences instance
+  Future<SharedPreferences> _getPrefs() async {
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+    return _cachedPrefs!;
+  }
+
   /// Get all registered license plates for the current user
   Future<List<String>> getRegisteredPlates() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final encryptedData = prefs.getString(_storageKey);
 
       if (encryptedData == null || encryptedData.isEmpty) {
@@ -104,7 +117,7 @@ class PlateStorageService {
       final jsonString = jsonEncode(data);
       final encryptedData = base64.encode(utf8.encode(jsonString));
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString(_storageKey, encryptedData);
 
     } catch (e) {
@@ -154,7 +167,7 @@ class PlateStorageService {
       final jsonString = jsonEncode(data);
       final encryptedData = base64.encode(utf8.encode(jsonString));
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString(_storageKey, encryptedData);
 
     } catch (e) {
@@ -164,17 +177,32 @@ class PlateStorageService {
   }
 
   /// Get a secure hash of a license plate for backend communication
+  /// Uses caching to avoid recomputing SHA256 for the same plates
   String getPlateHash(String plateNumber) {
     final normalizedPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+
+    // Check cache first
+    if (_hashCache.containsKey(normalizedPlate)) {
+      return _hashCache[normalizedPlate]!;
+    }
+
     final bytes = utf8.encode('$normalizedPlate$_encryptionSalt');
     final digest = sha256.convert(bytes);
-    return digest.toString().substring(0, 16); // First 16 characters
+    final hash = digest.toString().substring(0, 16); // First 16 characters
+
+    // Cache the hash (with size limit to prevent memory issues)
+    if (_hashCache.length >= _maxHashCacheSize) {
+      _hashCache.remove(_hashCache.keys.first);
+    }
+    _hashCache[normalizedPlate] = hash;
+
+    return hash;
   }
 
   /// Validate storage integrity
   Future<bool> validateStorageIntegrity() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final encryptedData = prefs.getString(_storageKey);
 
       if (encryptedData == null || encryptedData.isEmpty) {
@@ -201,7 +229,7 @@ class PlateStorageService {
   /// Clear all stored plates (for testing or reset)
   Future<void> clearAllPlates() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.remove(_storageKey);
     } catch (e) {
       throw PlateStorageException('Failed to clear plates: $e');
@@ -217,9 +245,8 @@ class PlateStorageService {
   /// Get the user's designated primary license plate
   /// Returns null if no plates are registered or no primary plate is set
   Future<String?> getPrimaryPlate() async {
-
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final encryptedData = prefs.getString(_storageKey);
 
       if (encryptedData == null || encryptedData.isEmpty) {
@@ -264,7 +291,7 @@ class PlateStorageService {
       }
 
       // Get current data
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final encryptedData = prefs.getString(_storageKey);
 
       Map<String, dynamic> data;
@@ -299,7 +326,7 @@ class PlateStorageService {
   /// Export plates for backup (encrypted)
   Future<String> exportPlates() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final encryptedData = prefs.getString(_storageKey);
       return encryptedData ?? '';
     } catch (e) {
@@ -323,7 +350,7 @@ class PlateStorageService {
         }
       }
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString(_storageKey, encryptedData);
 
     } catch (e) {
@@ -340,7 +367,7 @@ class PlateStorageService {
   Future<SyncResult> syncWithDatabase(String userId) async {
     try {
       // Check for user ID change (different account)
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final lastSyncedUserId = prefs.getString('yuh_last_synced_user_id');
 
       // Also check the backup user_id to prevent false positives

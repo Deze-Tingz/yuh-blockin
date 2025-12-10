@@ -177,11 +177,11 @@ class NotificationService {
       fullScreenIntent: true, // Shows on lock screen
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public, // Show on lock screen
-      ticker: 'Someone needs you to move your car!',
+      ticker: 'New alert received',
       styleInformation: BigTextStyleInformation(
         body,
         contentTitle: title,
-        summaryText: 'Yuh Blockin',
+        summaryText: "Yuh Blockin'",
       ),
     );
 

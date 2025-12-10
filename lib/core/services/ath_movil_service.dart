@@ -48,6 +48,8 @@ class AthMovilService {
   StreamController<AthPaymentStatus>? _statusController;
   bool _isPolling = false;
   String? _cachedAthPath;
+  int _consecutiveErrors = 0;
+  static const int _maxConsecutiveErrors = 5;
 
   /// Check if ATH Móvil payments are available
   /// Currently always returns true - could be enhanced to check locale
@@ -89,7 +91,9 @@ class AthMovilService {
       // Default fallback (should not happen if DB is configured)
       return 'dezetingz';
     } catch (e) {
-      debugPrint('Error fetching ATH path: $e');
+      if (kDebugMode) {
+        debugPrint('Error fetching ATH path: $e');
+      }
       // Try cached value
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(_athPathCacheKey) ?? 'dezetingz';
@@ -161,7 +165,9 @@ class AthMovilService {
       if (response.status != 200) {
         final errorData = response.data;
         final error = errorData is Map ? errorData['error'] : 'Failed to create payment';
-        debugPrint('ATH Móvil create payment failed: $error');
+        if (kDebugMode) {
+          debugPrint('ATH Móvil create payment failed: $error');
+        }
         return AthPaymentResult(success: false, error: error.toString());
       }
 
@@ -179,7 +185,9 @@ class AthMovilService {
         expiresAt: DateTime.parse(data['expires_at']),
       );
     } catch (e) {
-      debugPrint('ATH Móvil create payment error: $e');
+      if (kDebugMode) {
+        debugPrint('ATH Móvil create payment error: $e');
+      }
       return AthPaymentResult(
         success: false,
         error: 'Failed to connect to payment service. Please try again.',
@@ -211,6 +219,7 @@ class AthMovilService {
   void _startPolling(String transactionId) {
     if (_isPolling) return;
     _isPolling = true;
+    _consecutiveErrors = 0;
 
     final startTime = DateTime.now();
 
@@ -221,6 +230,12 @@ class AthMovilService {
     ));
 
     _pollTimer = Timer.periodic(_pollInterval, (timer) async {
+      // Safety check - cancel if timer was stopped externally
+      if (!_isPolling) {
+        timer.cancel();
+        return;
+      }
+
       // Check timeout
       if (DateTime.now().difference(startTime) > _maxPollDuration) {
         _statusController?.add(AthPaymentStatus(
@@ -234,6 +249,7 @@ class AthMovilService {
 
       try {
         final status = await checkPaymentStatus(transactionId);
+        _consecutiveErrors = 0; // Reset on success
         _statusController?.add(status);
 
         // Handle confirmed status - needs authorization
@@ -251,11 +267,26 @@ class AthMovilService {
           }
         }
       } catch (e) {
-        debugPrint('Poll error: $e');
-        // Don't stop polling on transient errors
+        _consecutiveErrors++;
+        if (kDebugMode) {
+          debugPrint('Poll error ($consecutiveErrors/$_maxConsecutiveErrors): $e');
+        }
+
+        // Stop after too many consecutive errors
+        if (_consecutiveErrors >= _maxConsecutiveErrors) {
+          _statusController?.add(AthPaymentStatus(
+            status: AthStatus.error,
+            message: 'Connection lost. Please check your internet and try again.',
+          ));
+          _stopPolling();
+          await _clearPendingTransaction();
+        }
       }
     });
   }
+
+  // Getter for consecutive errors (used in error message)
+  int get consecutiveErrors => _consecutiveErrors;
 
   void _stopPolling() {
     _pollTimer?.cancel();
@@ -283,7 +314,9 @@ class AthMovilService {
       final data = response.data as Map<String, dynamic>;
       return AthPaymentStatus.fromJson(data);
     } catch (e) {
-      debugPrint('Check status error: $e');
+      if (kDebugMode) {
+        debugPrint('Check status error: $e');
+      }
       return AthPaymentStatus(
         status: AthStatus.error,
         message: 'Connection error. Retrying...',
@@ -332,7 +365,9 @@ class AthMovilService {
         return status;
       }
     } catch (e) {
-      debugPrint('Authorization error: $e');
+      if (kDebugMode) {
+        debugPrint('Authorization error: $e');
+      }
       final status = AthPaymentStatus(
         status: AthStatus.error,
         message: 'Failed to complete payment. Please contact support.',
@@ -378,7 +413,9 @@ class AthMovilService {
       await _clearPendingTransaction();
       return null;
     } catch (e) {
-      debugPrint('Get pending transaction error: $e');
+      if (kDebugMode) {
+        debugPrint('Get pending transaction error: $e');
+      }
       return null;
     }
   }
@@ -414,7 +451,9 @@ class AthMovilService {
         consecutiveMonths: result['consecutive_months'] ?? 1,
       );
     } catch (e) {
-      debugPrint('Check renewal status error: $e');
+      if (kDebugMode) {
+        debugPrint('Check renewal status error: $e');
+      }
       return null;
     }
   }
@@ -435,7 +474,9 @@ class AthMovilService {
           .map((e) => AthTransaction.fromJson(e))
           .toList();
     } catch (e) {
-      debugPrint('Get transaction history error: $e');
+      if (kDebugMode) {
+        debugPrint('Get transaction history error: $e');
+      }
       return [];
     }
   }

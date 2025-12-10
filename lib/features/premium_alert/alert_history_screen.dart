@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -32,6 +33,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
 
   // Track seen alert IDs to prevent duplicates
   final Set<String> _seenReceivedAlertIds = {};
+
+  // Pagination limit to prevent memory issues with large datasets
+  static const int _maxAlertsToKeep = 100;
 
   // Premium colors for status
   static const Color _successColor = Color(0xFF34C759);
@@ -69,6 +73,16 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
                 _receivedAlerts.add(alert);
                 // Sort by newest first
                 _receivedAlerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                // Trim to max limit to prevent memory bloat
+                if (_receivedAlerts.length > _maxAlertsToKeep) {
+                  final removed = _receivedAlerts.sublist(_maxAlertsToKeep);
+                  _receivedAlerts = _receivedAlerts.sublist(0, _maxAlertsToKeep);
+                  // Remove old IDs from tracking set
+                  for (final alert in removed) {
+                    _seenReceivedAlertIds.remove(alert.id);
+                  }
+                }
               } else {
                 // Update existing alert (e.g., when response is added)
                 final index = _receivedAlerts.indexWhere((a) => a.id == alert.id);
@@ -81,7 +95,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
           }
         },
         onError: (error) {
-          debugPrint('❌ Received alerts stream error: $error');
+          if (kDebugMode) {
+            debugPrint('❌ Received alerts stream error: $error');
+          }
           if (mounted) {
             setState(() => _isLoading = false);
           }
@@ -101,12 +117,19 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
               }
               _sentAlerts = uniqueAlerts.values.toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              // Trim to max limit to prevent memory bloat
+              if (_sentAlerts.length > _maxAlertsToKeep) {
+                _sentAlerts = _sentAlerts.sublist(0, _maxAlertsToKeep);
+              }
               _isLoading = false;
             });
           }
         },
         onError: (error) {
-          debugPrint('❌ Sent alerts stream error: $error');
+          if (kDebugMode) {
+            debugPrint('❌ Sent alerts stream error: $error');
+          }
           if (mounted) {
             setState(() => _isLoading = false);
           }
@@ -120,7 +143,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         }
       });
     } catch (e) {
-      debugPrint('❌ Error loading alert history: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error loading alert history: $e');
+      }
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -131,7 +156,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
 
   Future<void> _respondToAlert(Alert alert, String response) async {
     try {
-      debugPrint('📤 Sending response: $response for alert: ${alert.id}');
+      if (kDebugMode) {
+        debugPrint('📤 Sending response: $response for alert: ${alert.id}');
+      }
 
       final success = await _alertService.sendResponse(
         alertId: alert.id,
@@ -173,12 +200,16 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
           ),
         );
 
-        debugPrint('✅ Response sent successfully');
+        if (kDebugMode) {
+          debugPrint('✅ Response sent successfully');
+        }
       } else {
         throw Exception('Failed to send response');
       }
     } catch (e) {
-      debugPrint('❌ Error responding to alert: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error responding to alert: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -674,7 +705,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing received alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing received alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -703,7 +736,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing sent alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing sent alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -734,7 +769,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing all alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing all alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -777,7 +814,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         }
       }
     } catch (e) {
-      debugPrint('❌ Error sending reminder: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error sending reminder: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import '../../config/supabase_config.dart';
 
 /// Simple and secure alert service
 /// - Privacy-first: Only stores SHA256 hashes of license plates
@@ -24,8 +25,8 @@ class SimpleAlertService {
 
     try {
       await Supabase.initialize(
-        url: 'https://oazxwglbvzgpehsckmfb.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henh3Z2xidnpncGVoc2NrbWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNzkzMjEsImV4cCI6MjA3ODc1NTMyMX0.Ia6ccZ1zp4r1mi5mgvQk9wfK5MGp0S3TDhyWngz8Z54',
+        url: SupabaseConfig.url,
+        anonKey: SupabaseConfig.anonKey,
       );
 
       _supabase = Supabase.instance.client;

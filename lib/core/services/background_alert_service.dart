@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
+import '../../config/supabase_config.dart';
 
 /// Background Alert Service
 ///
@@ -112,10 +113,16 @@ class BackgroundAlertService {
 }
 
 /// iOS background handler
+/// Note: iOS has strict background execution limits (~30 seconds)
+/// For reliable background alerts on iOS, push notifications (FCM/APNs) are required
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+
+  // On iOS, we have limited background execution time
+  // The main onStart handler will be called, but may be suspended by iOS
+  // For reliable delivery when app is backgrounded on iOS, implement push notifications
   return true;
 }
 
@@ -130,7 +137,15 @@ void onStart(ServiceInstance service) async {
 
   // Initialize notifications
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidSettings);
+  const iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+  );
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
   await notificationsPlugin.initialize(initSettings);
 
   // Get stored user ID
@@ -139,44 +154,69 @@ void onStart(ServiceInstance service) async {
 
   StreamSubscription? alertSubscription;
   SupabaseClient? supabase;
+  Timer? reconnectTimer;
+
+  // Track shown alert IDs to prevent duplicate notifications
+  final Set<String> shownAlertIds = {};
 
   // Initialize Supabase
-  try {
-    await Supabase.initialize(
-      url: 'https://oazxwglbvzgpehsckmfb.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henh3Z2xidnpncGVoc2NrbWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNzkzMjEsImV4cCI6MjA3ODc1NTMyMX0.Ia6ccZ1zp4r1mi5mgvQk9wfK5MGp0S3TDhyWngz8Z54',
-    );
-    supabase = Supabase.instance.client;
-    debugPrint('Background service: Supabase initialized');
-  } catch (e) {
-    debugPrint('Background service: Supabase already initialized or error: $e');
+  Future<SupabaseClient?> initializeSupabase() async {
     try {
-      supabase = Supabase.instance.client;
-    } catch (_) {
-      debugPrint('Background service: Could not get Supabase client');
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        anonKey: SupabaseConfig.anonKey,
+      );
+      final client = Supabase.instance.client;
+      if (kDebugMode) {
+        debugPrint('Background service: Supabase initialized');
+      }
+      return client;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Background service: Supabase already initialized or error: $e');
+      }
+      try {
+        return Supabase.instance.client;
+      } catch (_) {
+        if (kDebugMode) {
+          debugPrint('Background service: Could not get Supabase client');
+        }
+        return null;
+      }
     }
   }
+
+  supabase = await initializeSupabase();
 
   // Sign in anonymously for authenticated role
   if (supabase != null && supabase.auth.currentUser == null) {
     try {
       await supabase.auth.signInAnonymously();
-      debugPrint('Background service: Signed in anonymously');
+      if (kDebugMode) {
+        debugPrint('Background service: Signed in anonymously');
+      }
     } catch (e) {
-      debugPrint('Background service: Anonymous sign-in failed: $e');
+      if (kDebugMode) {
+        debugPrint('Background service: Anonymous sign-in failed: $e');
+      }
     }
   }
 
-  /// Subscribe to alerts for user
+  /// Subscribe to alerts for user with auto-reconnect
   void subscribeToAlerts(String uid) {
     alertSubscription?.cancel();
+    reconnectTimer?.cancel();
 
     if (supabase == null) {
-      debugPrint('Background service: No Supabase client, cannot subscribe');
+      if (kDebugMode) {
+        debugPrint('Background service: No Supabase client, cannot subscribe');
+      }
       return;
     }
 
-    debugPrint('Background service: Subscribing to alerts for user: $uid');
+    if (kDebugMode) {
+      debugPrint('Background service: Subscribing to alerts for user: $uid');
+    }
 
     alertSubscription = supabase
         .from('alerts')
@@ -184,23 +224,46 @@ void onStart(ServiceInstance service) async {
         .eq('receiver_id', uid)
         .listen((data) async {
           for (final alert in data) {
+            final alertId = alert['id'] as String?;
+            if (alertId == null) continue;
+
+            // Skip if already shown
+            if (shownAlertIds.contains(alertId)) continue;
+
             // Check if this is a new unread alert
             if (alert['read_at'] == null && alert['response'] == null) {
               final createdAt = DateTime.tryParse(alert['created_at'] ?? '');
               final now = DateTime.now();
 
-              // Only notify for alerts created in the last 30 seconds (new alerts)
-              if (createdAt != null && now.difference(createdAt).inSeconds < 30) {
+              // Only notify for alerts created in the last 60 seconds (new alerts)
+              // Increased from 30s to handle slight delays
+              if (createdAt != null && now.difference(createdAt).inSeconds < 60) {
+                shownAlertIds.add(alertId);
+
+                // Limit cache size to prevent memory issues
+                if (shownAlertIds.length > 100) {
+                  shownAlertIds.remove(shownAlertIds.first);
+                }
+
                 await _showAlertNotification(
                   notificationsPlugin,
-                  alert['id'],
-                  alert['message'] ?? 'Someone needs you to move your car!',
+                  alertId,
+                  alert['message'] ?? 'Please move your vehicle',
                 );
               }
             }
           }
         }, onError: (error) {
-          debugPrint('Background service: Alert stream error: $error');
+          if (kDebugMode) {
+            debugPrint('Background service: Alert stream error: $error');
+          }
+          // Auto-reconnect after error
+          reconnectTimer?.cancel();
+          reconnectTimer = Timer(const Duration(seconds: 5), () {
+            if (userId != null && userId!.isNotEmpty) {
+              subscribeToAlerts(userId!);
+            }
+          });
         });
   }
 
@@ -208,6 +271,16 @@ void onStart(ServiceInstance service) async {
   if (userId != null && userId.isNotEmpty) {
     subscribeToAlerts(userId);
   }
+
+  // Periodic keep-alive to ensure connection stays active
+  Timer.periodic(const Duration(minutes: 5), (timer) async {
+    // Refresh user ID from prefs in case it changed
+    final currentUserId = prefs.getString('user_id');
+    if (currentUserId != null && currentUserId != userId) {
+      userId = currentUserId;
+      subscribeToAlerts(userId!);
+    }
+  });
 
   // Handle user updates from main app
   service.on('updateUser').listen((event) {
@@ -219,6 +292,7 @@ void onStart(ServiceInstance service) async {
 
   // Handle stop request
   service.on('stopService').listen((event) {
+    reconnectTimer?.cancel();
     alertSubscription?.cancel();
     service.stopSelf();
   });
@@ -265,11 +339,11 @@ Future<void> _showAlertNotification(
     fullScreenIntent: true,
     category: AndroidNotificationCategory.alarm,
     visibility: NotificationVisibility.public,
-    ticker: 'Someone needs you to move your car!',
+    ticker: 'New alert',
     styleInformation: BigTextStyleInformation(
       message,
-      contentTitle: 'Parking Alert!',
-      summaryText: 'Yuh Blockin',
+      contentTitle: 'New Alert',
+      summaryText: "Yuh Blockin'",
     ),
     actions: [
       const AndroidNotificationAction(
@@ -285,7 +359,7 @@ Future<void> _showAlertNotification(
 
   await plugin.show(
     alertId.hashCode,
-    'Parking Alert!',
+    'New Alert',
     message,
     details,
     payload: alertId,
@@ -343,6 +417,8 @@ Future<void> _vibrateRhythm() async {
       pattern: [0, 300, 150, 300, 150, 600],
     );
   } catch (e) {
-    debugPrint('Background vibration error: $e');
+    if (kDebugMode) {
+      debugPrint('Background vibration error: $e');
+    }
   }
 }

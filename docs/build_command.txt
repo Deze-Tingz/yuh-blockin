@@ -1,0 +1,3 @@
+Build Command for Production
+
+  flutter build apk --dart-define=SUPABASE_URL=https://oazxwglbvzgpehsckmfb.supabase.co --dart-define=SUPABASE_ANON_KEY=your_key --dart-define=REVENUECAT_API_KEY=goog_xxx

@@ -17,7 +17,9 @@ class PremiumBackendService {
   final Map<String, UserProfile> _userDatabase = {};
   final Map<String, Alert> _alertDatabase = {};
   final Map<String, PlateRegistration> _plateDatabase = {};
-  final List<StreamController<Alert>> _alertStreams = [];
+
+  // Single broadcast controller for alerts to prevent memory leaks
+  StreamController<Alert>? _alertBroadcastController;
 
   bool _isInitialized = false;
   String? _currentUserId;
@@ -139,16 +141,20 @@ class PremiumBackendService {
   }
 
   /// Stream real-time alerts for user
+  /// Uses a single broadcast controller to prevent memory leaks
   Stream<Alert> getAlertStream(String userId) {
-    final controller = StreamController<Alert>.broadcast();
-    _alertStreams.add(controller);
+    // Create broadcast controller if it doesn't exist
+    _alertBroadcastController ??= StreamController<Alert>.broadcast();
 
-    // Filter alerts for this user
-    _alertDatabase.values
-        .where((alert) => alert.receiverId == userId || alert.senderId == userId)
-        .forEach(controller.add);
+    // Emit existing alerts for this user
+    for (final alert in _alertDatabase.values) {
+      if (alert.receiverId == userId || alert.senderId == userId) {
+        _alertBroadcastController!.add(alert);
+      }
+    }
 
-    return controller.stream;
+    return _alertBroadcastController!.stream
+        .where((alert) => alert.receiverId == userId || alert.senderId == userId);
   }
 
   /// Update alert status (acknowledge, resolve, etc.)
@@ -178,10 +184,8 @@ class PremiumBackendService {
       await _updateReputationScores(updatedAlert);
     }
 
-    // Broadcast update to streams
-    for (final controller in _alertStreams) {
-      controller.add(updatedAlert);
-    }
+    // Broadcast update to stream
+    _alertBroadcastController?.add(updatedAlert);
   }
 
   /// Get user reputation and statistics
@@ -282,10 +286,8 @@ class PremiumBackendService {
       );
       _alertDatabase[alert.alertId] = updatedAlert;
 
-      // Broadcast to streams
-      for (final controller in _alertStreams) {
-        controller.add(updatedAlert);
-      }
+      // Broadcast to stream
+      _alertBroadcastController?.add(updatedAlert);
 
       // Schedule auto-acknowledgment for demo purposes
       _scheduleAutoAcknowledgment(updatedAlert);
@@ -303,9 +305,7 @@ class PremiumBackendService {
       _alertDatabase[alert.alertId] = acknowledgedAlert;
 
       // Broadcast update
-      for (final controller in _alertStreams) {
-        controller.add(acknowledgedAlert);
-      }
+      _alertBroadcastController?.add(acknowledgedAlert);
 
       // Schedule resolution
       Timer(const Duration(seconds: 12), () {
@@ -319,9 +319,7 @@ class PremiumBackendService {
         _updateReputationScores(resolvedAlert);
 
         // Broadcast final update
-        for (final controller in _alertStreams) {
-          controller.add(resolvedAlert);
-        }
+        _alertBroadcastController?.add(resolvedAlert);
       });
     });
   }
@@ -394,10 +392,8 @@ class PremiumBackendService {
   }
 
   void dispose() {
-    for (final controller in _alertStreams) {
-      controller.close();
-    }
-    _alertStreams.clear();
+    _alertBroadcastController?.close();
+    _alertBroadcastController = null;
   }
 }
 

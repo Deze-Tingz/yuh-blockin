@@ -1405,8 +1405,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     // (for lock screen, background, other apps - not when user is in the app)
     if (_appLifecycleState != AppLifecycleState.resumed) {
       _notificationService.showAlertNotification(
-        title: urgency == 'High' ? '🚨 Urgent: Move your car!' : 'Someone needs you to move!',
-        body: '$senderAlias is asking you to move your car${emoji != null ? ' $emoji' : ''}',
+        title: urgency == 'High' ? 'Urgent Alert' : 'New Alert',
+        body: '$senderAlias needs you to move',
         payload: alert.id,
         playSound: true,
         vibrate: true,
@@ -5086,63 +5086,59 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Compact header
+                      // Premium header with centered emoji
                       Padding(
                         padding: EdgeInsets.fromLTRB(
                           isTablet ? 16 : 12,
-                          isTablet ? 12 : 10,
+                          isTablet ? 14 : 12,
                           isTablet ? 12 : 8,
-                          8,
+                          10,
                         ),
                         child: Row(
                           children: [
-                            // Alert indicator
+                            // Emoji as centerpiece (or default icon)
                             Container(
-                              padding: const EdgeInsets.all(6),
+                              width: isTablet ? 44 : 40,
+                              height: isTablet ? 44 : 40,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(
-                                Icons.notifications_active_rounded,
-                                color: Colors.white,
-                                size: isTablet ? 18 : 16,
+                              child: Center(
+                                child: _currentAlertEmoji != null
+                                    ? Text(
+                                        _currentAlertEmoji!,
+                                        style: TextStyle(fontSize: isTablet ? 24 : 22),
+                                      )
+                                    : Icon(
+                                        Icons.directions_car_rounded,
+                                        color: Colors.white,
+                                        size: isTablet ? 22 : 20,
+                                      ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            // Title and message
+                            const SizedBox(width: 12),
+                            // Title and sender
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      if (_currentAlertEmoji != null) ...[
-                                        Text(
-                                          _currentAlertEmoji!,
-                                          style: TextStyle(fontSize: isTablet ? 16 : 14),
-                                        ),
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Text(
-                                        'Move Request',
-                                        style: TextStyle(
-                                          fontSize: isTablet ? 14 : 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    'Move Request',
+                                    style: TextStyle(
+                                      fontSize: isTablet ? 15 : 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _currentSenderAlias != null
-                                        ? '${_aliasService.formatAliasForDisplay(_currentSenderAlias!)} needs you to move'
-                                        : 'Someone needs you to move',
+                                        ? 'From ${_aliasService.formatAliasForDisplay(_currentSenderAlias!)}'
+                                        : 'New request',
                                     style: TextStyle(
-                                      fontSize: isTablet ? 13 : 11,
-                                      color: Colors.white.withValues(alpha: 0.85),
+                                      fontSize: isTablet ? 12 : 11,
+                                      color: Colors.white.withValues(alpha: 0.8),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -5158,13 +5154,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                                 width: 28,
                                 height: 28,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.close_rounded,
-                                  color: Colors.white,
-                                  size: isTablet ? 18 : 16,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  size: isTablet ? 16 : 14,
                                 ),
                               ),
                             ),

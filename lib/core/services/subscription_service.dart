@@ -16,6 +16,9 @@ class SubscriptionService {
   // Get API key from secure configuration
   static String get _revenueCatApiKey => PaymentConfig.getApiKey(isIOS: Platform.isIOS);
 
+  // Cached SharedPreferences instance to avoid N+1 disk reads
+  static SharedPreferences? _cachedPrefs;
+
   // Product identifiers from config
   static String get monthlyProductId => PaymentConfig.monthlyProductId;
   static String get lifetimeProductId => PaymentConfig.lifetimeProductId;
@@ -434,9 +437,15 @@ class SubscriptionService {
     }
   }
 
+  /// Get or create cached SharedPreferences instance
+  Future<SharedPreferences> _getPrefs() async {
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+    return _cachedPrefs!;
+  }
+
   Future<void> _loadCachedStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       _subscriptionStatus = prefs.getString('yuh_subscription_status') ?? 'free';
       _isPremium = _subscriptionStatus != 'free';
     } catch (e) {
@@ -448,7 +457,7 @@ class SubscriptionService {
 
   Future<void> _saveCachedStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString('yuh_subscription_status', _subscriptionStatus);
     } catch (e) {
       if (kDebugMode) {
@@ -459,7 +468,7 @@ class SubscriptionService {
 
   Future<void> _loadDailyUsage() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final lastDateStr = prefs.getString('yuh_last_usage_date');
       final today = DateTime.now();
       final todayStr = '${today.year}-${today.month}-${today.day}';
@@ -481,7 +490,7 @@ class SubscriptionService {
 
   Future<void> _saveDailyUsage() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final today = DateTime.now();
       final todayStr = '${today.year}-${today.month}-${today.day}';
 
