@@ -26,7 +26,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   bool _isLoading = false;
   String? _selectedPlan; // 'monthly' or 'lifetime'
-  String _paymentMethod = 'google_play'; // 'google_play' or 'ath_movil'
+  String _paymentMethod = 'store'; // 'store' (App Store/Google Play) or 'ath_movil'
   String _athInputMethod = 'phone'; // 'phone' or 'qr'
   String? _phoneError;
   String _athPath = ''; // Loaded from Supabase
@@ -287,9 +287,11 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         children: [
           Expanded(
             child: _buildPaymentMethodButton(
-              id: 'google_play',
-              icon: CupertinoIcons.device_laptop,
-              label: 'Google Play',
+              id: 'store',
+              icon: PremiumTheme.isIOS
+                  ? CupertinoIcons.app_badge
+                  : CupertinoIcons.device_laptop,
+              label: PremiumTheme.isIOS ? 'App Store' : 'Google Play',
             ),
           ),
           Expanded(
@@ -297,6 +299,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               id: 'ath_movil',
               icon: CupertinoIcons.creditcard_fill,
               label: 'ATH Móvil',
+              comingSoon: true, // ATH Móvil coming soon - using native billing for now
             ),
           ),
         ],
@@ -308,45 +311,80 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     required String id,
     required IconData icon,
     required String label,
+    bool comingSoon = false,
   }) {
     final isSelected = _paymentMethod == id;
+    final isDisabled = comingSoon;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _paymentMethod = id;
-          _phoneError = null;
-        });
-      },
+      onTap: isDisabled
+          ? null
+          : () {
+              setState(() {
+                _paymentMethod = id;
+                _phoneError = null;
+              });
+            },
       child: AnimatedContainer(
         duration: PremiumTheme.fastDuration,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected
+          color: isSelected && !isDisabled
               ? PremiumTheme.accentColor
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isSelected ? Colors.white : PremiumTheme.secondaryTextColor,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : PremiumTheme.secondaryTextColor,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isDisabled
+                      ? PremiumTheme.tertiaryTextColor
+                      : isSelected
+                          ? Colors.white
+                          : PremiumTheme.secondaryTextColor,
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDisabled
+                          ? PremiumTheme.tertiaryTextColor
+                          : isSelected
+                              ? Colors.white
+                              : PremiumTheme.secondaryTextColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
+            if (comingSoon) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -822,13 +860,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
     // Route to appropriate payment method
     if (_paymentMethod == 'ath_movil') {
-      await _purchaseWithAthMovil();
+      // ATH Móvil is coming soon - shouldn't reach here but just in case
+      _showErrorSnackbar('ATH Móvil coming soon! Please use ${PremiumTheme.isIOS ? "App Store" : "Google Play"}.');
+      return;
     } else {
-      await _purchaseWithGooglePlay();
+      await _purchaseWithNativeBilling();
     }
   }
 
-  Future<void> _purchaseWithGooglePlay() async {
+  Future<void> _purchaseWithNativeBilling() async {
     setState(() => _isLoading = true);
 
     try {
