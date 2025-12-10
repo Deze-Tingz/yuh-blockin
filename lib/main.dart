@@ -29,7 +29,9 @@ import 'features/subscription/subscription_status_screen.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/plate_verification_service.dart';
 import 'core/services/sound_preferences_service.dart';
+import 'core/services/account_recovery_service.dart';
 import 'features/alert_sound_settings/alert_sound_settings_screen.dart';
+import 'features/account_recovery/view_my_keys_screen.dart';
 
 /// Premium flagship-quality Yuh Blockin' app
 /// Inspired by Uber, Airbnb, Apple Human Interface guidelines
@@ -237,7 +239,33 @@ class _AppInitializerState extends State<AppInitializer>
 
       if (!mounted) return;
 
-      _goToHome = hasCompletedOnboarding && hasUserId;
+      // Check for auto-login: user has completed onboarding AND has user ID
+      // OR user has registered plates (for returning users on same device)
+      if (hasCompletedOnboarding && hasUserId) {
+        _goToHome = true;
+      } else if (hasUserId) {
+        // User has ID but hasn't completed onboarding
+        // Check if they have registered plates (auto-login scenario)
+        try {
+          final recoveryService = AccountRecoveryService();
+          final autoLoginResult = await recoveryService.checkAutoLogin();
+
+          if (autoLoginResult.canAutoLogin) {
+            debugPrint('🔓 Auto-login: User has ${autoLoginResult.plateCount} registered plate(s)');
+            // Mark onboarding as complete for returning users
+            await prefs.setBool('onboarding_completed', true);
+            _goToHome = true;
+          } else {
+            debugPrint('🔄 Auto-login failed: ${autoLoginResult.reason}');
+            _goToHome = false;
+          }
+        } catch (e) {
+          debugPrint('⚠️ Auto-login check error: $e');
+          _goToHome = false;
+        }
+      } else {
+        _goToHome = false;
+      }
 
       // Show splash for 3.5 seconds to display branding properly
       await Future.delayed(const Duration(milliseconds: 3500));
@@ -1900,6 +1928,23 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     transitionDuration: PremiumTheme.mediumDuration,
                   ),
                 );
+              } else if (value == 'keys') {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1.0, 0.0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: PremiumTheme.standardCurve,
+                      )),
+                      child: const ViewMyKeysScreen(),
+                    ),
+                    transitionDuration: PremiumTheme.mediumDuration,
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -1955,6 +2000,26 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                     const SizedBox(width: 12),
                     Text(
                       'Alert Sounds',
+                      style: TextStyle(
+                        color: PremiumTheme.primaryTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'keys',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.key_outlined,
+                      color: PremiumTheme.accentColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'My Secret Keys',
                       style: TextStyle(
                         color: PremiumTheme.primaryTextColor,
                         fontWeight: FontWeight.w500,
