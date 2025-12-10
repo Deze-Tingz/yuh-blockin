@@ -2,7 +2,7 @@ name: yuh_blockin # Renamed for clarity, you can keep yuh_blockin_web if you pre
 description: "A Flutter project for Yuh Blockin'."
 publish_to: 'none'
 
-version: 1.0.0+45
+version: 1.0.0+46
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -35,6 +35,10 @@ dependencies:
 
   # In-app purchases via RevenueCat
   purchases_flutter: ^8.0.0
+
+  # Firebase for push notifications
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.10
 
   # URL launcher for opening terms/privacy links
   url_launcher: ^6.2.5

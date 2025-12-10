@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,7 @@ import 'core/services/subscription_service.dart';
 import 'core/services/plate_verification_service.dart';
 import 'core/services/sound_preferences_service.dart';
 import 'core/services/account_recovery_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'features/alert_sound_settings/alert_sound_settings_screen.dart';
 import 'features/account_recovery/view_my_keys_screen.dart';
 
@@ -564,6 +566,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   final ConnectivityService _connectivityService = ConnectivityService();
   final SubscriptionService _subscriptionService = SubscriptionService();
   final BackgroundAlertService _backgroundAlertService = BackgroundAlertService();
+  final PushNotificationService _pushNotificationService = PushNotificationService();
   final SoundPreferencesService _soundPreferencesService = SoundPreferencesService();
   bool _isOffline = false;
   bool _showOfflineBanner = false;
@@ -811,21 +814,46 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
   /// Initialize notification and connectivity services
   Future<void> _initializeNotificationServices() async {
-    // Initialize notification service
+    // Initialize local notification service
     await _notificationService.initialize(
       onNotificationTapped: (payload) {
         // Handle notification tap - could navigate to alert screen
-        debugPrint('Notification tapped with payload: $payload');
+        if (kDebugMode) {
+          debugPrint('Notification tapped with payload: $payload');
+        }
       },
     );
+
+    // Initialize push notification service (Firebase)
+    try {
+      await _pushNotificationService.initialize(
+        onTap: (alertId) {
+          if (kDebugMode) {
+            debugPrint('Push notification tapped with alert: $alertId');
+          }
+          // Could navigate to specific alert
+        },
+      );
+      if (kDebugMode) {
+        debugPrint('Push notification service initialized');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Push notification initialization error: $e');
+      }
+    }
 
     // Initialize background alert service for reliable locked-screen notifications
     try {
       await _backgroundAlertService.initializeService();
       await _backgroundAlertService.startService();
-      debugPrint('Background alert service started');
+      if (kDebugMode) {
+        debugPrint('Background alert service started');
+      }
     } catch (e) {
-      debugPrint('Background service initialization error: $e');
+      if (kDebugMode) {
+        debugPrint('Background service initialization error: $e');
+      }
     }
 
     // Initialize connectivity service with callbacks
@@ -1121,8 +1149,13 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
 
       // Update background service with user ID for reliable locked-screen alerts
       await _backgroundAlertService.setUserId(userId);
+
+      // Update push notification service with user ID
+      await _pushNotificationService.updateUserId(userId);
     } catch (e) {
-      debugPrint('❌ Failed to ensure user exists: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Failed to ensure user exists: $e');
+      }
     }
   }
 
