@@ -220,7 +220,7 @@ class PlateVerificationService {
       final existing = await _supabase
           .from('plates')
           .select('user_id, verification_status')
-          .eq('hashed_plate', plateHash)
+          .eq('plate_hash', plateHash)
           .maybeSingle();
 
       if (existing != null) {
@@ -241,7 +241,7 @@ class PlateVerificationService {
 
       // Register the plate
       await _supabase.from('plates').insert({
-        'hashed_plate': plateHash,
+        'plate_hash': plateHash,
         'user_id': userId,
         'verification_status': statusVerified,
         'ownership_key_hash': keyHash,
@@ -272,8 +272,9 @@ class PlateVerificationService {
   }
 
   String _hashPlateNumber(String plateNumber) {
-    final normalized = plateNumber.replaceAll(RegExp(r'[\s\-]'), '').toUpperCase();
-    final bytes = utf8.encode('YuhBlockin_$normalized');
+    // MUST match simple_alert_service._hashPlate() for compatibility
+    final normalized = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    final bytes = utf8.encode(normalized);
     return sha256.convert(bytes).toString();
   }
 
@@ -291,7 +292,7 @@ class PlateVerificationService {
       final record = await _supabase
           .from('plates')
           .select('id, user_id, ownership_key_hash, verification_status')
-          .eq('hashed_plate', plateHash)
+          .eq('plate_hash', plateHash)
           .maybeSingle();
 
       if (record == null) {
@@ -359,7 +360,7 @@ class PlateVerificationService {
       final result = await _supabase
           .from('plates')
           .select('verification_status, verified_at, ownership_key_hash')
-          .eq('hashed_plate', plateHash)
+          .eq('plate_hash', plateHash)
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -400,7 +401,7 @@ class PlateVerificationService {
       final existing = await _supabase
           .from('plates')
           .select('id, user_id, ownership_key_hash')
-          .eq('hashed_plate', plateHash)
+          .eq('plate_hash', plateHash)
           .maybeSingle();
 
       if (existing == null) {
@@ -480,7 +481,7 @@ class PlateVerificationService {
       final record = await _supabase
           .from('plates')
           .select('id, ownership_key_hash')
-          .eq('hashed_plate', plateHash)
+          .eq('plate_hash', plateHash)
           .eq('user_id', userId)
           .maybeSingle();
 

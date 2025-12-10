@@ -159,6 +159,7 @@ class SimpleAlertService {
   Future<void> registerPlate({
     required String plateNumber,
     required String userId,
+    String? ownershipKeyHash,
   }) async {
     _ensureInitialized();
 
@@ -189,13 +190,23 @@ class SimpleAlertService {
     }
 
     try {
-      await _supabase.from('plates').insert({
+      final insertData = {
         'user_id': userId,
         'plate_hash': plateHash,
-      });
+      };
+
+      // Add ownership key hash if provided (for account recovery)
+      if (ownershipKeyHash != null) {
+        insertData['ownership_key_hash'] = ownershipKeyHash;
+      }
+
+      await _supabase.from('plates').insert(insertData);
 
       if (kDebugMode) {
         debugPrint('✅ Registered plate: $plateNumber -> $plateHash');
+        if (ownershipKeyHash != null) {
+          debugPrint('🔐 Ownership key hash stored for recovery');
+        }
       }
     } catch (e) {
       if (kDebugMode) {

@@ -261,18 +261,20 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         }
       }
 
-      // Register plate with simple service
+      // Generate ownership key for security BEFORE registering
+      final ownershipKey = _verificationService.generateOwnershipKey();
+      final ownershipKeyHash = _verificationService.hashOwnershipKey(ownershipKey);
+
+      // Register plate with simple service (including ownership key hash for recovery)
       if (userId != null) {
         await _alertService.registerPlate(
           plateNumber: plateNumber,
           userId: userId,
+          ownershipKeyHash: ownershipKeyHash,
         );
       } else {
         throw Exception('User ID is null after creation attempts');
       }
-
-      // Generate ownership key for security
-      final ownershipKey = _verificationService.generateOwnershipKey();
 
       // Save key locally
       await _verificationService.saveKeyLocally(
