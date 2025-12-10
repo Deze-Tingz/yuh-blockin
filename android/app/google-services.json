@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "383487814092",
+    "project_id": "yuh-blockin",
+    "storage_bucket": "yuh-blockin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:383487814092:android:71c19edf5322738fe65569",
+        "android_client_info": {
+          "package_name": "com.yuhblockin.yuh_blockin_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLkXIA2LPdUn1gy2t1wQ2NMtlxXPhsg80"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
