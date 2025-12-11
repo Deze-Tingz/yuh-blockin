@@ -2,7 +2,7 @@ name: yuh_blockin # Renamed for clarity, you can keep yuh_blockin_web if you pre
 description: "A Flutter project for Yuh Blockin'."
 publish_to: 'none'
 
-version: 1.0.0+47
+version: 1.0.0+48
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -23,7 +23,7 @@ dependencies:
   shimmer_animation: ^2.2.2  # Proper shine-over-image effect for splash screen
 
   # Notification & connectivity packages
-  flutter_local_notifications: ^18.0.1
+  flutter_local_notifications: ^17.2.4
   connectivity_plus: ^6.0.5
   vibration: ^2.0.0
   permission_handler: ^11.3.1
@@ -37,8 +37,8 @@ dependencies:
   purchases_flutter: ^8.0.0
 
   # Firebase for push notifications
-  firebase_core: ^3.8.1
-  firebase_messaging: ^15.1.6
+  firebase_core: ^2.32.0
+  firebase_messaging: ^14.9.4
 
   # URL launcher for opening terms/privacy links
   url_launcher: ^6.2.5
