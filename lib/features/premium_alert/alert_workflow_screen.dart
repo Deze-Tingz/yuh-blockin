@@ -181,6 +181,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
   final UserStatsService _statsService = UserStatsService();
   final UnacknowledgedAlertService _unacknowledgedAlertService = UnacknowledgedAlertService();
   final SoundPreferencesService _soundPreferencesService = SoundPreferencesService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
   String _urgencyLevel = 'Normal';
   PremiumEmojiExpression? _selectedEmoji;
@@ -1286,9 +1287,7 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
 
   /// Get user's payment tier (free or premium)
   String _getUserTier() {
-    // TODO: Implement actual payment tier checking
-    // For now, everyone is on free tier
-    return 'free';
+    return _subscriptionService.isPremium ? 'premium' : 'free';
   }
 
   /// Check if user has exceeded payment tier limits

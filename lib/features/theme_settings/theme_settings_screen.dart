@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/premium_theme.dart';
+import '../../core/services/subscription_service.dart';
 import '../../main.dart';
 
 /// Premium theme settings screen
@@ -18,9 +18,7 @@ class ThemeSettingsScreen extends StatefulWidget {
 class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   String _selectedTheme = PremiumTheme.currentMode;
   bool _isPremiumUser = false;
-
-  // TESTING: Set to true to bypass premium check for testing
-  static const bool _bypassPremiumForTesting = true;
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
   @override
   void initState() {
@@ -28,13 +26,10 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
     _checkPremiumStatus();
   }
 
-  Future<void> _checkPremiumStatus() async {
-    // TODO: Replace with actual subscription check
-    // For now, check if user has a stored premium flag or use testing bypass
-    final prefs = await SharedPreferences.getInstance();
-    final isPremium = prefs.getBool('is_premium_user') ?? false;
+  void _checkPremiumStatus() {
+    // Use actual subscription service to check premium status
     setState(() {
-      _isPremiumUser = isPremium || _bypassPremiumForTesting;
+      _isPremiumUser = _subscriptionService.isPremium;
     });
   }
 

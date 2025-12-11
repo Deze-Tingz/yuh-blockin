@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../core/services/subscription_service.dart';
 
 /// iOS-ONLY App Store-compliant Premium Monthly subscription screen.
 /// Designed for App Store Connect screenshot submission.
@@ -8,9 +9,17 @@ import 'package:flutter/material.dart';
 /// This screen is specifically for iOS and uses Cupertino styling.
 /// On Android, this screen should not be shown - use the regular
 /// UpgradeScreen instead which handles Google Play billing.
-class PremiumMonthlyScreen extends StatelessWidget {
+class PremiumMonthlyScreen extends StatefulWidget {
   const PremiumMonthlyScreen({super.key});
 
+  /// Check if running on iOS
+  static bool get isIOS => Platform.isIOS;
+
+  @override
+  State<PremiumMonthlyScreen> createState() => _PremiumMonthlyScreenState();
+}
+
+class _PremiumMonthlyScreenState extends State<PremiumMonthlyScreen> {
   // Brand colors - teal + coral palette
   static const Color _teal = Color(0xFF0B6E7D);
   static const Color _tealLight = Color(0xFF0D8A9C);
@@ -19,17 +28,93 @@ class PremiumMonthlyScreen extends StatelessWidget {
   static const Color _textSecondary = Color(0xFF6B7280);
   static const Color _background = CupertinoColors.systemBackground;
 
-  /// Check if running on iOS
-  static bool get isIOS => Platform.isIOS;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  bool _isLoading = false;
 
-  void _onSubscribePressed(BuildContext context) {
-    debugPrint('Subscribe button pressed - wire up RevenueCat iOS purchase here');
-    // TODO: Wire up to SubscriptionService.purchaseMonthly()
+  Future<void> _onSubscribePressed(BuildContext context) async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _subscriptionService.purchaseMonthly();
+
+      if (!mounted) return;
+
+      if (result.success) {
+        _showAlert(
+          context,
+          title: 'Success!',
+          message: result.message ?? 'You are now a Premium member!',
+          onDismiss: () => Navigator.of(context).pop(true),
+        );
+      } else {
+        _showAlert(
+          context,
+          title: 'Purchase Failed',
+          message: result.error ?? 'Unable to complete purchase. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
-  void _onRestorePressed(BuildContext context) {
-    debugPrint('Restore purchases pressed - wire up RevenueCat iOS restore here');
-    // TODO: Wire up to SubscriptionService.restorePurchases()
+  Future<void> _onRestorePressed(BuildContext context) async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _subscriptionService.restorePurchases();
+
+      if (!mounted) return;
+
+      if (result.success) {
+        _showAlert(
+          context,
+          title: 'Restored!',
+          message: result.message ?? 'Your purchases have been restored.',
+          onDismiss: () => Navigator.of(context).pop(true),
+        );
+      } else {
+        _showAlert(
+          context,
+          title: 'No Purchases Found',
+          message: result.error ?? 'No previous purchases were found for this account.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showAlert(
+    BuildContext context, {
+    required String title,
+    required String message,
+    VoidCallback? onDismiss,
+  }) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () {
+              Navigator.of(context).pop();
+              onDismiss?.call();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -232,18 +317,20 @@ class PremiumMonthlyScreen extends StatelessWidget {
       width: double.infinity,
       child: CupertinoButton(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        color: _coral,
+        color: _isLoading ? _coral.withValues(alpha: 0.6) : _coral,
         borderRadius: BorderRadius.circular(14),
-        onPressed: () => _onSubscribePressed(context),
-        child: const Text(
-          'Subscribe – Premium Monthly',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.2,
-            color: CupertinoColors.white,
-          ),
-        ),
+        onPressed: _isLoading ? null : () => _onSubscribePressed(context),
+        child: _isLoading
+            ? const CupertinoActivityIndicator(color: CupertinoColors.white)
+            : const Text(
+                'Subscribe – Premium Monthly',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  color: CupertinoColors.white,
+                ),
+              ),
       ),
     );
   }
@@ -251,15 +338,17 @@ class PremiumMonthlyScreen extends StatelessWidget {
   Widget _buildRestoreButton(BuildContext context) {
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      onPressed: () => _onRestorePressed(context),
-      child: const Text(
-        'Restore Purchases',
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: _teal,
-        ),
-      ),
+      onPressed: _isLoading ? null : () => _onRestorePressed(context),
+      child: _isLoading
+          ? const CupertinoActivityIndicator()
+          : const Text(
+              'Restore Purchases',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _teal,
+              ),
+            ),
     );
   }
 
