@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'sound_preferences_service.dart';
 
 /// Comprehensive Notification Service
 ///
@@ -129,6 +130,7 @@ class NotificationService {
 
   /// Show an incoming alert notification
   /// This will appear even when phone is locked or app is in background
+  /// urgencyLevel: 'low', 'normal', 'high' - determines which sound to play
   Future<void> showAlertNotification({
     required String title,
     required String body,
@@ -136,10 +138,22 @@ class NotificationService {
     String? payload,
     bool playSound = true,
     bool vibrate = true,
+    String urgencyLevel = 'normal',
   }) async {
     if (!_isInitialized) {
       await initialize();
     }
+
+    // Get the user's selected sound for this urgency level
+    final soundPrefs = SoundPreferencesService();
+    final selectedSoundPath = await soundPrefs.getSoundForLevel(urgencyLevel);
+
+    // Extract sound filename without extension for Android (res/raw)
+    // e.g., 'sounds/low/low_alert_1.wav' -> 'low_alert_1'
+    final soundFileName = selectedSoundPath.split('/').last.replaceAll('.wav', '');
+
+    // For iOS, just the filename with extension
+    final iosSoundFileName = selectedSoundPath.split('/').last;
 
     // Premium rhythm vibration: da-da-da-DAAAA pattern (attention-grabbing)
     final vibrationPattern = Int64List.fromList([
@@ -167,7 +181,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       playSound: playSound,
-      sound: playSound ? const RawResourceAndroidNotificationSound('alert_sound') : null,
+      sound: playSound ? RawResourceAndroidNotificationSound(soundFileName) : null,
       enableVibration: vibrate,
       vibrationPattern: vibrationPattern,
       enableLights: true,
@@ -193,7 +207,7 @@ class NotificationService {
       interruptionLevel: InterruptionLevel.timeSensitive,
       threadIdentifier: 'yuh_blockin_alerts',
       subtitle: subtitle,
-      sound: playSound ? 'alert_sound.wav' : null,
+      sound: playSound ? iosSoundFileName : null,
     );
 
 

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../firebase_options.dart';
+import 'sound_preferences_service.dart';
 
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
@@ -193,10 +194,13 @@ class PushNotificationService {
     // Show local notification since app is in foreground
     final notification = message.notification;
     if (notification != null) {
+      // Get urgency level from message data, default to 'normal'
+      final urgencyLevel = message.data['urgency_level'] ?? 'normal';
       _showLocalNotification(
         title: notification.title ?? 'New Alert',
         body: notification.body ?? 'You have a new alert',
         payload: message.data['alert_id'],
+        urgencyLevel: urgencyLevel,
       );
     }
   }
@@ -215,35 +219,47 @@ class PushNotificationService {
     onNotificationTapped?.call(alertId);
   }
 
-  /// Show a local notification with custom alert sound
+  /// Show a local notification with custom alert sound based on urgency level
   Future<void> _showLocalNotification({
     required String title,
     required String body,
     String? payload,
+    String urgencyLevel = 'normal',
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    // Get the user's selected sound for this urgency level
+    final soundPrefs = SoundPreferencesService();
+    final selectedSoundPath = await soundPrefs.getSoundForLevel(urgencyLevel);
+
+    // Extract sound filename without extension for Android (res/raw)
+    // e.g., 'sounds/low/low_alert_1.wav' -> 'low_alert_1'
+    final soundFileName = selectedSoundPath.split('/').last.replaceAll('.wav', '');
+
+    // For iOS, just the filename with extension
+    final iosSoundFileName = selectedSoundPath.split('/').last;
+
+    final androidDetails = AndroidNotificationDetails(
       'yuh_blockin_alerts', // Use same channel as NotificationService
       'Yuh Blockin Alerts',
       channelDescription: 'Push notifications for parking alerts',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
-      sound: RawResourceAndroidNotificationSound('alert_sound'),
+      sound: RawResourceAndroidNotificationSound(soundFileName),
       enableVibration: true,
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      sound: 'alert_sound.wav',
+      sound: iosSoundFileName,
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );

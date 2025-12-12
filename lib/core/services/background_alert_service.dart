@@ -245,10 +245,13 @@ void onStart(ServiceInstance service) async {
                   shownAlertIds.remove(shownAlertIds.first);
                 }
 
+                // Get urgency level from alert data
+                final urgencyLevel = alert['urgency_level'] ?? 'normal';
                 await _showAlertNotification(
                   notificationsPlugin,
                   alertId,
                   alert['message'] ?? 'Please move your vehicle',
+                  urgencyLevel: urgencyLevel,
                 );
               }
             }
@@ -299,11 +302,32 @@ void onStart(ServiceInstance service) async {
 }
 
 /// Show alert notification with premium vibration pattern
+/// urgencyLevel: 'low', 'normal', 'high' - determines which sound to play
 Future<void> _showAlertNotification(
   FlutterLocalNotificationsPlugin plugin,
   String alertId,
-  String message,
-) async {
+  String message, {
+  String urgencyLevel = 'normal',
+}) async {
+  // Get the user's selected sound for this urgency level from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  String soundFileName;
+
+  // Keys match SoundPreferencesService
+  switch (urgencyLevel.toLowerCase()) {
+    case 'low':
+      final soundPath = prefs.getString('alert_sound_low') ?? 'sounds/low/low_alert_1.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      break;
+    case 'high':
+      final soundPath = prefs.getString('alert_sound_high') ?? 'sounds/high/high_alert_1.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      break;
+    default: // normal
+      final soundPath = prefs.getString('alert_sound_normal') ?? 'sounds/normal/normal_alert.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+  }
+
   // Premium rhythm vibration pattern: da-da-da-DAAAA (attention-grabbing)
   final vibrationPattern = Int64List.fromList([
     0,    // Start immediately
@@ -329,7 +353,7 @@ Future<void> _showAlertNotification(
     importance: Importance.max,
     priority: Priority.max,
     playSound: true,
-    sound: const RawResourceAndroidNotificationSound('alert_sound'),
+    sound: RawResourceAndroidNotificationSound(soundFileName),
     enableVibration: true,
     vibrationPattern: vibrationPattern,
     enableLights: true,
