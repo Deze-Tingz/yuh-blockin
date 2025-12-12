@@ -117,15 +117,17 @@ class PushNotificationService {
       },
     );
 
-    // Create notification channel for Android
+    // Create notification channel for Android with custom sound
     if (Platform.isAndroid) {
       const channel = AndroidNotificationChannel(
-        'yuh_blockin_push',
+        'yuh_blockin_alerts', // Same channel ID as NotificationService
         'Yuh Blockin Alerts',
         description: 'Push notifications for parking alerts',
         importance: Importance.max,
         playSound: true,
+        sound: RawResourceAndroidNotificationSound('alert_sound'),
         enableVibration: true,
+        enableLights: true,
       );
 
       await _localNotifications
@@ -213,26 +215,32 @@ class PushNotificationService {
     onNotificationTapped?.call(alertId);
   }
 
-  /// Show a local notification
+  /// Show a local notification with custom alert sound
   Future<void> _showLocalNotification({
     required String title,
     required String body,
     String? payload,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'yuh_blockin_push',
+      'yuh_blockin_alerts', // Use same channel as NotificationService
       'Yuh Blockin Alerts',
       channelDescription: 'Push notifications for parking alerts',
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
+      sound: RawResourceAndroidNotificationSound('alert_sound'),
       enableVibration: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alert_sound.wav',
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     const details = NotificationDetails(
