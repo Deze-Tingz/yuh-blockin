@@ -43,8 +43,10 @@ import 'features/account_recovery/view_my_keys_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase before running the app
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize Firebase (skip if already auto-initialized by google-services plugin)
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
 
   runApp(const PremiumYuhBlockinApp());
 }
