@@ -237,8 +237,34 @@ class PushNotificationService {
     // For iOS, just the filename with extension
     final iosSoundFileName = selectedSoundPath.split('/').last;
 
+    if (kDebugMode) {
+      debugPrint('Push notification sound: $soundFileName (urgency: $urgencyLevel)');
+    }
+
+    // Android: Use a channel ID specific to this sound file
+    // This is required because Android caches channel settings including sound
+    final channelId = 'yuh_blockin_alert_$soundFileName';
+
+    // Create the notification channel for this specific sound
+    if (Platform.isAndroid) {
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final channel = AndroidNotificationChannel(
+          channelId,
+          'Yuh Blockin Alerts',
+          description: 'Parking alert notifications',
+          importance: Importance.max,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(soundFileName),
+          enableVibration: true,
+        );
+        await androidPlugin.createNotificationChannel(channel);
+      }
+    }
+
     final androidDetails = AndroidNotificationDetails(
-      'yuh_blockin_alerts', // Use same channel as NotificationService
+      channelId,
       'Yuh Blockin Alerts',
       channelDescription: 'Push notifications for parking alerts',
       importance: Importance.max,
@@ -256,7 +282,7 @@ class PushNotificationService {
       presentBadge: true,
       presentSound: true,
       sound: iosSoundFileName,
-      interruptionLevel: InterruptionLevel.timeSensitive,
+      interruptionLevel: InterruptionLevel.active,
     );
 
     final details = NotificationDetails(

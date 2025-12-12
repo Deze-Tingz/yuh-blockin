@@ -155,6 +155,10 @@ class NotificationService {
     // For iOS, just the filename with extension
     final iosSoundFileName = selectedSoundPath.split('/').last;
 
+    if (kDebugMode) {
+      debugPrint('Playing notification sound: $soundFileName (urgency: $urgencyLevel)');
+    }
+
     // Premium rhythm vibration: da-da-da-DAAAA pattern (attention-grabbing)
     final vibrationPattern = Int64List.fromList([
       0,    // Start immediately
@@ -173,11 +177,35 @@ class NotificationService {
       600,  // Long final buzz
     ]);
 
+    // Android: Use a channel ID specific to this sound file
+    // This is required because Android caches channel settings including sound
+    final channelId = 'yuh_blockin_alert_$soundFileName';
+
+    // Create the notification channel for this specific sound
+    if (Platform.isAndroid) {
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final channel = AndroidNotificationChannel(
+          channelId,
+          'Yuh Blockin Alerts',
+          description: 'Parking alert notifications',
+          importance: Importance.max,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(soundFileName),
+          enableVibration: true,
+          enableLights: true,
+          ledColor: const Color(0xFF4CAF50),
+        );
+        await androidPlugin.createNotificationChannel(channel);
+      }
+    }
+
     // Android notification details - HIGH priority for lock screen visibility
     final androidDetails = AndroidNotificationDetails(
-      'yuh_blockin_alerts',
+      channelId,
       'Yuh Blockin Alerts',
-      channelDescription: 'Important parking alert notifications',
+      channelDescription: 'Parking alert notifications',
       importance: Importance.max,
       priority: Priority.max,
       playSound: playSound,
@@ -200,11 +228,12 @@ class NotificationService {
     );
 
     // iOS notification details
+    // Note: interruptionLevel.active is used since we don't have time-sensitive entitlement
     final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: playSound,
-      interruptionLevel: InterruptionLevel.timeSensitive,
+      interruptionLevel: InterruptionLevel.active,
       threadIdentifier: 'yuh_blockin_alerts',
       subtitle: subtitle,
       sound: playSound ? iosSoundFileName : null,

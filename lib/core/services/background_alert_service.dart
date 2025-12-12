@@ -328,6 +328,32 @@ Future<void> _showAlertNotification(
       soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
   }
 
+  if (kDebugMode) {
+    debugPrint('Background notification sound: $soundFileName (urgency: $urgencyLevel)');
+  }
+
+  // Android: Use a channel ID specific to this sound file
+  // This is required because Android caches channel settings including sound
+  final channelId = 'yuh_blockin_alert_$soundFileName';
+
+  // Create the notification channel for this specific sound
+  final androidPlugin = plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  if (androidPlugin != null) {
+    final channel = AndroidNotificationChannel(
+      channelId,
+      'Yuh Blockin Alerts',
+      description: 'Parking alert notifications',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(soundFileName),
+      enableVibration: true,
+      enableLights: true,
+      ledColor: const Color(0xFF4CAF50),
+    );
+    await androidPlugin.createNotificationChannel(channel);
+  }
+
   // Premium rhythm vibration pattern: da-da-da-DAAAA (attention-grabbing)
   final vibrationPattern = Int64List.fromList([
     0,    // Start immediately
@@ -347,7 +373,7 @@ Future<void> _showAlertNotification(
   ]);
 
   final androidDetails = AndroidNotificationDetails(
-    'yuh_blockin_alerts',
+    channelId,
     'Yuh Blockin Alerts',
     channelDescription: 'Critical parking alert notifications',
     importance: Importance.max,
