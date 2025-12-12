@@ -312,46 +312,53 @@ Future<void> _showAlertNotification(
   // Get the user's selected sound for this urgency level from SharedPreferences
   final prefs = await SharedPreferences.getInstance();
   String soundFileName;
+  String iosSoundFileName;
 
   // Keys match SoundPreferencesService
   switch (urgencyLevel.toLowerCase()) {
     case 'low':
       final soundPath = prefs.getString('alert_sound_low') ?? 'sounds/low/low_alert_1.wav';
       soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
       break;
     case 'high':
       final soundPath = prefs.getString('alert_sound_high') ?? 'sounds/high/high_alert_1.wav';
       soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
       break;
     default: // normal
       final soundPath = prefs.getString('alert_sound_normal') ?? 'sounds/normal/normal_alert.wav';
       soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
   }
 
   if (kDebugMode) {
     debugPrint('Background notification sound: $soundFileName (urgency: $urgencyLevel)');
+    debugPrint('iOS sound file: $iosSoundFileName');
   }
 
   // Android: Use a channel ID specific to this sound file
   // This is required because Android caches channel settings including sound
   final channelId = 'yuh_blockin_alert_$soundFileName';
 
-  // Create the notification channel for this specific sound
-  final androidPlugin = plugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-  if (androidPlugin != null) {
-    final channel = AndroidNotificationChannel(
-      channelId,
-      'Yuh Blockin Alerts',
-      description: 'Parking alert notifications',
-      importance: Importance.max,
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound(soundFileName),
-      enableVibration: true,
-      enableLights: true,
-      ledColor: const Color(0xFF4CAF50),
-    );
-    await androidPlugin.createNotificationChannel(channel);
+  // Create the notification channel for this specific sound (Android only)
+  if (Platform.isAndroid) {
+    final androidPlugin = plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      final channel = AndroidNotificationChannel(
+        channelId,
+        'Yuh Blockin Alerts',
+        description: 'Parking alert notifications',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound(soundFileName),
+        enableVibration: true,
+        enableLights: true,
+        ledColor: const Color(0xFF4CAF50),
+      );
+      await androidPlugin.createNotificationChannel(channel);
+    }
   }
 
   // Premium rhythm vibration pattern: da-da-da-DAAAA (attention-grabbing)
@@ -405,7 +412,20 @@ Future<void> _showAlertNotification(
     ],
   );
 
-  final details = NotificationDetails(android: androidDetails);
+  // iOS notification details with custom sound
+  final iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    sound: iosSoundFileName,
+    interruptionLevel: InterruptionLevel.active,
+    threadIdentifier: 'yuh_blockin_alerts',
+  );
+
+  final details = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
 
   await plugin.show(
     alertId.hashCode,
