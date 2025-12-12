@@ -10,9 +10,8 @@ workflows:
       cocoapods: default
       groups:
         - app_store_credentials
-        - firebase_credentials  # Add FIREBASE_SERVICE_ACCOUNT in Codemagic UI
       vars:
-        BUNDLE_ID: "com.yuhblockin.yuhBlockinApp"
+        BUNDLE_ID: "com.dezetingz.yuhBlockin"
 
     scripts:
       - name: Set up code signing
@@ -21,27 +20,6 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE
           keychain add-certificates
           xcode-project use-profiles
-
-      - name: Configure Firebase (FlutterFire CLI)
-        script: |
-          # Save Firebase service account to file
-          echo $FIREBASE_SERVICE_ACCOUNT > /tmp/firebase-service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
-
-          # Install Firebase CLI
-          curl -sL https://firebase.tools | bash
-
-          # Install FlutterFire CLI
-          dart pub global activate flutterfire_cli
-          export PATH="$PATH:$HOME/.pub-cache/bin"
-
-          # Generate firebase_options.dart
-          flutterfire configure \
-            --project=yuh-blockin \
-            --platforms=ios,android \
-            --ios-bundle-id=com.yuhblockin.yuhBlockinApp \
-            --android-app-id=com.dezetingz.yuhBlockin \
-            --yes
 
       - name: Get Flutter packages
         script: flutter pub get
@@ -79,30 +57,8 @@ workflows:
       java: 11
       groups:
         - google_play_credentials
-        - firebase_credentials  # Add FIREBASE_SERVICE_ACCOUNT in Codemagic UI
 
     scripts:
-      - name: Configure Firebase (FlutterFire CLI)
-        script: |
-          # Save Firebase service account to file
-          echo $FIREBASE_SERVICE_ACCOUNT > /tmp/firebase-service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
-
-          # Install Firebase CLI
-          curl -sL https://firebase.tools | bash
-
-          # Install FlutterFire CLI
-          dart pub global activate flutterfire_cli
-          export PATH="$PATH:$HOME/.pub-cache/bin"
-
-          # Generate firebase_options.dart
-          flutterfire configure \
-            --project=yuh-blockin \
-            --platforms=ios,android \
-            --ios-bundle-id=com.yuhblockin.yuhBlockinApp \
-            --android-app-id=com.dezetingz.yuhBlockin \
-            --yes
-
       - name: Get Flutter packages
         script: flutter pub get
 
