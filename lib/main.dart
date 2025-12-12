@@ -43,9 +43,15 @@ import 'features/account_recovery/view_my_keys_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase before running the app (skip if already auto-initialized)
-  if (Firebase.apps.isEmpty) {
+  // Initialize Firebase before running the app
+  // Use try-catch to handle case where it's already auto-initialized
+  try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    // Firebase already initialized (by native plugin or previous call)
+    if (kDebugMode) {
+      debugPrint('Firebase already initialized: $e');
+    }
   }
 
   runApp(const PremiumYuhBlockinApp());
