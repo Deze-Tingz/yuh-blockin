@@ -235,6 +235,7 @@ class SimpleAlertService {
     required String senderUserId,
     String? message,
     String? soundPath,
+    String urgencyLevel = 'normal',
   }) async {
     _ensureInitialized();
 
@@ -246,6 +247,7 @@ class SimpleAlertService {
         'target_plate_hash': plateHash,
         'alert_message': message,
         'alert_sound_path': soundPath,
+        'alert_urgency_level': urgencyLevel.toLowerCase(),
       });
 
       final result = response as Map<String, dynamic>;
@@ -599,6 +601,7 @@ class Alert {
   final String plateHash;
   final String? message;
   final String? soundPath; // Sound to play on receiver's phone
+  final String urgencyLevel; // low, normal, high - determines notification sound
   final String? response; // moving_now, 5_minutes, cant_move, wrong_car
   final String? responseMessage; // optional custom response
   final DateTime createdAt;
@@ -612,6 +615,7 @@ class Alert {
     required this.plateHash,
     this.message,
     this.soundPath,
+    this.urgencyLevel = 'normal',
     this.response,
     this.responseMessage,
     required this.createdAt,
@@ -627,6 +631,7 @@ class Alert {
       plateHash: json['plate_hash'],
       message: json['message'],
       soundPath: json['sound_path'],
+      urgencyLevel: json['urgency_level'] ?? 'normal',
       response: json['response'],
       responseMessage: json['response_message'],
       createdAt: DateTime.parse(json['created_at']),

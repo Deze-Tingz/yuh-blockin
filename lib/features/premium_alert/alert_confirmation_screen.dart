@@ -104,11 +104,12 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       // Start progress animation
       _startProgressAnimation();
 
-      // Send simple emoji alert
+      // Send simple emoji alert with urgency level
       final result = await _alertService.sendAlert(
         targetPlateNumber: widget.plateNumber,
         senderUserId: userId,
         message: widget.selectedEmoji.unicode, // Just send the emoji character
+        urgencyLevel: widget.urgencyLevel,
       );
 
       if (result.success && result.recipients > 0) {

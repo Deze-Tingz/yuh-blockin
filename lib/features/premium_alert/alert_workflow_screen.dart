@@ -1135,12 +1135,13 @@ class _AlertWorkflowScreenState extends State<AlertWorkflowScreen>
       // Get sender's selected sound for this urgency level
       final soundPath = await _soundPreferencesService.getSoundForLevel(_urgencyLevel);
 
-      // Send simple alert with sound path
+      // Send simple alert with sound path and urgency level
       final result = await _alertService.sendAlert(
         targetPlateNumber: plateNumber,
         senderUserId: senderUserId,
         message: '${_urgencyLevel} alert: ${_selectedEmoji?.description ?? 'Vehicle alert'}',
         soundPath: soundPath,
+        urgencyLevel: _urgencyLevel,
       );
 
       if (mounted) {

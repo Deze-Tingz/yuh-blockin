@@ -3505,6 +3505,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         senderUserId: _currentUserId!,
         message: _alertSelectedEmoji ?? '🚗',
         soundPath: soundPath,
+        urgencyLevel: _alertUrgencyLevel,
       );
 
       if (mounted) {
