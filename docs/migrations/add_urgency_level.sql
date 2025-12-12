@@ -26,10 +26,15 @@ ALTER TABLE alerts ADD CONSTRAINT alerts_urgency_level_check
 UPDATE alerts SET urgency_level = 'normal' WHERE urgency_level IS NULL;
 
 -- =====================================================
--- STEP 2: Update or Create send_alert RPC function
+-- STEP 2: Drop old function overloads and create new one
 -- =====================================================
 
-CREATE OR REPLACE FUNCTION send_alert(
+-- Drop old overloads (3-arg and 4-arg versions)
+DROP FUNCTION IF EXISTS public.send_alert(text, text, text);
+DROP FUNCTION IF EXISTS public.send_alert(text, text, text, text);
+
+-- Create the new 5-argument function
+CREATE OR REPLACE FUNCTION public.send_alert(
     sender_user_id TEXT,
     target_plate_hash TEXT,
     alert_message TEXT DEFAULT NULL,
@@ -108,9 +113,9 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant execute permission to authenticated and anon users
-GRANT EXECUTE ON FUNCTION send_alert TO authenticated;
-GRANT EXECUTE ON FUNCTION send_alert TO anon;
+-- Grant execute permission with explicit signature
+GRANT EXECUTE ON FUNCTION public.send_alert(text, text, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.send_alert(text, text, text, text, text) TO anon;
 
 -- =====================================================
 -- STEP 3: Create index for urgency_level queries
@@ -128,5 +133,10 @@ CREATE INDEX IF NOT EXISTS idx_alerts_urgency_level ON alerts(urgency_level);
 -- FROM information_schema.columns
 -- WHERE table_name = 'alerts' AND column_name = 'urgency_level';
 --
--- 2. Test the function (replace with real values):
+-- 2. Check only one function overload exists:
+-- SELECT proname, pronargs, proargtypes
+-- FROM pg_proc
+-- WHERE proname = 'send_alert';
+--
+-- 3. Test the function (replace with real values):
 -- SELECT send_alert('user123', 'plate_hash_here', 'Test message', null, 'high');

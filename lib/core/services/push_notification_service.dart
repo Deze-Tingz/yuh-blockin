@@ -140,6 +140,33 @@ class PushNotificationService {
   /// Save FCM token to Supabase
   Future<void> _saveToken() async {
     try {
+      // IMPORTANT: On iOS, you MUST get the APNs token first before getting FCM token
+      // This ensures proper registration with Apple Push Notification service
+      if (Platform.isIOS) {
+        final apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          if (kDebugMode) {
+            debugPrint('APNs token is null - waiting for registration');
+          }
+          // Wait a bit and retry - APNs token may take time to be available
+          await Future.delayed(const Duration(seconds: 2));
+          final retryApnsToken = await _messaging.getAPNSToken();
+          if (retryApnsToken == null) {
+            if (kDebugMode) {
+              debugPrint('APNs token still null after retry');
+            }
+            return;
+          }
+          if (kDebugMode) {
+            debugPrint('APNs token obtained on retry');
+          }
+        } else {
+          if (kDebugMode) {
+            debugPrint('APNs token obtained successfully');
+          }
+        }
+      }
+
       final token = await _messaging.getToken();
       if (token == null) {
         if (kDebugMode) {
