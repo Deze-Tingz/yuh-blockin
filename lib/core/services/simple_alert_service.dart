@@ -24,12 +24,24 @@ class SimpleAlertService {
     if (_isInitialized) return;
 
     try {
-      await Supabase.initialize(
-        url: SupabaseConfig.url,
-        anonKey: SupabaseConfig.anonKey,
-      );
-
-      _supabase = Supabase.instance.client;
+      // Check if Supabase is already initialized (e.g., from main.dart)
+      // If not, initialize it
+      try {
+        _supabase = Supabase.instance.client;
+        if (kDebugMode) {
+          debugPrint('✅ Supabase already initialized, reusing instance');
+        }
+      } catch (e) {
+        // Supabase not initialized yet, initialize it now
+        if (kDebugMode) {
+          debugPrint('🔧 Initializing Supabase...');
+        }
+        await Supabase.initialize(
+          url: SupabaseConfig.url,
+          anonKey: SupabaseConfig.anonKey,
+        );
+        _supabase = Supabase.instance.client;
+      }
 
       // Try to sign in anonymously for 'authenticated' role
       // If captcha/auth fails, continue with anon role (tables have RLS for anon)
