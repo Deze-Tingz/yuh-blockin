@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 // Native splash removed - using custom AppInitializer splash instead
 import 'dart:async';
 import 'dart:math' as math;
@@ -38,8 +40,12 @@ import 'features/account_recovery/view_my_keys_screen.dart';
 /// Premium flagship-quality Yuh Blockin' app
 /// Inspired by Uber, Airbnb, Apple Human Interface guidelines
 /// Minimal, elegant, professional with subtle 2025 motion signature
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase before running the app
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const PremiumYuhBlockinApp());
 }
 

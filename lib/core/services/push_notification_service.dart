@@ -10,7 +10,10 @@ import '../../firebase_options.dart';
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Firebase is already initialized in main.dart, but background isolate needs it too
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
   if (kDebugMode) {
     debugPrint('Background push message: ${message.messageId}');
   }
@@ -44,10 +47,8 @@ class PushNotificationService {
     onNotificationTapped = onTap;
 
     try {
-      // Initialize Firebase with generated options
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-      // Set up background handler
+      // Firebase is already initialized in main.dart
+      // Just set up the background handler
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
       // Request permissions (iOS)
