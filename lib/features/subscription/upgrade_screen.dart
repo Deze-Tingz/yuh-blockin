@@ -112,51 +112,58 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 child: Column(
                   children: [
-                    // Hero icon
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        gradient: PremiumTheme.heroGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: PremiumTheme.accentColor.withAlpha(77),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                    // Hero icon + Title row
+                    Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: PremiumTheme.heroGradient,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: PremiumTheme.accentColor.withAlpha(77),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.star_fill,
-                        color: Colors.white,
-                        size: 44,
-                      ),
+                          child: const Icon(
+                            CupertinoIcons.star_fill,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Go Premium',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: PremiumTheme.primaryTextColor,
+                                ),
+                              ),
+                              Text(
+                                'Unlock unlimited alerts',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: PremiumTheme.secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    // Title
-                    Text(
-                      'Go Premium',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: PremiumTheme.primaryTextColor,
-
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Unlock unlimited alerts and support the app',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: PremiumTheme.secondaryTextColor,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
                     // Benefits
                     _buildBenefitsSection(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     // Payment method toggle
                     _buildPaymentMethodToggle(),
                     // ATH Móvil input section (phone or QR)
@@ -190,71 +197,50 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   Widget _buildBenefitsSection() {
     final benefits = [
-      (CupertinoIcons.infinite, 'Unlimited Alerts', 'Send as many alerts as you need'),
-      (CupertinoIcons.time_solid, 'No Daily Limits', 'Alert anytime, day or night'),
-      (CupertinoIcons.heart_fill, 'Support Development', 'Help us improve the app'),
-      (CupertinoIcons.sparkles, 'Priority Features', 'Early access to new features'),
+      (CupertinoIcons.infinite, 'Unlimited Alerts'),
+      (CupertinoIcons.time_solid, 'No Daily Limits'),
+      (CupertinoIcons.heart_fill, 'Support Development'),
+      (CupertinoIcons.sparkles, 'Priority Features'),
     ];
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: PremiumTheme.surfaceColor,
-        borderRadius: PremiumTheme.largeRadius,
+        borderRadius: PremiumTheme.mediumRadius,
         border: Border.all(
           color: PremiumTheme.dividerColor,
           width: 1,
         ),
       ),
-      child: Column(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: benefits.map((benefit) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: PremiumTheme.accentColor.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    benefit.$1,
-                    color: PremiumTheme.accentColor,
-                    size: 20,
-                  ),
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                benefit.$1,
+                color: PremiumTheme.accentColor,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                benefit.$2,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: PremiumTheme.primaryTextColor,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        benefit.$2,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: PremiumTheme.primaryTextColor,
-                        ),
-                      ),
-                      Text(
-                        benefit.$3,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: PremiumTheme.secondaryTextColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  CupertinoIcons.check_mark_circled_solid,
-                  color: CupertinoColors.systemGreen,
-                  size: 20,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                CupertinoIcons.check_mark,
+                color: CupertinoColors.systemGreen,
+                size: 14,
+              ),
+            ],
           );
         }).toList(),
       ),
@@ -646,7 +632,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             isPopular: false,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         // Lifetime plan
         Expanded(
           child: _buildPlanCard(
@@ -676,7 +662,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       onTap: () => setState(() => _selectedPlan = planId),
       child: AnimatedContainer(
         duration: PremiumTheme.fastDuration,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
               ? PremiumTheme.accentColor.withAlpha(20)
@@ -693,36 +679,36 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           children: [
             if (badge != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: PremiumTheme.accentColor,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   badge,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ] else
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
             Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: PremiumTheme.secondaryTextColor,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               price,
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 22,
                 fontWeight: FontWeight.w600,
                 color: PremiumTheme.primaryTextColor,
               ),
@@ -730,15 +716,15 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             Text(
               period,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: PremiumTheme.secondaryTextColor,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             // Selection indicator
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -753,7 +739,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                   ? const Icon(
                       CupertinoIcons.check_mark,
                       color: Colors.white,
-                      size: 16,
+                      size: 12,
                     )
                   : null,
             ),
