@@ -23,6 +23,17 @@
         android:label="Yuh Blockin"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Disable Firebase auto-initialization - we do it in Dart -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="yuh_blockin_push" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
