@@ -713,7 +713,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.primaryTextColor,
-
                       ),
                       decoration: InputDecoration(
                         hintText: 'e.g., ABC-1234',
@@ -729,6 +728,10 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s\-]')),
+                        LengthLimitingTextInputFormatter(12),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
