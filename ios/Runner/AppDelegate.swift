@@ -15,7 +15,9 @@ import UserNotifications
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
+    print("📱 APNs: Calling registerForRemoteNotifications()")
     application.registerForRemoteNotifications()
+    print("📱 APNs: isRegisteredForRemoteNotifications = \(application.isRegisteredForRemoteNotifications)")
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -25,6 +27,9 @@ import UserNotifications
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+    print("✅ APNs: Registration SUCCESS!")
+    print("✅ APNs: Device token (first 20 chars): \(String(tokenString.prefix(20)))...")
     // Pass device token to Flutter/Firebase
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
@@ -34,7 +39,8 @@ import UserNotifications
     _ application: UIApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
-    print("Failed to register for remote notifications: \(error.localizedDescription)")
+    print("❌ APNs: Registration FAILED!")
+    print("❌ APNs: Error: \(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 }
