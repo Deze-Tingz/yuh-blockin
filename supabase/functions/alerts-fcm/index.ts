@@ -1,13 +1,80 @@
-import { initializeApp, cert, getApps } from 'npm:firebase-admin@11.10.0/app';
-import { getMessaging } from 'npm:firebase-admin@11.10.0/messaging';
 import { createClient } from 'npm:@supabase/supabase-js@2.28.0';
+import { SignJWT, importPKCS8 } from 'npm:jose@5.2.0';
 
 // FCM error codes that indicate invalid/expired tokens
 const INVALID_TOKEN_ERRORS = [
-  'messaging/invalid-registration-token',
-  'messaging/registration-token-not-registered',
-  'messaging/invalid-argument',
+  'UNREGISTERED',
+  'INVALID_ARGUMENT',
 ];
+
+// Generate OAuth2 access token from service account
+async function getAccessToken(serviceAccount: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+
+  const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
+
+  const jwt = await new SignJWT({
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/firebase.messaging'
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(privateKey);
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get access token: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Send FCM message using HTTP v1 API
+async function sendFcmMessage(accessToken: string, projectId: string, message: any): Promise<any> {
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+  const body = JSON.stringify({ message });
+
+  console.log('FCM URL:', url);
+  console.log('Access token (first 50 chars):', accessToken.substring(0, 50) + '...');
+  console.log('Request body:', body.substring(0, 200));
+
+  const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body
+    }
+  );
+
+  const responseText = await response.text();
+  console.log('FCM response status:', response.status);
+  console.log('FCM response body:', responseText);
+
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch {
+    return { success: false, error: { message: responseText } };
+  }
+
+  if (!response.ok) {
+    return { success: false, error: data.error };
+  }
+
+  return { success: true, messageId: data.name };
+}
 
 Deno.serve(async (req: Request) => {
   try {
@@ -20,35 +87,34 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'missing receiver_id' }), { status: 400 });
     }
 
-    // Initialize Firebase Admin SDK
-    const firebaseProjectId = Deno.env.get('FIREBASE_PROJECT_ID');
-    const firebaseClientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL');
-    const firebasePrivateKey = Deno.env.get('FIREBASE_PRIVATE_KEY');
+    // Get service account from base64-encoded secret
+    const serviceAccountBase64 = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON');
 
-    if (!firebaseProjectId || !firebaseClientEmail || !firebasePrivateKey) {
-      console.error('Missing Firebase config');
-      return new Response(JSON.stringify({ error: 'missing firebase service account env vars' }), { status: 500 });
+    if (!serviceAccountBase64) {
+      console.error('Missing FIREBASE_SERVICE_ACCOUNT_JSON');
+      return new Response(JSON.stringify({ error: 'missing firebase service account' }), { status: 500 });
     }
 
-    if (!getApps().length) {
-      // Handle private key - convert escaped \n to actual newlines
-      let privateKey = firebasePrivateKey;
-      // If key contains literal \n strings, replace them with actual newlines
-      if (privateKey.includes('\\n')) {
-        privateKey = privateKey.replace(/\\n/g, '\n');
-      }
-
-      console.log('Private key starts with:', privateKey.substring(0, 30));
-      console.log('Private key length:', privateKey.length);
-
-      const serviceAccount = {
-        projectId: firebaseProjectId,
-        clientEmail: firebaseClientEmail,
-        privateKey: privateKey,
-      };
-      initializeApp({ credential: cert(serviceAccount) });
+    let serviceAccount: any;
+    try {
+      const serviceAccountJson = atob(serviceAccountBase64);
+      serviceAccount = JSON.parse(serviceAccountJson);
+      console.log('Service account project:', serviceAccount.project_id);
+      console.log('Service account email:', serviceAccount.client_email);
+    } catch (e) {
+      console.error('Failed to parse service account:', e);
+      return new Response(JSON.stringify({ error: 'invalid service account', details: e.message }), { status: 500 });
     }
-    const messaging = getMessaging();
+
+    // Get OAuth2 access token
+    let accessToken: string;
+    try {
+      accessToken = await getAccessToken(serviceAccount);
+      console.log('Got access token successfully');
+    } catch (e) {
+      console.error('Failed to get access token:', e);
+      return new Response(JSON.stringify({ error: 'auth failed', details: e.message }), { status: 500 });
+    }
 
     // Initialize Supabase client
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -85,58 +151,79 @@ Deno.serve(async (req: Request) => {
     const soundFile = sound_path?.split('/').pop() || soundMap[urgency_level] || 'normal_alert.wav';
     const androidSound = soundFile.replace('.wav', '');
 
-    // Build FCM message payload
+    // Send to each token
     const tokens = tokenRecords.map((r: any) => r.fcm_token).filter(Boolean);
-
-    const messagePayload = {
-      notification: {
-        title: "Yuh Blockin'",
-        body: message || "Someone needs you to move your car!"
-      },
-      tokens,
-      android: {
-        priority: 'high' as const,
-        notification: {
-          sound: androidSound,
-          channelId: `yuh_blockin_alert_${androidSound}`,
-        }
-      },
-      apns: {
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert'
-        },
-        payload: {
-          aps: {
-            sound: soundFile,
-            badge: 1,
-            'mutable-content': 1
-          }
-        }
-      },
-      data: {
-        alert_id: String(alert_id || ''),
-        urgency_level: urgency_level,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK'
-      },
-    };
+    const platforms = tokenRecords.map((r: any) => r.platform);
 
     console.log('Sending to', tokens.length, 'devices');
-    const response = await messaging.sendEachForMulticast(messagePayload as any);
-    console.log('FCM result:', { success: response.successCount, failure: response.failureCount });
 
-    // Clean up invalid tokens
+    let successCount = 0;
+    let failureCount = 0;
     const invalidTokens: string[] = [];
-    response.responses.forEach((resp: any, idx: number) => {
-      if (!resp.success && resp.error) {
-        const errorCode = resp.error.code;
-        console.log(`Token ${idx} failed:`, errorCode, resp.error.message);
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      const platform = platforms[i];
+
+      // Build platform-specific message
+      const fcmMessage: any = {
+        token,
+        notification: {
+          title: "Yuh Blockin'",
+          body: message || "Someone needs you to move your car!"
+        },
+        data: {
+          alert_id: String(alert_id || ''),
+          urgency_level: urgency_level,
+          click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        }
+      };
+
+      // Add Android-specific config
+      if (platform === 'android') {
+        fcmMessage.android = {
+          priority: 'high',
+          notification: {
+            sound: androidSound,
+            channel_id: `yuh_blockin_alert_${androidSound}`,
+          }
+        };
+      }
+
+      // Add iOS-specific config
+      if (platform === 'ios') {
+        fcmMessage.apns = {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert'
+          },
+          payload: {
+            aps: {
+              sound: soundFile,
+              badge: 1,
+              'mutable-content': 1
+            }
+          }
+        };
+      }
+
+      const result = await sendFcmMessage(accessToken, serviceAccount.project_id, fcmMessage);
+
+      if (result.success) {
+        successCount++;
+        console.log(`Token ${i} sent successfully:`, result.messageId);
+      } else {
+        failureCount++;
+        const errorCode = result.error?.details?.[0]?.errorCode || result.error?.status || 'UNKNOWN';
+        console.log(`Token ${i} failed:`, errorCode, result.error?.message);
 
         if (INVALID_TOKEN_ERRORS.includes(errorCode)) {
-          invalidTokens.push(tokens[idx]);
+          invalidTokens.push(token);
         }
       }
-    });
+    }
+
+    console.log('FCM result:', { success: successCount, failure: failureCount });
 
     // Delete invalid tokens from database
     if (invalidTokens.length > 0) {
@@ -166,8 +253,8 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({
       ok: true,
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      successCount,
+      failureCount,
       invalidTokensRemoved: invalidTokens.length
     }), { status: 200 });
 
