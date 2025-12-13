@@ -27,7 +27,7 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles --export-options-plist=$HOME/export_options.plist
 
       - name: Auto-increment build number
         script: |
@@ -50,8 +50,7 @@ workflows:
 
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa --release --export-options-plist=$HOME/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
