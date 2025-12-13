@@ -152,8 +152,8 @@ class PushNotificationService {
           if (kDebugMode) {
             debugPrint('APNs token is null - waiting for registration');
           }
-          // Wait a bit and retry - APNs token may take time to be available
-          await Future.delayed(const Duration(seconds: 2));
+          // Wait a bit and retry - APNs token may take time to be available on slow networks
+          await Future.delayed(const Duration(seconds: 5));
           final retryApnsToken = await _messaging.getAPNSToken();
           if (retryApnsToken == null) {
             if (kDebugMode) {
