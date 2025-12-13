@@ -3102,7 +3102,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       padding: EdgeInsets.symmetric(
         vertical: isTablet ? 16.0 : 8.0,
       ),
-      child: Container(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showQuickPlateManager();
+        },
+        child: Container(
         constraints: BoxConstraints(
           maxWidth: isTablet ? 320 : 280,
         ),
@@ -3182,6 +3187,52 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             ),
           ],
         ),
+      ),
+      ),
+    );
+  }
+
+  /// Show compact plate manager bottom sheet
+  void _showQuickPlateManager() async {
+    final plates = await _plateStorageService.getRegisteredPlates();
+    final primaryPlate = await _plateStorageService.getPrimaryPlate();
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _QuickPlateManagerSheet(
+        plates: plates,
+        primaryPlate: primaryPlate,
+        onSetPrimary: (plate) async {
+          await _plateStorageService.setPrimaryPlate(plate);
+          setState(() => _primaryPlate = plate);
+          if (mounted) Navigator.pop(context);
+        },
+        onAddPlate: () {
+          Navigator.pop(context);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const PlateRegistrationScreen(),
+            ),
+          ).then((_) async {
+            final plate = await _loadPrimaryPlateData();
+            if (mounted) setState(() => _primaryPlate = plate);
+          });
+        },
+        onManagePlates: () {
+          Navigator.pop(context);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const PlateRegistrationScreen(),
+            ),
+          ).then((_) async {
+            final plate = await _loadPrimaryPlateData();
+            if (mounted) setState(() => _primaryPlate = plate);
+          });
+        },
       ),
     );
   }
@@ -5979,6 +6030,227 @@ class _ActivityItem {
     required this.isReceived,
     required this.time,
   });
+}
+
+/// Compact plate manager bottom sheet for quick plate switching/adding
+class _QuickPlateManagerSheet extends StatelessWidget {
+  final List<String> plates;
+  final String? primaryPlate;
+  final Function(String) onSetPrimary;
+  final VoidCallback onAddPlate;
+  final VoidCallback onManagePlates;
+
+  const _QuickPlateManagerSheet({
+    required this.plates,
+    required this.primaryPlate,
+    required this.onSetPrimary,
+    required this.onAddPlate,
+    required this.onManagePlates,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 16,
+        bottom: bottomPadding + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: PremiumTheme.dividerColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Header
+          Row(
+            children: [
+              Icon(
+                Icons.directions_car_rounded,
+                color: PremiumTheme.accentColor,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'My Vehicles',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: PremiumTheme.primaryTextColor,
+                ),
+              ),
+              const Spacer(),
+              // Manage button
+              GestureDetector(
+                onTap: onManagePlates,
+                child: Text(
+                  'Manage',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: PremiumTheme.accentColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Plate list or empty state
+          if (plates.isEmpty)
+            _buildEmptyState()
+          else
+            ...plates.map((plate) => _buildPlateItem(plate, context)),
+
+          const SizedBox(height: 16),
+
+          // Add plate button
+          GestureDetector(
+            onTap: onAddPlate,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: PremiumTheme.accentColor.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_rounded,
+                    color: PremiumTheme.accentColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Add Vehicle',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: PremiumTheme.accentColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        children: [
+          Icon(
+            Icons.directions_car_outlined,
+            size: 48,
+            color: PremiumTheme.tertiaryTextColor,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No vehicles registered',
+            style: TextStyle(
+              fontSize: 15,
+              color: PremiumTheme.secondaryTextColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Add your license plate to get started',
+            style: TextStyle(
+              fontSize: 13,
+              color: PremiumTheme.tertiaryTextColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlateItem(String plate, BuildContext context) {
+    final isPrimary = plate == primaryPlate;
+
+    return GestureDetector(
+      onTap: isPrimary ? null : () => onSetPrimary(plate),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isPrimary
+              ? PremiumTheme.accentColor.withValues(alpha: 0.1)
+              : PremiumTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isPrimary
+                ? PremiumTheme.accentColor.withValues(alpha: 0.3)
+                : PremiumTheme.dividerColor,
+            width: isPrimary ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Plate number
+            Text(
+              plate,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: PremiumTheme.primaryTextColor,
+              ),
+            ),
+            const Spacer(),
+            // Primary badge or set primary hint
+            if (isPrimary)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.accentColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Active',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            else
+              Text(
+                'Tap to activate',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: PremiumTheme.tertiaryTextColor,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Premium animated toast widget with smooth morph-like animations

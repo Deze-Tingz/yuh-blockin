@@ -31,10 +31,20 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!getApps().length) {
+      // Handle private key - convert escaped \n to actual newlines
+      let privateKey = firebasePrivateKey;
+      // If key contains literal \n strings, replace them with actual newlines
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
+      console.log('Private key starts with:', privateKey.substring(0, 30));
+      console.log('Private key length:', privateKey.length);
+
       const serviceAccount = {
         projectId: firebaseProjectId,
         clientEmail: firebaseClientEmail,
-        privateKey: firebasePrivateKey.replace(/\\n/g, '\n'),
+        privateKey: privateKey,
       };
       initializeApp({ credential: cert(serviceAccount) });
     }
