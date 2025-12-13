@@ -1,5 +1,13 @@
 workflows:
   ios-release:
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'feature/*'
+          include: true
+        - pattern: 'main'
+          include: true
     name: iOS Release Build
     max_build_duration: 60
     instance_type: mac_mini_m1
@@ -48,6 +56,12 @@ workflows:
         submit_to_testflight: true
 
   android-release:
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'main'
+          include: true
     name: Android Release Build
     max_build_duration: 30
     instance_type: linux_x2
