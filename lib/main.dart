@@ -248,7 +248,7 @@ class _AppInitializerState extends State<AppInitializer>
       final hasCompletedOnboarding =
           prefs.getBool('onboarding_completed') ?? false;
       final userId = prefs.getString('user_id');
-      final hasUserId = userId != null;
+      final hasUserId = userId != null && userId.isNotEmpty;
 
       debugPrint(
           '🔍 AppInitializer: hasCompletedOnboarding = $hasCompletedOnboarding');
@@ -256,32 +256,33 @@ class _AppInitializerState extends State<AppInitializer>
 
       if (!mounted) return;
 
-      // Check for auto-login: user has completed onboarding AND has user ID
-      // OR user has registered plates (for returning users on same device)
-      if (hasCompletedOnboarding && hasUserId) {
-        _goToHome = true;
-      } else if (hasUserId) {
-        // User has ID but hasn't completed onboarding
-        // Check if they have registered plates (auto-login scenario)
-        try {
-          final recoveryService = AccountRecoveryService();
-          final autoLoginResult = await recoveryService.checkAutoLogin();
+      // Primary check: Does user have registered plates?
+      // This is the most reliable indicator of a returning user
+      try {
+        final recoveryService = AccountRecoveryService();
+        final autoLoginResult = await recoveryService.checkAutoLogin();
 
-          if (autoLoginResult.canAutoLogin) {
-            debugPrint('🔓 Auto-login: User has ${autoLoginResult.plateCount} registered plate(s)');
-            // Mark onboarding as complete for returning users
-            await prefs.setBool('onboarding_completed', true);
-            _goToHome = true;
-          } else {
-            debugPrint('🔄 Auto-login failed: ${autoLoginResult.reason}');
-            _goToHome = false;
-          }
-        } catch (e) {
-          debugPrint('⚠️ Auto-login check error: $e');
+        if (autoLoginResult.canAutoLogin) {
+          debugPrint('🔓 Auto-login: User has ${autoLoginResult.plateCount} registered plate(s)');
+          // Ensure flags are set for future launches
+          await prefs.setBool('onboarding_completed', true);
+          _goToHome = true;
+        } else if (hasCompletedOnboarding && hasUserId) {
+          // Fallback: User has flags but no plates yet (edge case)
+          debugPrint('🔓 Flags present but no plates - going to home');
+          _goToHome = true;
+        } else {
+          debugPrint('🔄 New user - showing onboarding');
           _goToHome = false;
         }
-      } else {
-        _goToHome = false;
+      } catch (e) {
+        debugPrint('⚠️ Auto-login check error: $e');
+        // Fallback to flag-based check on error
+        if (hasCompletedOnboarding && hasUserId) {
+          _goToHome = true;
+        } else {
+          _goToHome = false;
+        }
       }
 
       // Show splash for 3.5 seconds to display branding properly
