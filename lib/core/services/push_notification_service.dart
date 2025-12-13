@@ -11,9 +11,13 @@ import 'sound_preferences_service.dart';
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase is already initialized in main.dart, but background isolate needs it too
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Firebase may need initialization in background isolate
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    }
+  } catch (e) {
+    // Already initialized
   }
   if (kDebugMode) {
     debugPrint('Background push message: ${message.messageId}');
