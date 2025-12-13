@@ -29,6 +29,16 @@ workflows:
           keychain add-certificates
           xcode-project use-profiles
 
+      - name: Auto-increment build number
+        script: |
+          # Get current build number from pubspec.yaml
+          CURRENT_BUILD=$(grep -o 'version: [0-9.]*+[0-9]*' pubspec.yaml | grep -o '+[0-9]*' | tr -d '+')
+          # Increment by 1
+          NEW_BUILD=$((CURRENT_BUILD + 1))
+          # Update pubspec.yaml with new build number
+          sed -i '' "s/version: \([0-9.]*\)+[0-9]*/version: \1+$NEW_BUILD/" pubspec.yaml
+          echo "Build number updated: $CURRENT_BUILD -> $NEW_BUILD"
+
       - name: Get Flutter packages
         script: flutter pub get
 
