@@ -160,6 +160,7 @@ Deno.serve(async (req: Request) => {
     let successCount = 0;
     let failureCount = 0;
     const invalidTokens: string[] = [];
+    const errorDetails: any[] = [];
 
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -216,6 +217,7 @@ Deno.serve(async (req: Request) => {
         failureCount++;
         const errorCode = result.error?.details?.[0]?.errorCode || result.error?.status || 'UNKNOWN';
         console.log(`Token ${i} failed:`, errorCode, result.error?.message);
+        errorDetails.push({ platform, errorCode, message: result.error?.message, details: result.error?.details });
 
         if (INVALID_TOKEN_ERRORS.includes(errorCode)) {
           invalidTokens.push(token);
@@ -255,7 +257,8 @@ Deno.serve(async (req: Request) => {
       ok: true,
       successCount,
       failureCount,
-      invalidTokensRemoved: invalidTokens.length
+      invalidTokensRemoved: invalidTokens.length,
+      errors: errorDetails.length > 0 ? errorDetails : undefined
     }), { status: 200 });
 
   } catch (err) {
