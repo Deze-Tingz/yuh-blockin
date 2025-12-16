@@ -137,6 +137,11 @@ Deno.serve(async (req: Request) => {
 
     const tokenRecords = tokenData || [];
     console.log('Found tokens:', tokenRecords.length);
+    // Log tokens by platform for debugging
+    console.log('Tokens by platform:', tokenRecords.map((r: any) => ({
+      platform: r.platform,
+      tokenLength: (r.fcm_token || '').length
+    })));
 
     if (!tokenRecords.length) {
       return new Response(JSON.stringify({ ok: true, message: 'no tokens registered' }));
@@ -153,7 +158,7 @@ Deno.serve(async (req: Request) => {
 
     // Send to each token
     const tokens = tokenRecords.map((r: any) => r.fcm_token).filter(Boolean);
-    const platforms = tokenRecords.map((r: any) => r.platform);
+    const platforms = tokenRecords.map((r: any) => String(r.platform || '').toLowerCase());
 
     console.log('Sending to', tokens.length, 'devices');
 
@@ -191,7 +196,7 @@ Deno.serve(async (req: Request) => {
         };
       }
 
-      // Add iOS-specific config
+      // Add iOS-specific config with explicit aps.alert
       if (platform === 'ios') {
         fcmMessage.apns = {
           headers: {
@@ -200,9 +205,12 @@ Deno.serve(async (req: Request) => {
           },
           payload: {
             aps: {
-              sound: soundFile,
-              badge: 1,
-              'mutable-content': 1
+              alert: {
+                title: "Yuh Blockin'",
+                body: message || "Someone needs you to move your car!"
+              },
+              sound: "default",
+              badge: 1
             }
           }
         };
@@ -212,11 +220,17 @@ Deno.serve(async (req: Request) => {
 
       if (result.success) {
         successCount++;
-        console.log(`Token ${i} sent successfully:`, result.messageId);
+        console.log(`Token ${i} (${platform}) sent successfully:`, result.messageId);
       } else {
         failureCount++;
-        const errorCode = result.error?.details?.[0]?.errorCode || result.error?.status || 'UNKNOWN';
-        console.log(`Token ${i} failed:`, errorCode, result.error?.message);
+        // Improved error code extraction
+        const details = result.error?.details || [];
+        const errorCode =
+          details.find((d: any) => d.errorCode)?.errorCode ||
+          result.error?.status ||
+          'UNKNOWN';
+        console.log(`Token ${i} (${platform}) failed:`, errorCode, result.error?.message);
+        console.log(`Token ${i} full error:`, JSON.stringify(result.error));
         errorDetails.push({ platform, errorCode, message: result.error?.message, details: result.error?.details });
 
         if (INVALID_TOKEN_ERRORS.includes(errorCode)) {

@@ -43,7 +43,7 @@ Also verify Codemagic workflow is set to the correct branch (`main` vs `master`)
 3. Fill in:
    - Platform: iOS
    - Name: Yuh Blockin
-   - Bundle ID: `com.yuhblockin.yuhBlockinApp`
+   - Bundle ID: `com.dezetingz.yuhBlockin`
    - SKU: `yuh-blockin-app` (any unique identifier)
 4. Create the app, then re-run build
 
