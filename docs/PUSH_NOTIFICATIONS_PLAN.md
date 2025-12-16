@@ -46,7 +46,7 @@ Enable users to receive alert notifications with custom sounds even when the app
 
 #### 1.3 Android Configuration
 - Firebase Console → Add Android app
-- Package name: `com.dezetingz.yuhblockin` (verify in android/app/build.gradle)
+- Package name: `com.dezetingz.yuhBlockin` (verify in android/app/build.gradle.kts)
 - Download `google-services.json`
 - Place in `android/app/google-services.json`
 

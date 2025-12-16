@@ -466,24 +466,31 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       child: Column(
         children: [
           // QR Code - Cropped to show only the ATH card portion
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              width: 240,
-              height: 320,
-              child: FittedBox(
-                fit: BoxFit.cover,
-                alignment: const Alignment(0.0, 0.15), // Center on the QR card
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive sizing: max 240 width, maintain aspect ratio
+              final maxWidth = constraints.maxWidth.clamp(0.0, 240.0);
+              final height = maxWidth * (320 / 240); // Maintain 240:320 aspect ratio
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(16),
                 child: SizedBox(
-                  width: 300,
-                  height: 650,
-                  child: Image.asset(
-                    'assets/images/yuhblockin_monthly_qrcode_ath.jpeg',
+                  width: maxWidth,
+                  height: height,
+                  child: FittedBox(
                     fit: BoxFit.cover,
+                    alignment: const Alignment(0.0, 0.15), // Center on the QR card
+                    child: SizedBox(
+                      width: 300,
+                      height: 650,
+                      child: Image.asset(
+                        'assets/images/yuhblockin_monthly_qrcode_ath.jpeg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(height: 16),
 

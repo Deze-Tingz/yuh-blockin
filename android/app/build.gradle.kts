@@ -23,7 +23,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.yuhblockin.yuh_blockin_app"
+    namespace = "com.dezetingz.yuhBlockin"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -47,7 +47,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yuhblockin.yuh_blockin_app"
+        applicationId = "com.dezetingz.yuhBlockin"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

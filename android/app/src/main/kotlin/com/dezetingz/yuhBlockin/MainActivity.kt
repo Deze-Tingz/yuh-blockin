@@ -1,4 +1,4 @@
-package com.yuhblockin.yuh_blockin_app
+package com.dezetingz.yuhBlockin
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

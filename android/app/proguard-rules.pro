@@ -20,4 +20,4 @@
 -keep class okio.** { *; }
 
 # Keep model classes
--keep class com.yuhblockin.** { *; }
+-keep class com.dezetingz.yuhBlockin.** { *; }

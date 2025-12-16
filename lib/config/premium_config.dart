@@ -106,17 +106,12 @@ class PremiumConfig {
     '👑 VIP Caribbean community status',
   ];
 
-  // Store Information
-  static const String androidPackageId = isPremium
-      ? 'com.yuhblockin.premium'
-      : 'com.yuhblockin.app';
+  // Store Information (must match actual bundle IDs in build configs)
+  static const String bundleId = 'com.dezetingz.yuhBlockin';
 
-  static const String iosBundle = isPremium
-      ? 'com.yuhblockin.premium'
-      : 'com.yuhblockin.app';
-
-  // Version Information
+  // Version Information (keep in sync with pubspec.yaml)
   static const String version = '1.0.0';
+  static const int buildNumber = 86;
   static String get fullVersion => isPremium ? '$version Premium' : '$version Free';
 
   // Caribbean Premium Expressions
