@@ -111,7 +111,7 @@ class PremiumConfig {
 
   // Version Information (keep in sync with pubspec.yaml)
   static const String version = '1.0.0';
-  static const int buildNumber = 88;
+  static const int buildNumber = 89;
   static String get fullVersion => isPremium ? '$version Premium' : '$version Free';
 
   // Caribbean Premium Expressions
