@@ -53,8 +53,8 @@ class DefaultFirebaseOptions {
 
   // Android configuration from google-services.json
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDLkXIA2LPdUn1gy2t1wQ2NMtlxXPhsg80',
-    appId: '1:383487814092:android:71c19edf5322738fe65569',
+    apiKey: 'AIzaSyD2KHTFzgzpYSo2A8k52e6Fd-MeA9XPoHc',
+    appId: '1:383487814092:android:603ce0c2284d6f0ee65569',
     messagingSenderId: '383487814092',
     projectId: 'yuh-blockin',
     storageBucket: 'yuh-blockin.firebasestorage.app',

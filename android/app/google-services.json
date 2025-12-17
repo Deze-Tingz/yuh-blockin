@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:383487814092:android:71c19edf5322738fe65569",
+        "mobilesdk_app_id": "1:383487814092:android:603ce0c2284d6f0ee65569",
         "android_client_info": {
           "package_name": "com.dezetingz.yuhBlockin"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDLkXIA2LPdUn1gy2t1wQ2NMtlxXPhsg80"
+          "current_key": "AIzaSyD2KHTFzgzpYSo2A8k52e6Fd-MeA9XPoHc"
         }
       ],
       "services": {
