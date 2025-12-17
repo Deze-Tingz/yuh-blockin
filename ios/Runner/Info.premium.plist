@@ -58,6 +58,12 @@
 	<key>PremiumDarkMode</key>
 	<true/>
 
+	<!-- Firebase Push Notifications -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<key>FirebaseAutomaticScreenReportingEnabled</key>
+	<false/>
+
 	<!-- Background Modes for Premium ETA Tracking -->
 	<key>UIBackgroundModes</key>
 	<array>
