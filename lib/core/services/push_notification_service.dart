@@ -179,6 +179,17 @@ class PushNotificationService {
         return;
       }
 
+      // ===== FCM TOKEN FOR TESTING =====
+      // Print full token so it can be copied for push notification testing
+      debugPrint('');
+      debugPrint('╔══════════════════════════════════════════════════════════════╗');
+      debugPrint('║                    FCM TOKEN FOR TESTING                     ║');
+      debugPrint('╠══════════════════════════════════════════════════════════════╣');
+      debugPrint('║ $token');
+      debugPrint('╚══════════════════════════════════════════════════════════════╝');
+      debugPrint('');
+      // ==================================
+
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
       if (userId == null) {
