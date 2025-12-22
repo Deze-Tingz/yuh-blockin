@@ -180,7 +180,11 @@ Deno.serve(async (req: Request) => {
     const emojiMatch = (message || '').match(emojiRegex);
     const emoji = emojiMatch ? emojiMatch[0] : '🚗';
     const notificationTitle = `${emoji} Yuh Blockin'!`;
-    const notificationBody = message || "Someone needs you to move your vehicle!";
+    // Remove emoji from body text (it's already in the title)
+    const bodyText = emojiMatch
+      ? (message || '').replace(emojiRegex, '').trim()
+      : (message || '');
+    const notificationBody = bodyText || "Someone needs you to move your vehicle!";
 
     console.log('Notification:', { emoji, title: notificationTitle, body: notificationBody, sound: soundFile });
 
