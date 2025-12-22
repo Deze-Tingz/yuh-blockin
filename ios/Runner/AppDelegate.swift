@@ -1,6 +1,8 @@
 import Flutter
 import UIKit
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,6 +10,9 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Initialize Firebase FIRST
+    FirebaseApp.configure()
+
     GeneratedPluginRegistrant.register(with: self)
 
     // Register for remote notifications with APNs
@@ -30,7 +35,8 @@ import UserNotifications
     let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
     print("✅ APNs: Registration SUCCESS!")
     print("✅ APNs: Device token (first 20 chars): \(String(tokenString.prefix(20)))...")
-    // Pass device token to Flutter/Firebase
+    // Pass device token to Firebase Messaging
+    Messaging.messaging().apnsToken = deviceToken
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
