@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// Firebase is initialized in native iOS/Android code
+import 'package:firebase_core/firebase_core.dart';
 // Native splash removed - using custom AppInitializer splash instead
 import 'dart:async';
 import 'dart:math' as math;
@@ -42,9 +42,9 @@ import 'features/account_recovery/view_my_keys_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase is configured in iOS AppDelegate.swift
-  // On Android, it auto-initializes from google-services.json
-  // No Dart-side initialization needed
+  // Initialize Firebase - uses native config from GoogleService-Info.plist (iOS)
+  // and google-services.json (Android) which are already configured
+  await Firebase.initializeApp();
 
   runApp(const PremiumYuhBlockinApp());
 }

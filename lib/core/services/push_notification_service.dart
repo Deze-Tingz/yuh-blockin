@@ -10,7 +10,8 @@ import 'sound_preferences_service.dart';
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase is already configured natively - just log the message
+  // Ensure Firebase is initialized in background isolate
+  await Firebase.initializeApp();
   if (kDebugMode) {
     debugPrint('Background push message: ${message.messageId}');
   }
@@ -44,8 +45,7 @@ class PushNotificationService {
     onNotificationTapped = onTap;
 
     try {
-      // Firebase is already initialized in main.dart
-      // Just set up the background handler
+      // Set up the background handler
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
       // Request permissions (iOS)
