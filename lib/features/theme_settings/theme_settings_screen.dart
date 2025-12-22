@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/premium_theme.dart';
 import '../../core/services/subscription_service.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../main.dart';
 
 /// Premium theme settings screen
@@ -19,11 +20,15 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
   String _selectedTheme = PremiumTheme.currentMode;
   bool _isPremiumUser = false;
   final SubscriptionService _subscriptionService = SubscriptionService();
+  String? _fcmToken;
+  int _debugTapCount = 0;
+  bool _showDebugInfo = false;
 
   @override
   void initState() {
     super.initState();
     _checkPremiumStatus();
+    _loadFcmToken();
   }
 
   void _checkPremiumStatus() {
@@ -31,6 +36,44 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
     setState(() {
       _isPremiumUser = _subscriptionService.isPremium;
     });
+  }
+
+  Future<void> _loadFcmToken() async {
+    final token = await PushNotificationService().getToken();
+    if (mounted) {
+      setState(() {
+        _fcmToken = token;
+      });
+    }
+  }
+
+  void _onFooterTap() {
+    _debugTapCount++;
+    if (_debugTapCount >= 5) {
+      setState(() {
+        _showDebugInfo = !_showDebugInfo;
+        _debugTapCount = 0;
+      });
+      HapticFeedback.mediumImpact();
+    }
+  }
+
+  void _copyFcmToken() {
+    if (_fcmToken != null) {
+      Clipboard.setData(ClipboardData(text: _fcmToken!));
+      HapticFeedback.lightImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('FCM Token copied to clipboard'),
+          backgroundColor: PremiumTheme.accentColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -202,35 +245,130 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
 
                   SizedBox(height: sectionSpacing),
 
-                  // Footer with DezeTingz branding
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 1,
-                          width: 60,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                PremiumTheme.accentColor.withValues(alpha: 0.0),
-                                PremiumTheme.accentColor.withValues(alpha: 0.3),
-                                PremiumTheme.accentColor.withValues(alpha: 0.0),
-                              ],
+                  // Footer with DezeTingz branding - tap 5 times for debug info
+                  GestureDetector(
+                    onTap: _onFooterTap,
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 1,
+                            width: 60,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  PremiumTheme.accentColor.withValues(alpha: 0.0),
+                                  PremiumTheme.accentColor.withValues(alpha: 0.3),
+                                  PremiumTheme.accentColor.withValues(alpha: 0.0),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'DezeTingz © 2026',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: PremiumTheme.tertiaryTextColor,
+                          const SizedBox(height: 16),
+                          Text(
+                            'DezeTingz © 2026',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: PremiumTheme.tertiaryTextColor,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+
+                  // Debug info section (hidden until footer tapped 5 times)
+                  if (_showDebugInfo) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: PremiumTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.bug_report_rounded,
+                                size: 18,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Debug Info',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'FCM Token:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: PremiumTheme.secondaryTextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: _copyFcmToken,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: PremiumTheme.backgroundColor,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: PremiumTheme.dividerColor,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _fcmToken ?? 'Loading...',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontFamily: 'monospace',
+                                        color: PremiumTheme.primaryTextColor,
+                                      ),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.copy_rounded,
+                                    size: 18,
+                                    color: PremiumTheme.accentColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap to copy',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: PremiumTheme.tertiaryTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
                 ],
               ),
