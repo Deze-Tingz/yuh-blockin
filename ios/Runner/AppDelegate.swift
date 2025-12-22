@@ -7,8 +7,12 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Minimal AppDelegate - Firebase handled entirely by Flutter plugin
     GeneratedPluginRegistrant.register(with: self)
+
+    // Register for remote notifications - required by Apple
+    // Firebase plugin handles token via FirebaseAppDelegateProxyEnabled=true
+    application.registerForRemoteNotifications()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }

@@ -45,7 +45,7 @@ const message = {
       aps: {
         alert: {
           title: "Yuh Blockin' Test",
-          body: "iOS push notification working! 🏝️"
+          body: "iOS push notification working! BITCH!!!!!!!!!🏝️"
         },
         sound: 'default',
         badge: 1,
