@@ -137,34 +137,35 @@ class PushNotificationService {
   /// Save FCM token to Supabase
   Future<void> _saveToken() async {
     try {
-      // IMPORTANT: On iOS, you MUST get the APNs token first before getting FCM token
-      // This ensures proper registration with Apple Push Notification service
+      // On iOS, try to get APNs token first (with timeout)
       if (Platform.isIOS) {
-        final apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
-          if (kDebugMode) {
-            debugPrint('APNs token is null - waiting for registration');
-          }
-          // Wait a bit and retry - APNs token may take time to be available on slow networks
-          await Future.delayed(const Duration(seconds: 5));
-          final retryApnsToken = await _messaging.getAPNSToken();
-          if (retryApnsToken == null) {
+        try {
+          final apnsToken = await _messaging.getAPNSToken().timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => null,
+          );
+          if (apnsToken == null) {
             if (kDebugMode) {
-              debugPrint('APNs token still null after retry');
+              debugPrint('APNs token not available yet - will retry later');
             }
-            return;
+            // Don't block - FCM might still work or we'll retry later
+          } else {
+            if (kDebugMode) {
+              debugPrint('APNs token obtained');
+            }
           }
+        } catch (e) {
           if (kDebugMode) {
-            debugPrint('APNs token obtained on retry');
-          }
-        } else {
-          if (kDebugMode) {
-            debugPrint('APNs token obtained successfully');
+            debugPrint('APNs token error: $e');
           }
         }
       }
 
-      final token = await _messaging.getToken();
+      // Get FCM token with timeout
+      final token = await _messaging.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
       if (token == null) {
         if (kDebugMode) {
           debugPrint('FCM token is null');

@@ -835,24 +835,23 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       },
     );
 
-    // Initialize push notification service (Firebase)
-    try {
-      await _pushNotificationService.initialize(
-        onTap: (alertId) {
-          if (kDebugMode) {
-            debugPrint('Push notification tapped with alert: $alertId');
-          }
-          // Could navigate to specific alert
-        },
-      );
+    // Initialize push notification service (Firebase) - non-blocking
+    // Don't await - let it run in background so app doesn't hang
+    _pushNotificationService.initialize(
+      onTap: (alertId) {
+        if (kDebugMode) {
+          debugPrint('Push notification tapped with alert: $alertId');
+        }
+      },
+    ).then((_) {
       if (kDebugMode) {
         debugPrint('Push notification service initialized');
       }
-    } catch (e) {
+    }).catchError((e) {
       if (kDebugMode) {
         debugPrint('Push notification initialization error: $e');
       }
-    }
+    });
 
     // Initialize background alert service for reliable locked-screen notifications
     try {
