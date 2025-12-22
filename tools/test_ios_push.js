@@ -15,9 +15,14 @@ admin.initializeApp({
 const token = process.argv[2];
 
 if (!token) {
-  console.log('Usage: node test_ios_push.js <ios_fcm_token>');
+  console.log('Usage: node test_ios_push.js <fcm_token> [emoji] [urgency]');
   console.log('');
-  console.log('Get the token from the app debug console when running on iOS device.');
+  console.log('Examples:');
+  console.log('  node test_ios_push.js <token>              # Default: 🚗 emoji, normal urgency');
+  console.log('  node test_ios_push.js <token> 🚨 high      # High urgency with 🚨 emoji');
+  console.log('  node test_ios_push.js <token> 🙏 low       # Low urgency with 🙏 emoji');
+  console.log('');
+  console.log('Urgency levels: low, normal, high');
   process.exit(1);
 }
 
@@ -25,16 +30,44 @@ console.log('🍎 Sending iOS Push Notification Test');
 console.log('Token:', token.substring(0, 30) + '...');
 console.log('');
 
+// Get optional emoji from args (default: 🚗)
+const emoji = process.argv[3] || '🚗';
+const urgencyLevel = process.argv[4] || 'normal';
+
+// Map urgency to sound file
+const soundMap = {
+  'low': 'low_alert_1.wav',
+  'normal': 'normal_alert.wav',
+  'high': 'high_alert_1.wav'
+};
+const soundFile = soundMap[urgencyLevel] || 'normal_alert.wav';
+
+console.log('Emoji:', emoji);
+console.log('Urgency:', urgencyLevel);
+console.log('Sound:', soundFile);
+console.log('');
+
 const message = {
   token: token,
   notification: {
-    title: "Yuh Blockin' Test",
-    body: "iOS push notification working! 🏝️"
+    title: `${emoji} Yuh Blockin'!`,
+    body: "Someone needs you to move your vehicle!"
   },
   data: {
     alert_id: 'test_123',
-    type: 'test',
+    type: 'alert',
+    emoji: emoji,
+    urgency_level: urgencyLevel,
     click_action: 'FLUTTER_NOTIFICATION_CLICK'
+  },
+  android: {
+    priority: 'high',
+    notification: {
+      channelId: 'yuh_blockin_alerts',
+      priority: 'max',
+      defaultSound: false,
+      sound: urgencyLevel === 'high' ? 'high_alert_1' : 'normal_alert'
+    }
   },
   apns: {
     headers: {
@@ -44,13 +77,14 @@ const message = {
     payload: {
       aps: {
         alert: {
-          title: "Yuh Blockin' Test",
-          body: "iOS push notification working! BITCH!!!!!!!!!🏝️"
+          title: `${emoji} Yuh Blockin'!`,
+          body: "Someone needs you to move your vehicle!"
         },
-        sound: 'default',
+        sound: soundFile,
         badge: 1,
         'mutable-content': 1,
-        'content-available': 1
+        'content-available': 1,
+        'interruption-level': 'time-sensitive'
       }
     }
   }

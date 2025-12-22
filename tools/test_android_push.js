@@ -9,12 +9,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // User ID from the app logs
 const USER_ID = process.argv[2] || 'user_1765931820245';
+const EMOJI = process.argv[3] || '🚗';
+const URGENCY = process.argv[4] || 'normal';
 
 const payload = JSON.stringify({
   alert_id: 'test-android-push',
   receiver_id: USER_ID,
-  message: 'Test push from CLI - Android',
-  urgency_level: 'high'
+  message: `${EMOJI} Someone needs you to move!`,
+  emoji: EMOJI,
+  urgency_level: URGENCY
 });
 
 const options = {
@@ -30,6 +33,8 @@ const options = {
 
 console.log('📱 Testing Android push notification...');
 console.log(`   User ID: ${USER_ID}`);
+console.log(`   Emoji: ${EMOJI}`);
+console.log(`   Urgency: ${URGENCY}`);
 console.log(`   Endpoint: https://${SUPABASE_URL}/functions/v1/alerts-fcm\n`);
 
 const req = https.request(options, (res) => {

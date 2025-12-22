@@ -224,15 +224,21 @@ class PushNotificationService {
   void _onForegroundMessage(RemoteMessage message) {
     if (kDebugMode) {
       debugPrint('Foreground message: ${message.notification?.title}');
+      debugPrint('Message data: ${message.data}');
     }
 
     // Show local notification since app is in foreground
     final notification = message.notification;
     if (notification != null) {
-      // Get urgency level from message data, default to 'normal'
+      // Get urgency level and emoji from message data
       final urgencyLevel = message.data['urgency_level'] ?? 'normal';
+      final emoji = message.data['emoji'] ?? '🚗';
+
+      // Include emoji in the title
+      final titleWithEmoji = '$emoji ${notification.title ?? "Yuh Blockin'!"}';
+
       _showLocalNotification(
-        title: notification.title ?? 'New Alert',
+        title: titleWithEmoji,
         body: notification.body ?? 'You have a new alert',
         payload: message.data['alert_id'],
         urgencyLevel: urgencyLevel,
@@ -317,7 +323,8 @@ class PushNotificationService {
       presentBadge: true,
       presentSound: true,
       sound: iosSoundFileName,
-      interruptionLevel: InterruptionLevel.active,
+      // timeSensitive bypasses Focus/DND and shows on lock screen
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     final details = NotificationDetails(
