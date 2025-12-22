@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
-import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,42 +9,29 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Firebase is initialized in Dart (main.dart)
-    // FirebaseAppDelegateProxyEnabled=true in Info.plist handles APNs token forwarding
+    // Initialize Firebase in Swift - MUST happen before APNs token arrives
+    // The Flutter plugin will detect this and skip re-initialization
+    FirebaseApp.configure()
+
+    // Register for remote notifications
+    application.registerForRemoteNotifications()
 
     GeneratedPluginRegistrant.register(with: self)
-
-    // Register for remote notifications with APNs
-    // This is required by Apple - must be called at launch
-    if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self
-    }
-    print("📱 APNs: Calling registerForRemoteNotifications()")
-    application.registerForRemoteNotifications()
-    print("📱 APNs: isRegisteredForRemoteNotifications = \(application.isRegisteredForRemoteNotifications)")
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Handle successful APNs registration - logged for debugging
-  override func application(
-    _ application: UIApplication,
-    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-  ) {
-    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-    print("✅ APNs: Registration SUCCESS!")
-    print("✅ APNs: Device token (first 20 chars): \(String(tokenString.prefix(20)))...")
-    // Firebase proxy (enabled in Info.plist) automatically forwards token to FCM
+  // APNs token received - pass to Firebase Messaging
+  override func application(_ application: UIApplication,
+                          didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    print("✅ APNs token received: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
+    Messaging.messaging().apnsToken = deviceToken
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
-  // Handle failed APNs registration
-  override func application(
-    _ application: UIApplication,
-    didFailToRegisterForRemoteNotificationsWithError error: Error
-  ) {
-    print("❌ APNs: Registration FAILED!")
-    print("❌ APNs: Error: \(error.localizedDescription)")
+  // APNs registration failed
+  override func application(_ application: UIApplication,
+                          didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    print("❌ APNs registration failed: \(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 }
