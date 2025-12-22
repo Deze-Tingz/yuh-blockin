@@ -1,8 +1,6 @@
 import Flutter
 import UIKit
 import UserNotifications
-import FirebaseCore
-import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -10,8 +8,8 @@ import FirebaseMessaging
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Initialize Firebase FIRST
-    FirebaseApp.configure()
+    // Firebase is initialized in Dart (main.dart)
+    // FirebaseAppDelegateProxyEnabled=true in Info.plist handles APNs token forwarding
 
     GeneratedPluginRegistrant.register(with: self)
 
@@ -27,7 +25,7 @@ import FirebaseMessaging
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Handle successful APNs registration
+  // Handle successful APNs registration - logged for debugging
   override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -35,8 +33,7 @@ import FirebaseMessaging
     let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
     print("✅ APNs: Registration SUCCESS!")
     print("✅ APNs: Device token (first 20 chars): \(String(tokenString.prefix(20)))...")
-    // Pass device token to Firebase Messaging
-    Messaging.messaging().apnsToken = deviceToken
+    // Firebase proxy (enabled in Info.plist) automatically forwards token to FCM
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
