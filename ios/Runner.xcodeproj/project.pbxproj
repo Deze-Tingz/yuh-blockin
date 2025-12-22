@@ -21,6 +21,9 @@
 		97C147121CF9000F007C117D /* normal_alert.wav in Resources */ = {isa = PBXBuildFile; fileRef = 97C147131CF9000F007C117D /* normal_alert.wav */; };
 		97C147141CF9000F007C117D /* high_alert_1.wav in Resources */ = {isa = PBXBuildFile; fileRef = 97C147151CF9000F007C117D /* high_alert_1.wav */; };
 		97C147161CF9000F007C117D /* high_alert_2.wav in Resources */ = {isa = PBXBuildFile; fileRef = 97C147171CF9000F007C117D /* high_alert_2.wav */; };
+
+		/* ✅ ADDED: GoogleService-Info.plist in Resources */
+		8F6A7D3B2F8E000100D9A1AA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8F6A7D3A2F8E000100D9A1AA /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +73,9 @@
 		97C147131CF9000F007C117D /* normal_alert.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = normal_alert.wav; sourceTree = "<group>"; };
 		97C147151CF9000F007C117D /* high_alert_1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = high_alert_1.wav; sourceTree = "<group>"; };
 		97C147171CF9000F007C117D /* high_alert_2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = high_alert_2.wav; sourceTree = "<group>"; };
+
+		/* ✅ ADDED: GoogleService-Info.plist reference */
+		8F6A7D3A2F8E000100D9A1AA /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +134,10 @@
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
+
+				/* ✅ ADDED: GoogleService-Info.plist under Runner group */
+				8F6A7D3A2F8E000100D9A1AA /* GoogleService-Info.plist */,
+
 				97C147091CF9000F007C117D /* Runner.entitlements */,
 				97C1470B1CF9000F007C117D /* alert_sound.wav */,
 				97C1470D1CF9000F007C117D /* low_alert_1.wav */,
@@ -161,7 +171,7 @@
 			);
 			name = RunnerTests;
 			productName = RunnerTests;
-			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
+			productReference = 331C808129294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
@@ -237,6 +247,10 @@
 			files = (
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
+
+				/* ✅ ADDED: GoogleService-Info.plist copied into app bundle */
+				8F6A7D3B2F8E000100D9A1AA /* GoogleService-Info.plist in Resources */,
+
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				97C1470A1CF9000F007C117D /* alert_sound.wav in Resources */,
