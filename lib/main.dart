@@ -42,8 +42,13 @@ import 'features/account_recovery/view_my_keys_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase - plugin handles detecting existing Swift-side init
-  await Firebase.initializeApp();
+  // Initialize Firebase - wrapped in try-catch for debugging
+  try {
+    await Firebase.initializeApp();
+    debugPrint('✅ Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('❌ Firebase init error: $e');
+  }
 
   runApp(const PremiumYuhBlockinApp());
 }

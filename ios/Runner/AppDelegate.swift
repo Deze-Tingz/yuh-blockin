@@ -9,14 +9,27 @@ import FirebaseMessaging
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Initialize Firebase in Swift - MUST happen before APNs token arrives
-    // The Flutter plugin will detect this and skip re-initialization
-    FirebaseApp.configure()
+    print("📱 AppDelegate: Starting initialization...")
+
+    // Initialize Firebase with error handling
+    do {
+      if FirebaseApp.app() == nil {
+        FirebaseApp.configure()
+        print("✅ Firebase configured in Swift")
+      } else {
+        print("⚠️ Firebase already configured")
+      }
+    } catch {
+      print("❌ Firebase config error: \(error)")
+    }
 
     // Register for remote notifications
     application.registerForRemoteNotifications()
+    print("📱 Registered for remote notifications")
 
     GeneratedPluginRegistrant.register(with: self)
+    print("📱 Plugins registered")
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
