@@ -167,36 +167,51 @@ Deno.serve(async (req: Request) => {
     const invalidTokens: string[] = [];
     const errorDetails: any[] = [];
 
+    // Extract emoji from message (emoji is typically at the start)
+    const emojiRegex = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+    const emojiMatch = (message || '').match(emojiRegex);
+    const emoji = emojiMatch ? emojiMatch[0] : '🚗';
+    const notificationTitle = `${emoji} Yuh Blockin'!`;
+    const notificationBody = message || "Someone needs you to move your vehicle!";
+
+    console.log('Notification:', { emoji, title: notificationTitle, sound: soundFile });
+
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
       const platform = platforms[i];
 
-      // Build platform-specific message
+      // Build platform-specific message WITHOUT top-level notification block
+      // This ensures custom sounds work on iOS lock screen
       const fcmMessage: any = {
         token,
-        notification: {
-          title: "Yuh Blockin'",
-          body: message || "Someone needs you to move your car!"
-        },
         data: {
           alert_id: String(alert_id || ''),
           urgency_level: urgency_level,
+          emoji: emoji,
+          title: notificationTitle,
+          body: notificationBody,
           click_action: 'FLUTTER_NOTIFICATION_CLICK'
         }
       };
 
-      // Add Android-specific config
+      // Add Android-specific config with notification
       if (platform === 'android') {
         fcmMessage.android = {
           priority: 'high',
           notification: {
+            title: notificationTitle,
+            body: notificationBody,
             sound: androidSound,
-            channel_id: `yuh_blockin_alert_${androidSound}`,
+            channelId: `yuh_blockin_alert_${androidSound}`,
+            defaultSound: false,
+            priority: 'max',
+            visibility: 'public'
           }
         };
       }
 
-      // Add iOS-specific config with explicit aps.alert
+      // Add iOS-specific config - NO top-level notification, only apns payload
+      // This allows custom sound to work on lock screen
       if (platform === 'ios') {
         fcmMessage.apns = {
           headers: {
@@ -206,11 +221,14 @@ Deno.serve(async (req: Request) => {
           payload: {
             aps: {
               alert: {
-                title: "Yuh Blockin'",
-                body: message || "Someone needs you to move your car!"
+                title: notificationTitle,
+                body: notificationBody
               },
-              sound: "default",
-              badge: 1
+              sound: soundFile,
+              badge: 1,
+              'mutable-content': 1,
+              'content-available': 1,
+              'interruption-level': 'time-sensitive'
             }
           }
         };
