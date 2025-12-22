@@ -156,11 +156,19 @@ Deno.serve(async (req: Request) => {
     const soundFile = sound_path?.split('/').pop() || soundMap[urgency_level] || 'normal_alert.wav';
     const androidSound = soundFile.replace('.wav', '');
 
-    // Send to each token
-    const tokens = tokenRecords.map((r: any) => r.fcm_token).filter(Boolean);
-    const platforms = tokenRecords.map((r: any) => String(r.platform || '').toLowerCase());
+    // Filter and prepare token records - keep token and platform together to avoid index mismatch
+    const validTokenRecords = tokenRecords
+      .filter((r: any) => r.fcm_token && r.fcm_token.length > 0)
+      .map((r: any) => ({
+        token: r.fcm_token,
+        platform: String(r.platform || '').toLowerCase()
+      }));
 
-    console.log('Sending to', tokens.length, 'devices');
+    console.log('Sending to', validTokenRecords.length, 'devices');
+    console.log('Token details:', validTokenRecords.map((r: any) => ({
+      platform: r.platform,
+      tokenPrefix: r.token.substring(0, 20)
+    })));
 
     let successCount = 0;
     let failureCount = 0;
@@ -174,11 +182,10 @@ Deno.serve(async (req: Request) => {
     const notificationTitle = `${emoji} Yuh Blockin'!`;
     const notificationBody = message || "Someone needs you to move your vehicle!";
 
-    console.log('Notification:', { emoji, title: notificationTitle, sound: soundFile });
+    console.log('Notification:', { emoji, title: notificationTitle, body: notificationBody, sound: soundFile });
 
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-      const platform = platforms[i];
+    for (let i = 0; i < validTokenRecords.length; i++) {
+      const { token, platform } = validTokenRecords[i];
 
       // Build platform-specific message WITHOUT top-level notification block
       // This ensures custom sounds work on iOS lock screen

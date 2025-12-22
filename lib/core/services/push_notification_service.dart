@@ -8,13 +8,27 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'sound_preferences_service.dart';
 
 /// Background message handler - must be top-level function
+///
+/// IMPORTANT: This handler is called when the app is in background/terminated.
+/// However, FCM already handles displaying notifications via platform-specific blocks:
+/// - Android: android.notification block
+/// - iOS: apns.payload.aps.alert block
+///
+/// We do NOT show local notifications here to avoid duplicates.
+/// This handler is only for data processing if needed.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Ensure Firebase is initialized in background isolate
   await Firebase.initializeApp();
   if (kDebugMode) {
-    debugPrint('Background push message: ${message.messageId}');
+    debugPrint('Background push message received: ${message.messageId}');
+    debugPrint('Background notification: ${message.notification?.title}');
+    debugPrint('Background data: ${message.data}');
   }
+
+  // FCM displays notifications automatically via platform-specific blocks
+  // (android.notification for Android, apns.payload for iOS)
+  // No need to show local notification here - that would cause duplicates
 }
 
 /// Push Notification Service
@@ -223,27 +237,40 @@ class PushNotificationService {
   /// Handle foreground message - show local notification
   void _onForegroundMessage(RemoteMessage message) {
     if (kDebugMode) {
-      debugPrint('Foreground message: ${message.notification?.title}');
+      debugPrint('Foreground message received');
+      debugPrint('Notification: ${message.notification?.title}');
       debugPrint('Message data: ${message.data}');
     }
 
-    // Show local notification since app is in foreground
+    // Get urgency level from data
+    final urgencyLevel = message.data['urgency_level'] ?? 'normal';
+
+    // Try to get title and body from notification first, then fall back to data
+    // (We use data-only messages for custom sound support on iOS)
     final notification = message.notification;
-    if (notification != null) {
-      // Get urgency level and emoji from message data
-      final urgencyLevel = message.data['urgency_level'] ?? 'normal';
-      final emoji = message.data['emoji'] ?? '🚗';
+    String title;
+    String body;
 
-      // Include emoji in the title
-      final titleWithEmoji = '$emoji ${notification.title ?? "Yuh Blockin'!"}';
-
-      _showLocalNotification(
-        title: titleWithEmoji,
-        body: notification.body ?? 'You have a new alert',
-        payload: message.data['alert_id'],
-        urgencyLevel: urgencyLevel,
-      );
+    if (notification != null && notification.title != null) {
+      // Use notification block if available
+      title = notification.title!;
+      body = notification.body ?? 'You have a new alert';
+    } else {
+      // Fall back to data payload (for data-only messages)
+      title = message.data['title'] ?? "Yuh Blockin'!";
+      body = message.data['body'] ?? 'Someone needs you to move your vehicle!';
     }
+
+    if (kDebugMode) {
+      debugPrint('Showing notification: $title - $body (urgency: $urgencyLevel)');
+    }
+
+    _showLocalNotification(
+      title: title,
+      body: body,
+      payload: message.data['alert_id'],
+      urgencyLevel: urgencyLevel,
+    );
   }
 
   /// Handle notification tap when app was in background
