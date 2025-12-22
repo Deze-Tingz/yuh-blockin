@@ -47,28 +47,34 @@ console.log('Urgency:', urgencyLevel);
 console.log('Sound:', soundFile);
 console.log('');
 
+// For iOS: Use APNs-only payload (no FCM notification block) to ensure custom sound works
+// For Android: Use FCM notification block with channel
 const message = {
   token: token,
-  notification: {
-    title: `${emoji} Yuh Blockin'!`,
-    body: "Someone needs you to move your vehicle!"
-  },
+  // Data payload - available on both platforms
   data: {
     alert_id: 'test_123',
     type: 'alert',
     emoji: emoji,
     urgency_level: urgencyLevel,
+    title: `${emoji} Yuh Blockin'!`,
+    body: "Someone needs you to move your vehicle!",
     click_action: 'FLUTTER_NOTIFICATION_CLICK'
   },
+  // Android-specific: Use notification with channel for custom sound
   android: {
     priority: 'high',
     notification: {
-      channelId: 'yuh_blockin_alerts',
-      priority: 'max',
+      title: `${emoji} Yuh Blockin'!`,
+      body: "Someone needs you to move your vehicle!",
+      channelId: `yuh_blockin_alert_${soundFile.replace('.wav', '')}`,
+      sound: soundFile.replace('.wav', ''),
       defaultSound: false,
-      sound: urgencyLevel === 'high' ? 'high_alert_1' : 'normal_alert'
+      priority: 'max',
+      visibility: 'public'
     }
   },
+  // iOS-specific: Direct APNs payload for custom sound on lock screen
   apns: {
     headers: {
       'apns-priority': '10',
