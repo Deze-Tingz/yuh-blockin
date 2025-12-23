@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_app_badger/flutter_app_badger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -415,5 +416,47 @@ class PushNotificationService {
   /// Get current FCM token (for debugging)
   Future<String?> getToken() async {
     return await _messaging.getToken();
+  }
+
+  // ============================================
+  // APP BADGE CONTROL (iOS app icon badge)
+  // ============================================
+
+  /// Clear the app icon badge (set to 0)
+  /// Call this when the app opens or when notifications are viewed
+  Future<void> clearBadge() async {
+    try {
+      if (await FlutterAppBadger.isAppBadgeSupported()) {
+        await FlutterAppBadger.removeBadge();
+        if (kDebugMode) {
+          debugPrint('App badge cleared');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to clear app badge: $e');
+      }
+    }
+  }
+
+  /// Set the app icon badge to a specific count
+  /// Use this to show the number of unread notifications
+  Future<void> setBadgeCount(int count) async {
+    try {
+      if (await FlutterAppBadger.isAppBadgeSupported()) {
+        if (count <= 0) {
+          await FlutterAppBadger.removeBadge();
+        } else {
+          await FlutterAppBadger.updateBadgeCount(count);
+        }
+        if (kDebugMode) {
+          debugPrint('App badge set to: $count');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Failed to set app badge: $e');
+      }
+    }
   }
 }

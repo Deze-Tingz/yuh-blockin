@@ -843,6 +843,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       if (kDebugMode) {
         debugPrint('Push notification service initialized');
       }
+      // Clear app icon badge when app opens
+      _pushNotificationService.clearBadge();
     }).catchError((e) {
       if (kDebugMode) {
         debugPrint('Push notification initialization error: $e');
@@ -984,6 +986,8 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     _appLifecycleState = state;
 
     if (state == AppLifecycleState.resumed) {
+      // Clear app icon badge when app comes to foreground
+      _pushNotificationService.clearBadge();
       _refreshAllData();
     }
   }
@@ -4459,6 +4463,9 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     return GestureDetector(
       onTap: () async {
         HapticFeedback.lightImpact();
+
+        // Clear app icon badge when viewing notifications
+        _pushNotificationService.clearBadge();
 
         // Navigate to alert history
         await Navigator.of(context).push(

@@ -2,7 +2,7 @@ name: yuh_blockin # Renamed for clarity, you can keep yuh_blockin_web if you pre
 description: "A Flutter project for Yuh Blockin'."
 publish_to: 'none'
 
-version: 1.0.0+111
+version: 1.0.0+112
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -42,6 +42,9 @@ dependencies:
 
   # URL launcher for opening terms/privacy links
   url_launcher: ^6.2.5
+
+  # App badge control (iOS app icon badge)
+  flutter_app_badger: ^1.5.0
   qr_flutter: ^4.1.0
   webview_flutter: ^4.13.0
 
