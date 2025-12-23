@@ -1,10 +1,17 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.28.0';
 import { SignJWT, importPKCS8 } from 'npm:jose@5.2.0';
 
-// FCM error codes that indicate invalid/expired tokens
+// FCM error codes that indicate invalid/expired tokens (do NOT retry)
 const INVALID_TOKEN_ERRORS = [
   'UNREGISTERED',
   'INVALID_ARGUMENT',
+];
+
+// FCM error codes that are transient and should be retried
+const RETRYABLE_ERRORS = [
+  'INTERNAL',
+  'UNAVAILABLE',
+  'QUOTA_EXCEEDED',
 ];
 
 // Generate OAuth2 access token from service account
@@ -74,6 +81,55 @@ async function sendFcmMessage(accessToken: string, projectId: string, message: a
   }
 
   return { success: true, messageId: data.name };
+}
+
+// Extract error code from FCM error response
+function getErrorCode(error: any): string {
+  if (!error) return 'UNKNOWN';
+  const details = error.details || [];
+  return details.find((d: any) => d.errorCode)?.errorCode ||
+         error.status ||
+         'UNKNOWN';
+}
+
+// Check if error is retryable
+function isRetryableError(error: any): boolean {
+  const errorCode = getErrorCode(error);
+  return RETRYABLE_ERRORS.includes(errorCode);
+}
+
+// Send FCM message with retry logic for transient failures
+async function sendFcmMessageWithRetry(
+  accessToken: string,
+  projectId: string,
+  message: any,
+  maxRetries: number = 3
+): Promise<any> {
+  let lastResult: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    lastResult = await sendFcmMessage(accessToken, projectId, message);
+
+    if (lastResult.success) {
+      return lastResult;
+    }
+
+    // Don't retry if it's not a retryable error
+    if (!isRetryableError(lastResult.error)) {
+      console.log(`Attempt ${attempt}: Non-retryable error, stopping`);
+      return lastResult;
+    }
+
+    // Don't wait after the last attempt
+    if (attempt < maxRetries) {
+      const delayMs = 1000 * attempt; // 1s, 2s, 3s exponential backoff
+      console.log(`Attempt ${attempt}: Retryable error, waiting ${delayMs}ms before retry`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.log(`All ${maxRetries} attempts failed`);
+  return lastResult;
 }
 
 Deno.serve(async (req: Request) => {
@@ -245,19 +301,15 @@ Deno.serve(async (req: Request) => {
         };
       }
 
-      const result = await sendFcmMessage(accessToken, serviceAccount.project_id, fcmMessage);
+      // Send with automatic retry for transient errors (INTERNAL, UNAVAILABLE, etc.)
+      const result = await sendFcmMessageWithRetry(accessToken, serviceAccount.project_id, fcmMessage);
 
       if (result.success) {
         successCount++;
         console.log(`Token ${i} (${platform}) sent successfully:`, result.messageId);
       } else {
         failureCount++;
-        // Improved error code extraction
-        const details = result.error?.details || [];
-        const errorCode =
-          details.find((d: any) => d.errorCode)?.errorCode ||
-          result.error?.status ||
-          'UNKNOWN';
+        const errorCode = getErrorCode(result.error);
         console.log(`Token ${i} (${platform}) failed:`, errorCode, result.error?.message);
         console.log(`Token ${i} full error:`, JSON.stringify(result.error));
         errorDetails.push({ platform, errorCode, message: result.error?.message, details: result.error?.details });
