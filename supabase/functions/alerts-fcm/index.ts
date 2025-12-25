@@ -135,12 +135,13 @@ async function sendFcmMessageWithRetry(
 Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
-    const { alert_id, receiver_id, message, sound_path, urgency_level = 'normal' } = body;
+    const { alert_id, receiver_id, direct_token, platform: directPlatform, message, sound_path, urgency_level = 'normal' } = body;
 
-    console.log('Received request:', { alert_id, receiver_id, message, urgency_level });
+    console.log('Received request:', { alert_id, receiver_id, direct_token: direct_token?.substring(0, 20), message, urgency_level });
 
-    if (!receiver_id) {
-      return new Response(JSON.stringify({ error: 'missing receiver_id' }), { status: 400 });
+    // Support either receiver_id (lookup from DB) or direct_token (send directly)
+    if (!receiver_id && !direct_token) {
+      return new Response(JSON.stringify({ error: 'missing receiver_id or direct_token' }), { status: 400 });
     }
 
     // Get service account from base64-encoded secret
@@ -180,24 +181,34 @@ Deno.serve(async (req: Request) => {
     }
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-    // Query device tokens by user_id
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('device_tokens')
-      .select('fcm_token, platform')
-      .eq('user_id', receiver_id);
+    let tokenRecords: any[] = [];
 
-    if (tokenError) {
-      console.error('Supabase query failed:', tokenError);
-      return new Response(JSON.stringify({ error: 'supabase query failed', details: tokenError.message }), { status: 500 });
+    // If direct_token provided, use it directly (for Push Blaster tool)
+    if (direct_token) {
+      // Use provided platform or default to 'ios'
+      const platform = directPlatform || 'ios';
+      tokenRecords = [{ fcm_token: direct_token, platform }];
+      console.log(`Using direct token as ${platform.toUpperCase()} platform`);
+    } else {
+      // Query device tokens by user_id
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('device_tokens')
+        .select('fcm_token, platform')
+        .eq('user_id', receiver_id);
+
+      if (tokenError) {
+        console.error('Supabase query failed:', tokenError);
+        return new Response(JSON.stringify({ error: 'supabase query failed', details: tokenError.message }), { status: 500 });
+      }
+
+      tokenRecords = tokenData || [];
+      console.log('Found tokens:', tokenRecords.length);
+      // Log tokens by platform for debugging
+      console.log('Tokens by platform:', tokenRecords.map((r: any) => ({
+        platform: r.platform,
+        tokenLength: (r.fcm_token || '').length
+      })));
     }
-
-    const tokenRecords = tokenData || [];
-    console.log('Found tokens:', tokenRecords.length);
-    // Log tokens by platform for debugging
-    console.log('Tokens by platform:', tokenRecords.map((r: any) => ({
-      platform: r.platform,
-      tokenLength: (r.fcm_token || '').length
-    })));
 
     if (!tokenRecords.length) {
       return new Response(JSON.stringify({ ok: true, message: 'no tokens registered' }));
@@ -271,7 +282,6 @@ Deno.serve(async (req: Request) => {
             sound: androidSound,
             channelId: `yuh_blockin_alert_${androidSound}`,
             defaultSound: false,
-            priority: 'max',
             visibility: 'public'
           }
         };
