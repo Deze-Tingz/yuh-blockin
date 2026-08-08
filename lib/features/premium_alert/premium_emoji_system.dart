@@ -511,7 +511,6 @@ class _AnimatedEmojiWidgetState extends State<AnimatedEmojiWidget>
                     widget.expression.unicode,
                     style: TextStyle(
                       fontSize: widget.size,
-                      
                     ),
                   ),
                 ),
@@ -717,7 +716,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                         fontSize: 24,
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 0.2,
+
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -727,7 +726,6 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                         color: PremiumTheme.secondaryTextColor,
-                        
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -826,7 +824,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: _selectedEmoji!.accentColor,
-                                letterSpacing: 0.8,
+
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -854,10 +852,8 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                                     'Yuh Blockin!',
                                     style: TextStyle(
                                       fontSize: 24,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       color: PremiumTheme.primaryTextColor,
-                                      letterSpacing: 0.5,
-                                      
                                     ),
                                   ),
                                 ),
@@ -876,7 +872,6 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: PremiumTheme.secondaryTextColor,
-                          
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -902,7 +897,7 @@ class _EmojiSelectionModalState extends State<EmojiSelectionModal>
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
+
                             ),
                           ),
                         ),

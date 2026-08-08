@@ -16,7 +16,8 @@ void main() {
   final newSize = 1024 - (padding * 2);
 
   // Resize the original icon to fit within the padded area
-  final resizedIcon = img.copyResize(originalImage, width: newSize, height: newSize);
+  final resizedIcon =
+      img.copyResize(originalImage, width: newSize, height: newSize);
 
   // Composite the resized icon onto the center of the padded canvas
   img.compositeImage(paddedImage, resizedIcon, dstX: padding, dstY: padding);
@@ -25,7 +26,8 @@ void main() {
   final outputFile = File('assets/images/app_icon_foreground.png');
   outputFile.writeAsBytesSync(img.encodePng(paddedImage));
 
-  print('Created padded foreground icon: assets/images/app_icon_foreground.png');
+  print(
+      'Created padded foreground icon: assets/images/app_icon_foreground.png');
   print('Original size: ${originalImage.width}x${originalImage.height}');
-  print('Icon area: ${newSize}x${newSize} with ${padding}px padding');
+  print('Icon area: ${newSize}x$newSize with ${padding}px padding');
 }

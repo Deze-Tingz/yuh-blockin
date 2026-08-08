@@ -288,8 +288,6 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 3.0,
-                            fontFamily: 'monospace',
                           ),
                         ),
                       ),
@@ -306,7 +304,6 @@ class _ComedyRevealOverlayState extends State<_ComedyRevealOverlay>
                             fontSize: 16,
                             fontWeight: FontWeight.w400,
                             color: PremiumTheme.primaryTextColor,
-                            
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -461,7 +458,6 @@ class _AcknowledgmentOverlayState extends State<_AcknowledgmentOverlay>
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                         color: PremiumTheme.secondaryTextColor,
-                        
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -599,9 +595,8 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                         'Problem Solved!',
                         style: TextStyle(
                           fontSize: 28,
-                          fontWeight: FontWeight.w300,
+                          fontWeight: FontWeight.w400,
                           color: PremiumTheme.primaryTextColor,
-                          letterSpacing: -0.3,
                         ),
                       ),
 
@@ -613,7 +608,6 @@ class _ResolutionOverlayState extends State<_ResolutionOverlay>
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           color: PremiumTheme.secondaryTextColor,
-                          
                         ),
                         textAlign: TextAlign.center,
                       ),

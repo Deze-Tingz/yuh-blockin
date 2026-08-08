@@ -1,8 +1,11 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/user_alias_service.dart';
+import '../../core/theme/premium_theme.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
   final String userId;
@@ -16,13 +19,13 @@ class AlertHistoryScreen extends StatefulWidget {
   State<AlertHistoryScreen> createState() => _AlertHistoryScreenState();
 }
 
-class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTickerProviderStateMixin {
+class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
   final SimpleAlertService _alertService = SimpleAlertService();
   final UserAliasService _aliasService = UserAliasService();
   List<Alert> _receivedAlerts = [];
   List<Alert> _sentAlerts = [];
   bool _isLoading = true;
-  late TabController _tabController;
+  int _selectedSegment = 0;
 
   // Stream subscriptions for real-time updates
   StreamSubscription<Alert>? _receivedAlertsSubscription;
@@ -31,16 +34,22 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   // Track seen alert IDs to prevent duplicates
   final Set<String> _seenReceivedAlertIds = {};
 
+  // Pagination limit to prevent memory issues with large datasets
+  static const int _maxAlertsToKeep = 100;
+
+  // Premium colors for status
+  static const Color _successColor = Color(0xFF34C759);
+  static const Color _warningColor = Color(0xFFFF9500);
+  static const Color _pendingColor = Color(0xFF007AFF);
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadAlertHistory();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _receivedAlertsSubscription?.cancel();
     _sentAlertsSubscription?.cancel();
     super.dispose();
@@ -64,6 +73,16 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
                 _receivedAlerts.add(alert);
                 // Sort by newest first
                 _receivedAlerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                // Trim to max limit to prevent memory bloat
+                if (_receivedAlerts.length > _maxAlertsToKeep) {
+                  final removed = _receivedAlerts.sublist(_maxAlertsToKeep);
+                  _receivedAlerts = _receivedAlerts.sublist(0, _maxAlertsToKeep);
+                  // Remove old IDs from tracking set
+                  for (final alert in removed) {
+                    _seenReceivedAlertIds.remove(alert.id);
+                  }
+                }
               } else {
                 // Update existing alert (e.g., when response is added)
                 final index = _receivedAlerts.indexWhere((a) => a.id == alert.id);
@@ -76,7 +95,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           }
         },
         onError: (error) {
-          debugPrint('❌ Received alerts stream error: $error');
+          if (kDebugMode) {
+            debugPrint('❌ Received alerts stream error: $error');
+          }
           if (mounted) {
             setState(() => _isLoading = false);
           }
@@ -96,12 +117,19 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
               }
               _sentAlerts = uniqueAlerts.values.toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              // Trim to max limit to prevent memory bloat
+              if (_sentAlerts.length > _maxAlertsToKeep) {
+                _sentAlerts = _sentAlerts.sublist(0, _maxAlertsToKeep);
+              }
               _isLoading = false;
             });
           }
         },
         onError: (error) {
-          debugPrint('❌ Sent alerts stream error: $error');
+          if (kDebugMode) {
+            debugPrint('❌ Sent alerts stream error: $error');
+          }
           if (mounted) {
             setState(() => _isLoading = false);
           }
@@ -115,7 +143,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         }
       });
     } catch (e) {
-      debugPrint('❌ Error loading alert history: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error loading alert history: $e');
+      }
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -126,7 +156,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
 
   Future<void> _respondToAlert(Alert alert, String response) async {
     try {
-      debugPrint('📤 Sending response: $response for alert: ${alert.id}');
+      if (kDebugMode) {
+        debugPrint('📤 Sending response: $response for alert: ${alert.id}');
+      }
 
       final success = await _alertService.sendResponse(
         alertId: alert.id,
@@ -168,12 +200,16 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
           ),
         );
 
-        debugPrint('✅ Response sent successfully');
+        if (kDebugMode) {
+          debugPrint('✅ Response sent successfully');
+        }
       } else {
         throw Exception('Failed to send response');
       }
     } catch (e) {
-      debugPrint('❌ Error responding to alert: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error responding to alert: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -217,662 +253,374 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
   }
 
   Widget _buildReceivedAlertItem(Alert alert) {
-    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    // Check both response field and responseAt to ensure accurate status
     final hasResponse = alert.response != null && alert.response!.isNotEmpty;
+    final statusColor = hasResponse ? _successColor : _warningColor;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: hasResponse ? Colors.grey[100] : Colors.orange[50],
+        color: PremiumTheme.surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasResponse ? Colors.grey[300]! : Colors.orange[200]!,
+          color: statusColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with status and timestamp
-          Row(
-            children: [
-              Icon(
-                hasResponse ? Icons.check_circle : Icons.circle_outlined,
-                color: hasResponse ? Colors.green : Colors.orange,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                hasResponse ? 'Responded' : 'Needs Response',
-                style: TextStyle(
-                  fontSize: isTablet ? 16 : 14,
-                  fontWeight: FontWeight.w600,
-                  color: hasResponse ? Colors.green : Colors.orange[800],
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatTimestamp(alert.createdAt),
-                style: TextStyle(
-                  fontSize: isTablet ? 14 : 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // Alert message with sender alias
-          FutureBuilder<String>(
-            future: _aliasService.getAliasForUser(alert.senderId),
-            builder: (context, snapshot) {
-              String message;
-              if (snapshot.hasData) {
-                final alias = _aliasService.formatAliasForDisplay(snapshot.data!);
-                message = '$alias needs you to move your car';
-              } else {
-                message = 'Someone needs you to move your car';
-              }
-
-              return Text(
-                message,
-                style: TextStyle(
-                  fontSize: isTablet ? 16 : 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[800],
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              );
-            },
-          ),
-
-          if (hasResponse) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[200]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.reply, size: 16, color: Colors.green[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'You responded: ${alert.responseText}',
-                      style: TextStyle(
-                        fontSize: isTablet ? 14 : 12,
-                        color: Colors.green[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 16),
-            // Response buttons for unresponded alerts
-            Row(
-              children: [
-                Expanded(
-                  child: _buildResponseButton(
-                    alert: alert,
-                    label: 'Moving now',
-                    response: 'moving_now',
-                    color: Colors.green,
-                    isPrimary: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildResponseButton(
-                    alert: alert,
-                    label: '5 minutes',
-                    response: '5_minutes',
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildResponseButton(
-                    alert: alert,
-                    label: 'Can\'t move',
-                    response: 'cant_move',
-                    color: Colors.red,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildResponseButton(
-                    alert: alert,
-                    label: 'Wrong car',
-                    response: 'wrong_car',
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResponseButton({
-    required Alert alert,
-    required String label,
-    required String response,
-    required Color color,
-    bool isPrimary = false,
-  }) {
-    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-
-    return ElevatedButton(
-      onPressed: () => _respondToAlert(alert, response),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? color : color.withValues(alpha: 0.1),
-        foregroundColor: isPrimary ? Colors.white : color,
-        elevation: isPrimary ? 2 : 0,
-        padding: EdgeInsets.symmetric(
-          vertical: isTablet ? 12 : 8,
-          horizontal: 8,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: isPrimary ? BorderSide.none : BorderSide(color: color),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: isTablet ? 14 : 12,
-          fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSentAlertItem(Alert alert) {
-    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    final hasResponse = alert.hasResponse;
-
-    // Get response emoji and color based on response type
-    IconData statusIcon;
-    Color statusColor;
-    String statusText;
-
-    if (hasResponse) {
-      switch (alert.response) {
-        case 'moving_now':
-          statusIcon = Icons.directions_car;
-          statusColor = Colors.green;
-          statusText = 'Moving now';
-          break;
-        case '5_minutes':
-          statusIcon = Icons.timer;
-          statusColor = Colors.orange;
-          statusText = 'In 5 minutes';
-          break;
-        case 'cant_move':
-          statusIcon = Icons.block;
-          statusColor = Colors.red;
-          statusText = 'Can\'t move';
-          break;
-        case 'wrong_car':
-          statusIcon = Icons.error_outline;
-          statusColor = Colors.grey;
-          statusText = 'Wrong car';
-          break;
-        default:
-          statusIcon = Icons.check_circle;
-          statusColor = Colors.green;
-          statusText = alert.responseText;
-      }
-    } else {
-      statusIcon = Icons.access_time;
-      statusColor = Colors.blue;
-      statusText = 'Awaiting response';
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: hasResponse
-              ? [statusColor.withValues(alpha: 0.08), statusColor.withValues(alpha: 0.03)]
-              : [Colors.blue.withValues(alpha: 0.05), Colors.grey.withValues(alpha: 0.02)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: statusColor.withValues(alpha: 0.25),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Main content area
-          Padding(
-            padding: const EdgeInsets.all(16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: hasResponse ? null : () => _showQuickResponseSheet(alert),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Status indicator circle
+                // Status icon
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    statusIcon,
+                    hasResponse ? Icons.check_rounded : Icons.notifications_active_rounded,
                     color: statusColor,
-                    size: isTablet ? 24 : 20,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Status and time row
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: isTablet ? 12 : 11,
-                                fontWeight: FontWeight.w600,
-                                color: statusColor,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            _formatTimestamp(alert.createdAt),
-                            style: TextStyle(
-                              fontSize: isTablet ? 13 : 11,
-                              color: Colors.grey[500],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      // Recipient info with alias
                       FutureBuilder<String>(
-                        future: _aliasService.getAliasForUser(alert.receiverId),
+                        future: _aliasService.getAliasForUser(alert.senderId),
                         builder: (context, snapshot) {
                           final alias = snapshot.hasData
                               ? _aliasService.formatAliasForDisplay(snapshot.data!)
-                              : 'Driver';
+                              : 'Someone';
                           return Text(
-                            'Alert sent to $alias',
+                            '$alias needs you to move',
                             style: TextStyle(
-                              fontSize: isTablet ? 16 : 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
+                              color: PremiumTheme.primaryTextColor,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           );
                         },
                       ),
-                      if (alert.message != null && alert.message!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          alert.message!,
-                          style: TextStyle(
-                            fontSize: isTablet ? 14 : 12,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 3),
+                      Text(
+                        hasResponse ? 'Responded: ${alert.responseText}' : 'Tap to respond',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: hasResponse
+                              ? _successColor
+                              : PremiumTheme.secondaryTextColor,
+                          fontWeight: hasResponse ? FontWeight.w500 : FontWeight.w400,
                         ),
-                      ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
+                ),
+                // Timestamp and chevron
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatTimestamp(alert.createdAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: PremiumTheme.tertiaryTextColor,
+                      ),
+                    ),
+                    if (!hasResponse) ...[
+                      const SizedBox(height: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: PremiumTheme.tertiaryTextColor,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          // Response details footer (only if responded)
-          if (hasResponse && alert.responseAt != null)
+        ),
+      ),
+    );
+  }
+
+  void _showQuickResponseSheet(Alert alert) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: PremiumTheme.surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
-                  bottomRight: Radius.circular(alert.response == '5_minutes' ? 0 : 16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.reply,
-                    size: isTablet ? 16 : 14,
-                    color: statusColor.withValues(alpha: 0.7),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Responded ${_formatTimestamp(alert.responseAt!)}',
-                    style: TextStyle(
-                      fontSize: isTablet ? 12 : 11,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                color: PremiumTheme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          // Follow-up options for "5 minutes" response
-          if (alert.response == '5_minutes')
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.08),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.orange.withValues(alpha: 0.2),
-                    width: 1,
+            const SizedBox(height: 20),
+            Text(
+              'Quick Response',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: PremiumTheme.primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildQuickResponseOption(
+              alert: alert,
+              label: 'Moving now',
+              response: 'moving_now',
+              icon: Icons.directions_car_rounded,
+              color: _successColor,
+            ),
+            _buildQuickResponseOption(
+              alert: alert,
+              label: 'Give me 5 minutes',
+              response: '5_minutes',
+              icon: Icons.timer_rounded,
+              color: _warningColor,
+            ),
+            _buildQuickResponseOption(
+              alert: alert,
+              label: 'Can\'t move right now',
+              response: 'cant_move',
+              icon: Icons.block_rounded,
+              color: const Color(0xFFFF3B30),
+            ),
+            _buildQuickResponseOption(
+              alert: alert,
+              label: 'Wrong car',
+              response: 'wrong_car',
+              icon: Icons.help_outline_rounded,
+              color: PremiumTheme.secondaryTextColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickResponseOption({
+    required Alert alert,
+    required String label,
+    required String response,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.pop(context);
+            _respondToAlert(alert, response);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: color.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: PremiumTheme.primaryTextColor,
+                    ),
                   ),
                 ),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: color.withValues(alpha: 0.6),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSentAlertItem(Alert alert) {
+    final hasResponse = alert.hasResponse;
+
+    // Determine status color and icon
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+
+    if (hasResponse) {
+      switch (alert.response) {
+        case 'moving_now':
+          statusColor = _successColor;
+          statusIcon = Icons.directions_car_rounded;
+          statusText = 'Moving now';
+          break;
+        case '5_minutes':
+          statusColor = _warningColor;
+          statusIcon = Icons.timer_rounded;
+          statusText = 'In 5 minutes';
+          break;
+        case 'cant_move':
+          statusColor = const Color(0xFFFF3B30);
+          statusIcon = Icons.block_rounded;
+          statusText = 'Can\'t move';
+          break;
+        case 'wrong_car':
+          statusColor = PremiumTheme.secondaryTextColor;
+          statusIcon = Icons.help_outline_rounded;
+          statusText = 'Wrong car';
+          break;
+        default:
+          statusColor = _successColor;
+          statusIcon = Icons.check_rounded;
+          statusText = alert.responseText;
+      }
+    } else {
+      statusColor = _pendingColor;
+      statusIcon = Icons.schedule_rounded;
+      statusText = 'Waiting';
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: PremiumTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            // Status icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: Icon(
+                statusIcon,
+                color: statusColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Content
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Follow up',
-                    style: TextStyle(
-                      fontSize: isTablet ? 13 : 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.orange[800],
-                    ),
+                  FutureBuilder<String>(
+                    future: _aliasService.getAliasForUser(alert.receiverId),
+                    builder: (context, snapshot) {
+                      final alias = snapshot.hasData
+                          ? _aliasService.formatAliasForDisplay(snapshot.data!)
+                          : 'Driver';
+                      return Text(
+                        'Sent to $alias',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: PremiumTheme.primaryTextColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
-                      Expanded(
-                        child: _buildFollowUpButton(
-                          label: 'Car moved!',
-                          icon: Icons.check_circle_outline,
-                          color: Colors.green,
-                          onTap: () => _showResolutionDialog(alert, 'resolved'),
-                          isTablet: isTablet,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildFollowUpButton(
-                          label: 'Send reminder',
-                          icon: Icons.notification_important_outlined,
-                          color: Colors.orange,
-                          onTap: () => _showReminderDialog(alert),
-                          isTablet: isTablet,
+                      if (alert.message != null && alert.message!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            alert.message!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: PremiumTheme.secondaryTextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildFollowUpButton(
-                          label: 'Still waiting',
-                          icon: Icons.hourglass_bottom,
-                          color: Colors.blue,
-                          onTap: () => _showStillWaitingDialog(alert),
-                          isTablet: isTablet,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildFollowUpButton(
-                          label: 'Give up',
-                          icon: Icons.close,
-                          color: Colors.grey,
-                          onTap: () => _showResolutionDialog(alert, 'gave_up'),
-                          isTablet: isTablet,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFollowUpButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-    required bool isTablet,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            vertical: isTablet ? 10 : 8,
-            horizontal: 8,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: isTablet ? 16 : 14, color: color),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: isTablet ? 12 : 10,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showResolutionDialog(Alert alert, String resolution) {
-    final isResolved = resolution == 'resolved';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(
-              isResolved ? Icons.check_circle : Icons.cancel,
-              color: isResolved ? Colors.green : Colors.grey,
-            ),
-            const SizedBox(width: 8),
-            Text(isResolved ? 'Resolved!' : 'Give up?'),
-          ],
-        ),
-        content: Text(
-          isResolved
-              ? 'Great! The car has moved and the situation is resolved.'
-              : 'Are you sure you want to give up on this alert?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _markAlertResolved(alert, resolution);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isResolved ? Colors.green : Colors.grey,
-            ),
-            child: Text(isResolved ? 'Confirm' : 'Give up'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showReminderDialog(Alert alert) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.notification_important, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Send Reminder'),
-          ],
-        ),
-        content: const Text(
-          'Send a gentle reminder that you\'re still waiting for them to move?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _sendReminder(alert);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Send Reminder'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStillWaitingDialog(Alert alert) {
-    final timeSinceResponse = alert.responseAt != null
-        ? DateTime.now().difference(alert.responseAt!).inMinutes
-        : 0;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.hourglass_bottom, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Still Waiting'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            // Timestamp
             Text(
-              'They said 5 minutes, it\'s been $timeSinceResponse minutes.',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'What would you like to do?',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              _formatTimestamp(alert.createdAt),
+              style: TextStyle(
+                fontSize: 12,
+                color: PremiumTheme.tertiaryTextColor,
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Keep waiting'),
-          ),
-          if (timeSinceResponse >= 5)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _sendReminder(alert);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
-              child: const Text('Send Reminder'),
-            ),
-        ],
       ),
     );
-  }
-
-  Future<void> _markAlertResolved(Alert alert, String resolution) async {
-    // For now, just show a confirmation - in future could update DB
-    if (mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resolution == 'resolved'
-                ? '✓ Marked as resolved'
-                : 'Alert closed',
-          ),
-          backgroundColor: resolution == 'resolved' ? Colors.green : Colors.grey,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   void _handleClearOption(String option) {
@@ -957,7 +705,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing received alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing received alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -986,7 +736,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing sent alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing sent alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1017,7 +769,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         );
       }
     } catch (e) {
-      debugPrint('❌ Error clearing all alerts: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error clearing all alerts: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1060,7 +814,9 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
         }
       }
     } catch (e) {
-      debugPrint('❌ Error sending reminder: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error sending reminder: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1075,154 +831,202 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final hasAlerts = _receivedAlerts.isNotEmpty || _sentAlerts.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PremiumTheme.backgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: Icon(
+            Icons.arrow_back,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
         title: Text(
           'Alert History',
           style: TextStyle(
-            fontSize: isTablet ? 24 : 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.grey[800],
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: PremiumTheme.backgroundColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[800]),
+        centerTitle: true,
         actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: Colors.grey[700]),
-            tooltip: 'Clear alerts',
-            onSelected: (value) => _handleClearOption(value),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'clear_received',
-                enabled: _receivedAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.inbox, size: 20, color: Colors.orange[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear received'),
-                  ],
-                ),
+          if (hasAlerts)
+            PopupMenuButton<String>(
+              onSelected: _handleClearOption,
+              icon: Icon(
+                Icons.more_horiz,
+                color: PremiumTheme.primaryTextColor,
               ),
-              PopupMenuItem(
-                value: 'clear_sent',
-                enabled: _sentAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.send, size: 20, color: Colors.blue[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear sent'),
-                  ],
-                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'clear_all',
-                enabled: _receivedAlerts.isNotEmpty || _sentAlerts.isNotEmpty,
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep, size: 20, color: Colors.red[700]),
-                    const SizedBox(width: 12),
-                    const Text('Clear all'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.inbox),
-                text: 'Received (${_receivedAlerts.length})',
-              ),
-              Tab(
-                icon: const Icon(Icons.send),
-                text: 'Sent (${_sentAlerts.length})',
-              ),
-            ],
-            labelColor: Colors.blue[600],
-            unselectedLabelColor: Colors.grey[600],
-            indicatorColor: Colors.blue[600],
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // Received alerts tab
-                _receivedAlerts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No received alerts',
-                              style: TextStyle(
-                                fontSize: isTablet ? 18 : 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 16),
-                        itemCount: _receivedAlerts.length,
-                        itemBuilder: (context, index) {
-                          return _buildReceivedAlertItem(_receivedAlerts[index]);
-                        },
+              color: PremiumTheme.surfaceColor,
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'clear_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Clear All',
+                        style: TextStyle(color: PremiumTheme.primaryTextColor),
                       ),
-
-                // Sent alerts tab
-                _sentAlerts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.send,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No sent alerts',
-                              style: TextStyle(
-                                fontSize: isTablet ? 18 : 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 16),
-                        itemCount: _sentAlerts.length,
-                        itemBuilder: (context, index) {
-                          return _buildSentAlertItem(_sentAlerts[index]);
-                        },
-                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Segment control
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: PremiumTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: CupertinoSlidingSegmentedControl<int>(
+                  groupValue: _selectedSegment,
+                  backgroundColor: PremiumTheme.surfaceColor,
+                  thumbColor: PremiumTheme.backgroundColor,
+                  onValueChanged: (int? value) {
+                    if (value != null) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _selectedSegment = value;
+                      });
+                    }
+                  },
+                  children: {
+                    0: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        'Received (${_receivedAlerts.length})',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: PremiumTheme.primaryTextColor,
+                        ),
+                      ),
+                    ),
+                    1: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        'Sent (${_sentAlerts.length})',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: PremiumTheme.primaryTextColor,
+                        ),
+                      ),
+                    ),
+                  },
+                ),
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? Center(
+                      child: CupertinoActivityIndicator(
+                        color: PremiumTheme.accentColor,
+                      ),
+                    )
+                  : IndexedStack(
+                      index: _selectedSegment,
+                      children: [
+                        // Received alerts tab
+                        _receivedAlerts.isEmpty
+                            ? _buildEmptyState(
+                                icon: CupertinoIcons.tray,
+                                title: 'No alerts received',
+                                subtitle: 'When someone sends you an alert, it will appear here',
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(top: 8, bottom: 24),
+                                itemCount: _receivedAlerts.length,
+                                itemBuilder: (context, index) {
+                                  return _buildReceivedAlertItem(_receivedAlerts[index]);
+                                },
+                              ),
+
+                        // Sent alerts tab
+                        _sentAlerts.isEmpty
+                            ? _buildEmptyState(
+                                icon: CupertinoIcons.paperplane,
+                                title: 'No alerts sent',
+                                subtitle: 'Alerts you send will appear here',
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(top: 8, bottom: 24),
+                                itemCount: _sentAlerts.length,
+                                itemBuilder: (context, index) {
+                                  return _buildSentAlertItem(_sentAlerts[index]);
+                                },
+                              ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: PremiumTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                icon,
+                size: 32,
+                color: PremiumTheme.tertiaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: PremiumTheme.primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: PremiumTheme.secondaryTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
-

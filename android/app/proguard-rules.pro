@@ -20,4 +20,8 @@
 -keep class okio.** { *; }
 
 # Keep model classes
--keep class com.yuhblockin.** { *; }
+-keep class com.yuhblockin.v1.** { *; }
+
+# RevenueCat
+-keep class com.revenuecat.purchases.** { *; }
+-dontwarn com.revenuecat.purchases.**

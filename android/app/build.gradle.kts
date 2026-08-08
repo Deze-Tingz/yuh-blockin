@@ -3,7 +3,7 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -16,8 +16,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.yuhblockin.yuh_blockin_app"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.yuhblockin.v1"
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -40,15 +40,16 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yuhblockin.yuh_blockin_app"
+        applicationId = "com.yuhblockin.v1"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
+            // signingConfig = signingConfigs.getByName("release")
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false

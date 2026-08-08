@@ -1,20 +1,33 @@
-import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'sound_preferences_service.dart';
 
 /// Comprehensive Notification Service
+///
 /// Handles system notifications for alerts when:
 /// - Phone is locked
-/// - App is in background
+/// - App is in background (but still running)
 /// - User is on another screen
 /// - Phone is on silent (vibration fallback)
+///
+/// ARCHITECTURE NOTES:
+/// - Works WITH BackgroundAlertService for complete coverage
+/// - This service runs in the MAIN FLUTTER ISOLATE
+/// - BackgroundAlertService runs in a SEPARATE ISOLATE for when app is killed
+/// - Both use the same notification channel ID to prevent duplicates
+///
+/// SEE ALSO: BackgroundAlertService for the background isolate counterpart
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  // Helper for platform checking that works on web
+  bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
@@ -22,7 +35,7 @@ class NotificationService {
 
   /// Initialize the notification service
   Future<void> initialize({Function(String?)? onNotificationTapped}) async {
-    if (_isInitialized) return;
+    if (_isInitialized || kIsWeb) return;
 
     _onNotificationTapped = onNotificationTapped;
 
@@ -34,7 +47,6 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      requestCriticalPermission: true, // For important alerts
     );
 
     const initSettings = InitializationSettings(
@@ -48,6 +60,11 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _onBackgroundNotificationResponse,
     );
 
+    // Create/update notification channel with custom sound (Android only)
+    if (_isAndroid) {
+      await _createNotificationChannel();
+    }
+
     // Request permissions
     await _requestPermissions();
 
@@ -56,24 +73,52 @@ class NotificationService {
   }
 
   /// Request notification permissions
-  Future<bool> _requestPermissions() async {
-    if (Platform.isAndroid) {
+  Future<bool> _requestPermissions({bool critical = false}) async {
+    if (kIsWeb) return true;
+    
+    if (_isAndroid) {
       // Android 13+ requires explicit notification permission
       final status = await Permission.notification.request();
       return status.isGranted;
-    } else if (Platform.isIOS) {
+    } else if (_isIOS) {
       final result = await _notifications
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(
             alert: true,
             badge: true,
             sound: true,
-            critical: true,
+            critical: critical,
           );
       return result ?? false;
     }
     return true;
   }
+
+  /// Create notification channel with custom sound for alerts
+  Future<void> _createNotificationChannel() async {
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) return;
+
+    // Create the alert notification channel with custom sound
+    const alertChannel = AndroidNotificationChannel(
+      'yuh_blockin_alerts',
+      'Yuh Blockin Alerts',
+      description: 'Important parking alert notifications',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('alert_sound'),
+      enableVibration: true,
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
+    );
+
+    await androidPlugin.createNotificationChannel(alertChannel);
+    debugPrint('Notification channel created with custom sound');
+  }
+
 
   /// Handle notification tap
   void _onNotificationResponse(NotificationResponse response) {
@@ -89,15 +134,33 @@ class NotificationService {
 
   /// Show an incoming alert notification
   /// This will appear even when phone is locked or app is in background
+  /// urgencyLevel: 'low', 'normal', 'high' - determines which sound to play
   Future<void> showAlertNotification({
     required String title,
     required String body,
+    String? subtitle,
     String? payload,
     bool playSound = true,
     bool vibrate = true,
+    String urgencyLevel = 'normal',
   }) async {
     if (!_isInitialized) {
       await initialize();
+    }
+
+    // Get the user's selected sound for this urgency level
+    final soundPrefs = SoundPreferencesService();
+    final selectedSoundPath = await soundPrefs.getSoundForLevel(urgencyLevel);
+
+    // Extract sound filename without extension for Android (res/raw)
+    // e.g., 'sounds/low/low_alert_1.wav' -> 'low_alert_1'
+    final soundFileName = selectedSoundPath.split('/').last.replaceAll('.wav', '');
+
+    // For iOS, just the filename with extension
+    final iosSoundFileName = selectedSoundPath.split('/').last;
+
+    if (kDebugMode) {
+      debugPrint('Playing notification sound: $soundFileName (urgency: $urgencyLevel)');
     }
 
     // Premium rhythm vibration: da-da-da-DAAAA pattern (attention-grabbing)
@@ -118,14 +181,39 @@ class NotificationService {
       600,  // Long final buzz
     ]);
 
+    // Android: Use a channel ID specific to this sound file
+    // This is required because Android caches channel settings including sound
+    final channelId = 'yuh_blockin_alert_$soundFileName';
+
+    // Create the notification channel for this specific sound
+    if (_isAndroid) {
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final channel = AndroidNotificationChannel(
+          channelId,
+          'Yuh Blockin Alerts',
+          description: 'Parking alert notifications',
+          importance: Importance.max,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(soundFileName),
+          enableVibration: true,
+          enableLights: true,
+          ledColor: const Color(0xFF4CAF50),
+        );
+        await androidPlugin.createNotificationChannel(channel);
+      }
+    }
+
     // Android notification details - HIGH priority for lock screen visibility
     final androidDetails = AndroidNotificationDetails(
-      'yuh_blockin_alerts',
+      channelId,
       'Yuh Blockin Alerts',
-      channelDescription: 'Important parking alert notifications',
+      channelDescription: 'Parking alert notifications',
       importance: Importance.max,
       priority: Priority.max,
       playSound: playSound,
+      sound: playSound ? RawResourceAndroidNotificationSound(soundFileName) : null,
       enableVibration: vibrate,
       vibrationPattern: vibrationPattern,
       enableLights: true,
@@ -135,22 +223,26 @@ class NotificationService {
       fullScreenIntent: true, // Shows on lock screen
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public, // Show on lock screen
-      ticker: 'Someone needs you to move your car!',
+      ticker: 'New alert received',
       styleInformation: BigTextStyleInformation(
         body,
         contentTitle: title,
-        summaryText: 'Yuh Blockin',
+        summaryText: "Yuh Blockin'",
       ),
     );
 
     // iOS notification details
-    const iosDetails = DarwinNotificationDetails(
+    // Note: interruptionLevel.active is used since we don't have time-sensitive entitlement
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.timeSensitive,
+      presentSound: playSound,
+      interruptionLevel: InterruptionLevel.active,
       threadIdentifier: 'yuh_blockin_alerts',
+      subtitle: subtitle,
+      sound: playSound ? iosSoundFileName : null,
     );
+
 
     final details = NotificationDetails(
       android: androidDetails,
@@ -174,9 +266,25 @@ class NotificationService {
   /// Vibrate even when phone is on silent
   /// Uses a premium rhythm pattern: quick-quick-quick-LONG, quick-quick-LONG
   Future<void> _vibrateForSilentMode() async {
+    if (kIsWeb) return;
+
     try {
       final hasVibrator = await Vibration.hasVibrator();
       if (hasVibrator != true) return;
+
+      if (_isIOS) {
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 300));
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+        HapticFeedback.heavyImpact();
+        return;
+      }
+
 
       final hasAmplitudeControl = await Vibration.hasAmplitudeControl();
 
@@ -243,7 +351,9 @@ class NotificationService {
 
   /// Check if notifications are enabled
   Future<bool> areNotificationsEnabled() async {
-    if (Platform.isAndroid) {
+    if (kIsWeb) return true;
+
+    if (_isAndroid) {
       final androidPlugin = _notifications
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       return await androidPlugin?.areNotificationsEnabled() ?? false;

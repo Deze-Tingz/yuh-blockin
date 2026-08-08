@@ -97,7 +97,7 @@ class PaywallDialog extends StatelessWidget {
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
                       color: PremiumTheme.primaryTextColor,
-                      letterSpacing: -0.3,
+
                     ),
                   ),
                 ],
@@ -109,12 +109,11 @@ class PaywallDialog extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    customMessage ?? "You've used all 3 free alerts for today.",
+                    customMessage ?? "You've used your 1 free alert for today.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
                       color: PremiumTheme.secondaryTextColor,
-                      
                     ),
                   ),
                   const SizedBox(height: 20),

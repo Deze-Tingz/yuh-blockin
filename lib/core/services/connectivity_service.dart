@@ -100,10 +100,14 @@ class ConnectivityService {
         return 'Connected via VPN';
       case ConnectivityResult.bluetooth:
         return 'Connected via Bluetooth';
+      case ConnectivityResult.satellite:
+        return 'Connected via Satellite';
       case ConnectivityResult.other:
         return 'Connected';
       case ConnectivityResult.none:
         return 'No internet connection';
+      default:
+        return 'Connected';
     }
   }
 
@@ -119,10 +123,14 @@ class ConnectivityService {
         return 'VPN connection - alerts may be slightly delayed';
       case ConnectivityResult.bluetooth:
         return 'Bluetooth connection - alerts may be unreliable';
+      case ConnectivityResult.satellite:
+        return 'Satellite connection - alerts may be delayed';
       case ConnectivityResult.other:
         return 'Limited connection';
       case ConnectivityResult.none:
         return 'You will not receive alerts without internet';
+      default:
+        return 'Limited connection';
     }
   }
 

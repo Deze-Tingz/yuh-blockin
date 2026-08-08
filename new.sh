@@ -1,0 +1,1 @@
+sudo apt update && sudo apt install -y cmake ninja-build pkg-config libgtk-3-dev

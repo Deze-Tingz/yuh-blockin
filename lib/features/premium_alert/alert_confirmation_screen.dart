@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -103,11 +104,12 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
       // Start progress animation
       _startProgressAnimation();
 
-      // Send simple emoji alert
+      // Send simple emoji alert with urgency level
       final result = await _alertService.sendAlert(
         targetPlateNumber: widget.plateNumber,
         senderUserId: userId,
         message: widget.selectedEmoji.unicode, // Just send the emoji character
+        urgencyLevel: widget.urgencyLevel,
       );
 
       if (result.success && result.recipients > 0) {
@@ -359,6 +361,19 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
 
     return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'Alert Status',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -410,7 +425,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
+
           ),
         ),
 
@@ -483,7 +498,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
               fontSize: isTablet ? 24 : 20,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 2.0,
+
             ),
           ),
         ),
@@ -497,7 +512,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.secondaryTextColor,
-            letterSpacing: 0.2,
+
           ),
         ),
       ],
@@ -540,7 +555,6 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         widget.selectedEmoji.unicode,
         style: TextStyle(
           fontSize: isTablet ? 50 : 40,
-          
         ),
       );
     } else {
@@ -562,8 +576,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
             fontSize: 18,
             fontWeight: FontWeight.w500,
             color: PremiumTheme.primaryTextColor,
-            letterSpacing: 0.1,
-            
+
           ),
           textAlign: TextAlign.center,
           maxLines: 3,
@@ -580,10 +593,10 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: PremiumTheme.surfaceColor.withValues(alpha: 0.7),
+            color: PremiumTheme.surfaceColor.withAlpha(178),
             borderRadius: PremiumTheme.mediumRadius,
             border: Border.all(
-              color: widget.selectedEmoji.accentColor.withValues(alpha: 0.2),
+              color: widget.selectedEmoji.accentColor.withAlpha(51),
               width: 1,
             ),
           ),
@@ -653,7 +666,7 @@ class _AlertConfirmationScreenState extends State<AlertConfirmationScreen>
                           color: isActive
                               ? PremiumTheme.accentColor
                               : PremiumTheme.tertiaryTextColor,
-                          letterSpacing: 0.1,
+
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

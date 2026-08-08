@@ -315,3 +315,6 @@ CREATE TRIGGER update_ath_monthly_modtime
 -- 3. Add secrets in Edge Functions settings:
 --    - ATH_MOVIL_PUBLIC_TOKEN
 --    - ATH_MOVIL_PRIVATE_KEY
+I/flutter (27396): ❌ Failed to ensure user exists: AuthApiException(message: Anonymous sign-ins are disabled, statusCode: 422, code: anonymous_provider_disabled)
+I/flutter (27396): ❌ Alert system initialization failed: No user ID available
+I/flutter (27396): Background service: Anonymous sign-in failed: AuthApiException(message: Anonymous sign-ins are disabled, statusCode: 422, code: anonymous_provider_disabled)

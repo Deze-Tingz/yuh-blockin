@@ -54,7 +54,7 @@ android {
 
     defaultConfig {
         // Premium application ID
-        applicationId "com.yuhblockin.premium"
+        applicationId "com.dezetingz.yuhBlockin"
 
         // You can update the following values to match your application needs.
         minSdkVersion 23

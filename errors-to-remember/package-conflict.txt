@@ -1,0 +1,44 @@
+The error occurs because your `namespace` (in `build.gradle`) and your `package` declaration (in your `.kt` or `.java` files) or your folder structure do not match.
+
+To fix this and properly change your package name to `com.yuhblockin.v1`, you must update **three** specific places:
+
+### 1. The `build.gradle` file (You have already done half of this)
+Ensure **both** `namespace` and `applicationId` (or `applicationId` if present, though you have `namespace` here) or your `defaultConfig` use the new name.
+```gradle
+android {
+    namespace = "com.yuhblockin.v1" // Ensure this or your identification matches
+    defaultConfig {
+        applicationId = "com.yuhblockin.v1" // This is what Google Play sees
+        // ...
+    }
+}
+```
+
+### 2. The `MainActivity` file (The source code)
+You must change the `package` declaration at the very top of your `MainActivity.kt` (or `.java`) file to match your new namespace.
+*   **File path:** `android/app/src/main/kotlin/com/yuhblockin/v1/MainActivity.kt`
+*   **Top line must be:**
+    ```kotlin
+    package com.yuhblockin.v1
+    ```
+
+### 3. The `AndroidManifest.xml` (If applicable)
+If you have a `package` attribute explicitly defined in your `AndroidManifest.xml`, update it there as well.
+*   **File path:** `android/app/src/main/AndroidManifest.xml`
+*   **Update:**
+    ```xml
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        package="com.yuhblockin.v1">
+    ```
+
+---
+
+### Summary Checklist
+To avoid the `Unable to instantiate` error, verify this "Triple Match":
+1.  **`build.gradle`**: `namespace` and `applicationId` == `com.yuhblockin.v1`
+2.  **`MainActivity.kt`**: `package` == `com.yuhblockin.v1`
+3.  **Folder Structure**: The file must physically live in `.../kotlin/com/yuhblockin/v1/MainActivity.kt`
+
+**Pro-tip:** After making these changes, always run **`flutter clean`** (or `gradlew clean` for Android) before rebuilding to ensure the old package name (the cached
+`com.yuhblockin.v1` or `com.yuhblockin.v_old`) is wiped from the buildget.
+

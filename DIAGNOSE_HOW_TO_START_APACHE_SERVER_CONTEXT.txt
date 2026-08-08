@@ -1,0 +1,214 @@
+c>>> I am on kali linux the follow code is my homepage I am trying to view proper
+... ly on my linux pc find the standard for starting a site that was made with w
+... ordpress CLI cause I do not have internet and cannot remember how to do so
+```
+sudo apt-get update && sudo apt-get install -y apache2 php7.4 
+libapache2-mod-php7.4
+sudo chown -R www-data:www-data /var/www/html
+sudo service apache2 restart
+```
+
+>>> Explain this line sudo chown -R www-data:www-data /var/www/html
+```
+chown -R <user>:<group> <directory>
+```
+
+Changes the ownership of the specified directory and all its contents to 
+the given user and group.
+
+*   `-R` option is used for recursive operation, meaning it will change 
+the ownership of all files and subdirectories within the specified 
+directory.
+*   `<user>` should be replaced with `www-data`, which is the default 
+Apache web server user on most Linux systems.
+*   `<group>` should be replaced with `www-data`, which is also the 
+default Apache web server group on most Linux systems.
+*   `<directory>` should be replaced with `/var/www/html`, which is the 
+default directory where WordPress installs its files.
+
+So, in this case, it's changing the ownership of the `/var/www/html` 
+directory and all its contents to the `www-data` user and group.
+
+>>> How to check if apache is already installed 
+```
+sudo dpkg -s apache2 | grep install
+```
+
+>>> udo] password for xthebluepill: 
+... Status: install ok installed
+...  Installing this package results in a full installation, including the
+... kali% 
+... 
+```
+sudo apt-cache policy apache2
+```
+
+This will show you the current status of Apache 2 on your system. If it's already installed and up-to-date, you should see something like this:
+
+```
+apache2:
+  Version table
+  ----------
+  stable 500
+     500
+    http://us.archive.ubuntu.com/ubuntu focal main
+   500-4.10.3+dfsg-44ubuntu1.4 all
+  (local)
+```
+
+>>> Great is installed this is the dir of the website /home/xthebluepill/Documents/lab/yuh-blockin/landing-page-markup.html
+```
+sudo nano /var/www/html/landing-page-markup.html
+```
+
+This will open the `landing-page-markup.html` file in the `/var/www/html` directory, which is where WordPress typically installs its files. If you want to edit a different file, replace `/landing-page-markup.html` with the name of 
+your actual file.
+
+Note: You can also use `sudo gedit /var/www/html/landing-page-markup.html` if you have the `gedit` package installed, or `sudo vim /var/www/html/landing-page-markup.html` if you prefer to use `vim`.
+
+>>> When i say open I meant to run locally properly on a browser
+```
+sudo apache2 -S
+```
+
+This will start the Apache web server in debug mode, which will show you the URL of the default page served by Apache. You can then use this URL to view your local WordPress site.
+
+Alternatively, you can also run:
+```
+sudo apache2 -D FOREGROUND
+```
+
+This will start the Apache web server in foreground mode, allowing you to view your local WordPress site directly from the terminal.
+
+You can then open a web browser and navigate to `http://localhost` (or `http://127.0.0.1`) to view your local WordPress site.
+
+>>> so do I need to be in a directory that has the home page? or index.html is it going to view in its full state?
+```
+sudo apache2 -S | grep URL-IDENTITY
+```
+
+This will show you the URL of your local WordPress site. You can then use this URL to view your local WordPress site.
+
+Alternatively, if you want to view the `index.html` file directly, you can try:
+```
+http://localhost/landing-page-markup.html
+```
+
+If everything is set up correctly, this should open the `landing-page-markup.html` file in your default web browser. If not, you may need to adjust the Apache configuration or WordPress settings.
+
+Note: Make sure that the `/var/www/html` directory has read and execute permissions for the Apache user (usually `www-data`). You can check the permissions with:
+```
+ls -ld /var/www/html
+```
+
+>>> Only root has permissions is this recommended?
+```
+sudo chown -R www-data:www-data /var/www/html
+```
+
+This will change the ownership of the `/var/www/html` directory and its contents to the `www-data` user, which is the default Apache web server user.
+
+As for permissions, it's generally recommended to have the Apache user (usually `www-data`) have read and execute permissions on the `/var/www/html` directory. This allows Apache to serve files from that directory without needing 
+root privileges.
+
+The current permission issue you're seeing (`only root has permissions`) is likely due to the fact that the Apache user doesn't have ownership of the directory, or their group doesn't have read permissions.
+
+By running `chown -R www-data:www-data /var/www/html`, we can fix this and ensure that Apache has the necessary permissions to serve files from the `/var/www/html` directory.
+
+>>> sudo apache2 -S
+... 
+... [Wed May 06 05:51:12.232454 2026] [core:warn] [pid 92289:tid 92289] AH00111: Config variable ${APACHE_RUN_DIR} is not defined
+... apache2: Syntax error on line 80 of /etc/apache2/apache2.conf: DefaultRuntimeDir must be a valid directory, absolute or relative to ServerRoot
+... 
+```
+sudo nano /etc/apache2/apache2.conf
+```
+
+This will open the Apache configuration file in the default editor (usually `nano`).
+
+Look for the line that starts with `DefaultRuntimeDir` and make sure it's set to a valid directory. For example:
+```
+DefaultRuntimeDir /var/run/apache2
+```
+If you're not sure what the correct value should be, you can try setting it to `/var/run/apache2` or another valid directory.
+
+Save and close the file when you're done, then run:
+```
+sudo service apache2 restart
+```
+
+This will reload Apache with the new configuration. If you encounter any further errors, feel free to share them and I'll do my best to help!
+
+>>> Can i just manually set it to the website and directory in here or isw that not recommended?
+```
+sudo nano /etc/apache2/sites-available/000-default.conf
+```
+
+This will open the default Apache site configuration file.
+
+Look for the `DocumentRoot` directive, which should be set to point to your website's root directory. For example:
+```
+DocumentRoot /var/www/html
+```
+Make sure this is set to the correct path, and save and close the file when you're done.
+
+Then, create a new symbolic link to the site configuration file that points to the `sites-enabled` directory:
+```
+sudo ln -s /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-enabled/
+```
+
+This will enable the default site configuration. Finally, restart Apache:
+```
+sudo service apache2 restart
+```
+
+By setting the `DocumentRoot` directive manually, you're telling Apache to serve files from that specific directory. This is a valid approach, but keep in mind that it's generally recommended to use the `DocumentRoot` directive 
+within a site configuration file (like `000-default.conf`) rather than hardcoding it directly into the main Apache configuration file.
+
+However, if you're just starting out or need to make some quick adjustments, manually setting the `DocumentRoot` directive can be a good temporary solution.
+
+>>> I have set this "DefaultRuntimeDir /var/run/apache2" 
+... next step?
+C#+^C
+
+>>> 
+kali% ollama stop claude:latest
+Error: couldn't find model "claude:latest" to stop
+kali% ollama run claude:latest
+pulling manifest 
+Error: pull model manifest: Get "https://registry.ollama.ai/v2/library/claude/manifests/latest": dial tcp: lookup registry.ollama.ai on [fe80::1%wlan0]:53: server misbehaving
+kali% ollama ps 
+NAME                   ID              SIZE      PROCESSOR          CONTEXT    UNTIL              
+claude-llama:latest    33f801b371d5    7.6 GB    58%/42% CPU/GPU    32768      4 minutes from now    
+kali% ollama stop all
+Error: couldn't find model "all" to stop
+kali% ollama stop *  
+Error: accepts 1 arg(s), received 25
+kali% ollama stop  
+Error: accepts 1 arg(s), received 0
+kali% ollama ps
+NAME                   ID              SIZE      PROCESSOR          CONTEXT    UNTIL              
+claude-llama:latest    33f801b371d5    7.6 GB    58%/42% CPU/GPU    32768      3 minutes from now    
+kali% ollama run claude:latest
+pulling manifest 
+Error: pull model manifest: Get "https://registry.ollama.ai/v2/library/claude/manifests/latest": dial tcp: lookup registry.ollama.ai on [fe80::1%wlan0]:53: server misbehaving
+kali% ollama ls
+NAME                                 ID              SIZE      MODIFIED    
+qwen2.5-coder:7b                     dae161e27b0e    4.7 GB    7 days ago     
+gemma2:9b                            ff02c3702f32    5.4 GB    8 days ago     
+huihui_ai/gemma-4-abliterated:26b    114865317d3c    17 GB     8 days ago     
+gemma4:26b                           5571076f3d70    17 GB     8 days ago     
+claude-llama:latest                  33f801b371d5    2.2 GB    8 days ago     
+qwen2.5-coder:14b                    9ec8897f747e    9.0 GB    9 days ago     
+deepseek-r1:14b                      c333b7232bdb    9.0 GB    10 days ago    
+huihui_ai/llama3.2-abliterate:3b     2ffe056672b5    2.2 GB    3 weeks ago    
+granite3-moe:3b                      157f538ae66e    2.1 GB    3 weeks ago    
+huihui_ai/qwen3.5-abliterated:9b     92a443adb124    6.6 GB    3 weeks ago    
+hunter:latest                        ee5af391b5fe    4.9 GB    3 weeks ago    
+granite3-dense:8b                    199456d876ee    4.9 GB    3 weeks ago    
+dolphin3:latest                      d5ab9ae8e1f2    4.9 GB    3 weeks ago    
+kali% ollama run huihui_ai/llama3.2-abliterate:3b
+⠹ ^C
+kali% ollama run claude:latest                   
+
+

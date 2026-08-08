@@ -10,7 +10,10 @@ import '../../core/theme/premium_theme.dart';
 import '../../core/services/plate_storage_service.dart';
 import '../../core/services/simple_alert_service.dart';
 import '../../core/services/plate_verification_service.dart';
-import '../../main_premium.dart';
+import '../../core/services/subscription_service.dart';
+import '../../config/payment_config.dart';
+import '../../main.dart';
+import '../subscription/paywall_dialog.dart';
 
 /// License Plate Registration Screen
 ///
@@ -35,13 +38,21 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
   final PlateStorageService _storageService = PlateStorageService();
   final SimpleAlertService _alertService = SimpleAlertService();
   final PlateVerificationService _verificationService = PlateVerificationService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
   List<String> _registeredPlates = [];
   String? _primaryPlate;
   bool _isValidPlate = false;
   bool _isRegistering = false;
 
-  bool get _isAtMaxCapacity => _registeredPlates.length >= PlateStorageService.maxVehicles;
+  /// Check if user is premium for plate limits
+  bool get _isPremiumUser => _subscriptionService.isPremium;
+
+  /// Get maximum vehicles allowed for this user
+  int get _maxVehicles => PlateStorageService.getMaxVehicles(isPremium: _isPremiumUser);
+
+  /// Check if at max capacity based on subscription
+  bool get _isAtMaxCapacity => _registeredPlates.length >= _maxVehicles;
 
   @override
   void initState() {
@@ -250,18 +261,20 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         }
       }
 
-      // Register plate with simple service
+      // Generate ownership key for security BEFORE registering
+      final ownershipKey = _verificationService.generateOwnershipKey();
+      final ownershipKeyHash = _verificationService.hashOwnershipKey(ownershipKey);
+
+      // Register plate with simple service (including ownership key hash for recovery)
       if (userId != null) {
         await _alertService.registerPlate(
           plateNumber: plateNumber,
           userId: userId,
+          ownershipKeyHash: ownershipKeyHash,
         );
       } else {
         throw Exception('User ID is null after creation attempts');
       }
-
-      // Generate ownership key for security
-      final ownershipKey = _verificationService.generateOwnershipKey();
 
       // Save key locally
       await _verificationService.saveKeyLocally(
@@ -269,8 +282,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         ownershipKey: ownershipKey,
       );
 
-      // Save to local storage as well
-      await _storageService.addPlate(plateNumber);
+      // Save to local storage as well (with premium status for limit check)
+      await _storageService.addPlate(plateNumber, isPremium: _isPremiumUser);
 
       // Registration successful - refresh the plates list
       await _loadExistingPlates();
@@ -392,7 +405,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   'Plate Registered!',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
                   ),
                 ),
@@ -405,7 +418,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.accentColor,
-                    letterSpacing: 2,
+
                   ),
                 ),
 
@@ -462,10 +475,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           ownershipKey,
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 1.5,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -538,7 +549,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.red.shade300,
-                            
                           ),
                         ),
                       ),
@@ -682,7 +692,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         color: PremiumTheme.secondaryTextColor,
-                        
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -704,7 +713,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1,
                       ),
                       decoration: InputDecoration(
                         hintText: 'e.g., ABC-1234',
@@ -720,6 +728,10 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s\-]')),
+                        LengthLimitingTextInputFormatter(12),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
@@ -739,16 +751,13 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'monospace',
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1,
                       ),
                       decoration: InputDecoration(
                         hintText: 'YB-XXXX-XXXX-XXXX',
                         hintStyle: TextStyle(
                           color: PremiumTheme.tertiaryTextColor,
                           fontWeight: FontWeight.w400,
-                          fontFamily: 'monospace',
                         ),
                         filled: true,
                         fillColor: PremiumTheme.backgroundColor,
@@ -812,8 +821,8 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                       );
 
                       if (result.success) {
-                        // Save to local storage
-                        await _storageService.addPlate(plateNumber);
+                        // Save to local storage (with premium status for limit check)
+                        await _storageService.addPlate(plateNumber, isPremium: _isPremiumUser);
                         await _verificationService.saveKeyLocally(
                           plateNumber: plateNumber,
                           ownershipKey: ownershipKey,
@@ -933,7 +942,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   color: PremiumTheme.secondaryTextColor,
-                  
                 ),
               ),
               const SizedBox(height: 16),
@@ -1032,8 +1040,6 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: PremiumTheme.primaryTextColor,
-                    letterSpacing: 2.0,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -1321,7 +1327,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   fontSize: isCompact ? 22 : 26,
                   fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: -0.3,
+
                 ),
               ),
 
@@ -1349,7 +1355,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
             fontSize: isCompact ? 13 : 14,
             fontWeight: FontWeight.w400,
             color: PremiumTheme.secondaryTextColor,
-            letterSpacing: 0.1,
+
           ),
           textAlign: TextAlign.center,
         ),
@@ -1410,12 +1416,12 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
         color: PremiumTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.amber.withValues(alpha: 0.4),
+          color: _isPremiumUser ? Colors.amber.withValues(alpha: 0.4) : PremiumTheme.accentColor.withValues(alpha: 0.4),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withValues(alpha: 0.1),
+            color: (_isPremiumUser ? Colors.amber : PremiumTheme.accentColor).withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1426,7 +1432,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
           Icon(
             Icons.garage_outlined,
             size: isCompact ? 36 : 44,
-            color: Colors.amber.shade600,
+            color: _isPremiumUser ? Colors.amber.shade600 : PremiumTheme.accentColor,
           ),
           SizedBox(height: isCompact ? 10 : 14),
           Text(
@@ -1439,14 +1445,55 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
           ),
           SizedBox(height: isCompact ? 6 : 8),
           Text(
-            'Maximum ${PlateStorageService.maxVehicles} vehicles. Remove one to add another.',
+            'Maximum $_maxVehicles vehicles. Remove one to add another.',
             style: TextStyle(
               fontSize: isCompact ? 13 : 14,
               color: PremiumTheme.secondaryTextColor,
-              
             ),
             textAlign: TextAlign.center,
           ),
+          // Show upgrade option for free users
+          if (!_isPremiumUser) ...[
+            SizedBox(height: isCompact ? 12 : 16),
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                // Show paywall dialog
+                PaywallDialog.show(context, remainingAlerts: 0);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      PremiumTheme.accentColor,
+                      PremiumTheme.accentColor.withValues(alpha: 0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Upgrade for ${PaymentConfig.premiumMaxPlates} vehicles',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1489,14 +1536,14 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
               fontSize: isCompact ? 20 : 24,
               fontWeight: FontWeight.w600,
               color: PremiumTheme.primaryTextColor,
-              letterSpacing: 2.5,
+
             ),
             decoration: InputDecoration(
               hintText: 'ABC-1234',
               hintStyle: TextStyle(
                 color: PremiumTheme.tertiaryTextColor.withValues(alpha: 0.4),
                 fontWeight: FontWeight.w400,
-                letterSpacing: 2.0,
+
               ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: isCompact ? 20 : 24,
@@ -1601,7 +1648,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                 style: TextStyle(
                   fontSize: isCompact ? 14 : 15,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
+
                 ),
               ),
       ),
@@ -1636,7 +1683,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                   fontSize: isCompact ? 14 : 16,
                   fontWeight: FontWeight.w600,
                   color: PremiumTheme.primaryTextColor,
-                  letterSpacing: 0.3,
+
                 ),
               ),
             ),
@@ -1717,7 +1764,7 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         fontSize: isCompact ? 15 : 16,
                         fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
                         color: PremiumTheme.primaryTextColor,
-                        letterSpacing: 1.5,
+
                       ),
                     ),
                   ),
@@ -1733,9 +1780,9 @@ class _PlateRegistrationScreenState extends State<PlateRegistrationScreen> {
                         'PRIMARY',
                         style: TextStyle(
                           fontSize: 9,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
-                          letterSpacing: 0.5,
+
                         ),
                       ),
                     ),
@@ -1937,7 +1984,7 @@ class _SuccessAnimationState extends State<_SuccessAnimation>
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
                             color: PremiumTheme.primaryTextColor,
-                            letterSpacing: 0.3,
+
                           ),
                         ),
                         const SizedBox(height: 8),

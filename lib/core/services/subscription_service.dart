@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -14,7 +13,10 @@ class SubscriptionService {
   SubscriptionService._internal();
 
   // Get API key from secure configuration
-  static String get _revenueCatApiKey => PaymentConfig.getApiKey(isIOS: Platform.isIOS);
+  static String get _revenueCatApiKey => PaymentConfig.getApiKey(isIOS: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS);
+
+  // Cached SharedPreferences instance to avoid N+1 disk reads
+  static SharedPreferences? _cachedPrefs;
 
   // Product identifiers from config
   static String get monthlyProductId => PaymentConfig.monthlyProductId;
@@ -46,8 +48,8 @@ class SubscriptionService {
     _currentUserId = userId;
 
     try {
-      // Configure RevenueCat only if API key is available
-      if (_revenueCatApiKey.isNotEmpty) {
+      // Configure RevenueCat only if API key is available AND not a demo key
+      if (_revenueCatApiKey.isNotEmpty && !PaymentConfig.isDemoMode) {
         await Purchases.configure(
           PurchasesConfiguration(_revenueCatApiKey)..appUserID = userId,
         );
@@ -108,9 +110,7 @@ class SubscriptionService {
       final supabase = Supabase.instance.client;
 
       // Call server-side function to validate user's alert permission
-      final response = await supabase.rpc('validate_alert_permission', params: {
-        'p_user_id': _currentUserId,
-      });
+      final response = await supabase.rpc('validate_alert_permission');
 
       if (response is Map<String, dynamic>) {
         final allowed = response['allowed'] as bool? ?? false;
@@ -213,9 +213,7 @@ class SubscriptionService {
     // Also update server
     try {
       final supabase = Supabase.instance.client;
-      await supabase.rpc('increment_daily_usage', params: {
-        'p_user_id': _currentUserId,
-      });
+      await supabase.rpc('increment_daily_usage');
     } catch (e) {
       if (kDebugMode) {
         debugPrint('⚠️ Failed to sync daily usage to server: $e');
@@ -285,15 +283,15 @@ class SubscriptionService {
 
   Future<PurchaseResult> _purchaseProduct(String productId) async {
     try {
-      // Check if payment system is configured
+      // Check if we should use demo mode
+      if (PaymentConfig.isDemoMode) {
+        debugPrint('🧪 Demo mode: Simulating purchase of $productId');
+        await _simulatePurchase(productId, isDemo: true);
+        return PurchaseResult(success: true, message: 'Demo purchase successful (TEST MODE)');
+      }
+
+      // If not in demo mode, proceed with real RevenueCat purchase
       if (_revenueCatApiKey.isEmpty) {
-        // Only allow demo mode in debug builds AND when explicitly not production
-        if (kDebugMode && !PaymentConfig.isConfiguredForProduction) {
-          debugPrint('🧪 Demo mode: Simulating purchase of $productId');
-          debugPrint('⚠️ This is a TEST purchase - will not work in production');
-          await _simulatePurchase(productId, isDemo: true);
-          return PurchaseResult(success: true, message: 'Demo purchase successful (TEST MODE)');
-        }
         return PurchaseResult(
           success: false,
           error: 'Payment system not available. Please contact ${PaymentConfig.supportEmail}',
@@ -434,9 +432,15 @@ class SubscriptionService {
     }
   }
 
+  /// Get or create cached SharedPreferences instance
+  Future<SharedPreferences> _getPrefs() async {
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+    return _cachedPrefs!;
+  }
+
   Future<void> _loadCachedStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       _subscriptionStatus = prefs.getString('yuh_subscription_status') ?? 'free';
       _isPremium = _subscriptionStatus != 'free';
     } catch (e) {
@@ -448,7 +452,7 @@ class SubscriptionService {
 
   Future<void> _saveCachedStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString('yuh_subscription_status', _subscriptionStatus);
     } catch (e) {
       if (kDebugMode) {
@@ -459,7 +463,7 @@ class SubscriptionService {
 
   Future<void> _loadDailyUsage() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final lastDateStr = prefs.getString('yuh_last_usage_date');
       final today = DateTime.now();
       final todayStr = '${today.year}-${today.month}-${today.day}';
@@ -481,7 +485,7 @@ class SubscriptionService {
 
   Future<void> _saveDailyUsage() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final today = DateTime.now();
       final todayStr = '${today.year}-${today.month}-${today.day}';
 

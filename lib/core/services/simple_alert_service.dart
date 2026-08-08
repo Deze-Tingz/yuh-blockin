@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import '../../config/supabase_config.dart';
 
 /// Simple and secure alert service
 /// - Privacy-first: Only stores SHA256 hashes of license plates
@@ -23,12 +24,42 @@ class SimpleAlertService {
     if (_isInitialized) return;
 
     try {
-      await Supabase.initialize(
-        url: 'https://oazxwglbvzgpehsckmfb.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henh3Z2xidnpncGVoc2NrbWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNzkzMjEsImV4cCI6MjA3ODc1NTMyMX0.Ia6ccZ1zp4r1mi5mgvQk9wfK5MGp0S3TDhyWngz8Z54',
-      );
+      // Check if Supabase is already initialized (e.g., from main.dart)
+      // If not, initialize it
+      try {
+        _supabase = Supabase.instance.client;
+        if (kDebugMode) {
+          debugPrint('✅ Supabase already initialized, reusing instance');
+        }
+      } catch (e) {
+        // Supabase not initialized yet, initialize it now
+        if (kDebugMode) {
+          debugPrint('🔧 Initializing Supabase...');
+        }
+        await Supabase.initialize(
+          url: SupabaseConfig.url,
+          anonKey: SupabaseConfig.anonKey,
+        );
+        _supabase = Supabase.instance.client;
+      }
 
-      _supabase = Supabase.instance.client;
+      // Try to sign in anonymously for 'authenticated' role
+      // If captcha/auth fails, continue with anon role (tables have RLS for anon)
+      if (_supabase.auth.currentUser == null) {
+        try {
+          await _supabase.auth.signInAnonymously();
+          if (kDebugMode) {
+            debugPrint('🔐 Signed in anonymously');
+          }
+        } catch (authError) {
+          // Captcha or other auth error - continue without authenticated role
+          if (kDebugMode) {
+            debugPrint('⚠️ Anonymous sign-in failed (captcha?): $authError');
+            debugPrint('⚠️ Continuing with anon role...');
+          }
+        }
+      }
+
       _isInitialized = true;
 
       if (kDebugMode) {
@@ -141,6 +172,7 @@ class SimpleAlertService {
   Future<void> registerPlate({
     required String plateNumber,
     required String userId,
+    String? ownershipKeyHash,
   }) async {
     _ensureInitialized();
 
@@ -171,13 +203,23 @@ class SimpleAlertService {
     }
 
     try {
-      await _supabase.from('plates').insert({
+      final insertData = {
         'user_id': userId,
         'plate_hash': plateHash,
-      });
+      };
+
+      // Add ownership key hash if provided (for account recovery)
+      if (ownershipKeyHash != null) {
+        insertData['ownership_key_hash'] = ownershipKeyHash;
+      }
+
+      await _supabase.from('plates').insert(insertData);
 
       if (kDebugMode) {
         debugPrint('✅ Registered plate: $plateNumber -> $plateHash');
+        if (ownershipKeyHash != null) {
+          debugPrint('🔐 Ownership key hash stored for recovery');
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -192,6 +234,8 @@ class SimpleAlertService {
     required String targetPlateNumber,
     required String senderUserId,
     String? message,
+    String? soundPath,
+    String urgencyLevel = 'normal',
   }) async {
     _ensureInitialized();
 
@@ -202,6 +246,8 @@ class SimpleAlertService {
         'sender_user_id': senderUserId,
         'target_plate_hash': plateHash,
         'alert_message': message,
+        'alert_sound_path': soundPath,
+        'alert_urgency_level': urgencyLevel.toLowerCase(),
       });
 
       final result = response as Map<String, dynamic>;
@@ -554,6 +600,8 @@ class Alert {
   final String receiverId;
   final String plateHash;
   final String? message;
+  final String? soundPath; // Sound to play on receiver's phone
+  final String urgencyLevel; // low, normal, high - determines notification sound
   final String? response; // moving_now, 5_minutes, cant_move, wrong_car
   final String? responseMessage; // optional custom response
   final DateTime createdAt;
@@ -566,6 +614,8 @@ class Alert {
     required this.receiverId,
     required this.plateHash,
     this.message,
+    this.soundPath,
+    this.urgencyLevel = 'normal',
     this.response,
     this.responseMessage,
     required this.createdAt,
@@ -580,6 +630,8 @@ class Alert {
       receiverId: json['receiver_id'],
       plateHash: json['plate_hash'],
       message: json['message'],
+      soundPath: json['sound_path'],
+      urgencyLevel: json['urgency_level'] ?? 'normal',
       response: json['response'],
       responseMessage: json['response_message'],
       createdAt: DateTime.parse(json['created_at']),
@@ -590,6 +642,37 @@ class Alert {
 
   /// Check if alert has been responded to
   bool get hasResponse => response != null;
+
+  /// Create a copy of Alert with updated fields
+  Alert copyWith({
+    String? id,
+    String? senderId,
+    String? receiverId,
+    String? plateHash,
+    String? message,
+    String? soundPath,
+    String? urgencyLevel,
+    String? response,
+    String? responseMessage,
+    DateTime? createdAt,
+    DateTime? readAt,
+    DateTime? responseAt,
+  }) {
+    return Alert(
+      id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
+      receiverId: receiverId ?? this.receiverId,
+      plateHash: plateHash ?? this.plateHash,
+      message: message ?? this.message,
+      soundPath: soundPath ?? this.soundPath,
+      urgencyLevel: urgencyLevel ?? this.urgencyLevel,
+      response: response ?? this.response,
+      responseMessage: responseMessage ?? this.responseMessage,
+      createdAt: createdAt ?? this.createdAt,
+      readAt: readAt ?? this.readAt,
+      responseAt: responseAt ?? this.responseAt,
+    );
+  }
 
   /// Get human-readable response text
   String get responseText {

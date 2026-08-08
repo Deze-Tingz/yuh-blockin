@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -8,10 +7,22 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:vibration/vibration.dart';
+import '../../config/supabase_config.dart';
 
 /// Background Alert Service
-/// Keeps Supabase realtime connection alive when phone is locked/app is background
-/// Critical for receiving parking alerts reliably
+///
+/// ARCHITECTURE NOTES:
+/// - This service runs as a SEPARATE ISOLATE (Android foreground service)
+/// - It works independently from the main app's NotificationService
+/// - Purpose: Ensure alerts are received even when app is KILLED or in deep background
+///
+/// RELATIONSHIP TO NotificationService:
+/// - NotificationService: Handles notifications when app is running (foreground/light background)
+/// - BackgroundAlertService: Handles notifications when app is fully killed or suspended
+/// - Both use the same notification channel ID to prevent duplicates
+/// - The same alert ID is used (alertId.hashCode) to deduplicate system notifications
+///
+/// This dual-service approach ensures reliable alert delivery across all app states.
 class BackgroundAlertService {
   static final BackgroundAlertService _instance = BackgroundAlertService._internal();
   factory BackgroundAlertService() => _instance;
@@ -21,24 +32,33 @@ class BackgroundAlertService {
   static const String _notificationChannelId = 'yuh_blockin_alerts';
   static const String _notificationChannelName = 'Yuh Blockin Alerts';
 
+  // Helper for platform checking that works on web
+  bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
   /// Initialize and start the background service
   Future<void> initializeService() async {
+    if (kIsWeb) return;
+
     final service = FlutterBackgroundService();
 
-    // Configure notification channel for foreground service
+    // Configure notification channel for foreground service with custom sound
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _notificationChannelId,
       _notificationChannelName,
       description: 'Critical parking alert notifications',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
+      sound: RawResourceAndroidNotificationSound('alert_sound'),
+      enableLights: true,
+      ledColor: Color(0xFF4CAF50),
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
 
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
@@ -98,10 +118,16 @@ class BackgroundAlertService {
 }
 
 /// iOS background handler
+/// Note: iOS has strict background execution limits (~30 seconds)
+/// For reliable background alerts on iOS, push notifications (FCM/APNs) are required
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+
+  // On iOS, we have limited background execution time
+  // The main onStart handler will be called, but may be suspended by iOS
+  // For reliable delivery when app is backgrounded on iOS, implement push notifications
   return true;
 }
 
@@ -116,7 +142,15 @@ void onStart(ServiceInstance service) async {
 
   // Initialize notifications
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidSettings);
+  const iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+  );
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
   await notificationsPlugin.initialize(initSettings);
 
   // Get stored user ID
@@ -125,34 +159,69 @@ void onStart(ServiceInstance service) async {
 
   StreamSubscription? alertSubscription;
   SupabaseClient? supabase;
+  Timer? reconnectTimer;
+
+  // Track shown alert IDs to prevent duplicate notifications
+  final Set<String> shownAlertIds = {};
 
   // Initialize Supabase
-  try {
-    await Supabase.initialize(
-      url: 'https://oazxwglbvzgpehsckmfb.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henh3Z2xidnpncGVoc2NrbWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxNzkzMjEsImV4cCI6MjA3ODc1NTMyMX0.Ia6ccZ1zp4r1mi5mgvQk9wfK5MGp0S3TDhyWngz8Z54',
-    );
-    supabase = Supabase.instance.client;
-    debugPrint('Background service: Supabase initialized');
-  } catch (e) {
-    debugPrint('Background service: Supabase already initialized or error: $e');
+  Future<SupabaseClient?> initializeSupabase() async {
     try {
-      supabase = Supabase.instance.client;
-    } catch (_) {
-      debugPrint('Background service: Could not get Supabase client');
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        anonKey: SupabaseConfig.anonKey,
+      );
+      final client = Supabase.instance.client;
+      if (kDebugMode) {
+        debugPrint('Background service: Supabase initialized');
+      }
+      return client;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Background service: Supabase already initialized or error: $e');
+      }
+      try {
+        return Supabase.instance.client;
+      } catch (_) {
+        if (kDebugMode) {
+          debugPrint('Background service: Could not get Supabase client');
+        }
+        return null;
+      }
     }
   }
 
-  /// Subscribe to alerts for user
+  supabase = await initializeSupabase();
+
+  // Sign in anonymously for authenticated role
+  if (supabase != null && supabase.auth.currentUser == null) {
+    try {
+      await supabase.auth.signInAnonymously();
+      if (kDebugMode) {
+        debugPrint('Background service: Signed in anonymously');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Background service: Anonymous sign-in failed: $e');
+      }
+    }
+  }
+
+  /// Subscribe to alerts for user with auto-reconnect
   void subscribeToAlerts(String uid) {
     alertSubscription?.cancel();
+    reconnectTimer?.cancel();
 
     if (supabase == null) {
-      debugPrint('Background service: No Supabase client, cannot subscribe');
+      if (kDebugMode) {
+        debugPrint('Background service: No Supabase client, cannot subscribe');
+      }
       return;
     }
 
-    debugPrint('Background service: Subscribing to alerts for user: $uid');
+    if (kDebugMode) {
+      debugPrint('Background service: Subscribing to alerts for user: $uid');
+    }
 
     alertSubscription = supabase
         .from('alerts')
@@ -160,23 +229,49 @@ void onStart(ServiceInstance service) async {
         .eq('receiver_id', uid)
         .listen((data) async {
           for (final alert in data) {
+            final alertId = alert['id'] as String?;
+            if (alertId == null) continue;
+
+            // Skip if already shown
+            if (shownAlertIds.contains(alertId)) continue;
+
             // Check if this is a new unread alert
             if (alert['read_at'] == null && alert['response'] == null) {
               final createdAt = DateTime.tryParse(alert['created_at'] ?? '');
               final now = DateTime.now();
 
-              // Only notify for alerts created in the last 30 seconds (new alerts)
-              if (createdAt != null && now.difference(createdAt).inSeconds < 30) {
+              // Only notify for alerts created in the last 60 seconds (new alerts)
+              // Increased from 30s to handle slight delays
+              if (createdAt != null && now.difference(createdAt).inSeconds < 60) {
+                shownAlertIds.add(alertId);
+
+                // Limit cache size to prevent memory issues
+                if (shownAlertIds.length > 100) {
+                  shownAlertIds.remove(shownAlertIds.first);
+                }
+
+                // Get urgency level from alert data
+                final urgencyLevel = alert['urgency_level'] ?? 'normal';
                 await _showAlertNotification(
                   notificationsPlugin,
-                  alert['id'],
-                  alert['message'] ?? 'Someone needs you to move your car!',
+                  alertId,
+                  alert['message'] ?? 'Please move your vehicle',
+                  urgencyLevel: urgencyLevel,
                 );
               }
             }
           }
         }, onError: (error) {
-          debugPrint('Background service: Alert stream error: $error');
+          if (kDebugMode) {
+            debugPrint('Background service: Alert stream error: $error');
+          }
+          // Auto-reconnect after error
+          reconnectTimer?.cancel();
+          reconnectTimer = Timer(const Duration(seconds: 5), () {
+            if (userId != null && userId!.isNotEmpty) {
+              subscribeToAlerts(userId!);
+            }
+          });
         });
   }
 
@@ -184,6 +279,16 @@ void onStart(ServiceInstance service) async {
   if (userId != null && userId.isNotEmpty) {
     subscribeToAlerts(userId);
   }
+
+  // Periodic keep-alive to ensure connection stays active
+  Timer.periodic(const Duration(minutes: 5), (timer) async {
+    // Refresh user ID from prefs in case it changed
+    final currentUserId = prefs.getString('user_id');
+    if (currentUserId != null && currentUserId != userId) {
+      userId = currentUserId;
+      subscribeToAlerts(userId!);
+    }
+  });
 
   // Handle user updates from main app
   service.on('updateUser').listen((event) {
@@ -195,17 +300,73 @@ void onStart(ServiceInstance service) async {
 
   // Handle stop request
   service.on('stopService').listen((event) {
+    reconnectTimer?.cancel();
     alertSubscription?.cancel();
     service.stopSelf();
   });
 }
 
 /// Show alert notification with premium vibration pattern
+/// urgencyLevel: 'low', 'normal', 'high' - determines which sound to play
 Future<void> _showAlertNotification(
   FlutterLocalNotificationsPlugin plugin,
   String alertId,
-  String message,
-) async {
+  String message, {
+  String urgencyLevel = 'normal',
+}) async {
+  // Get the user's selected sound for this urgency level from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  String soundFileName;
+  String iosSoundFileName;
+
+  // Keys match SoundPreferencesService
+  switch (urgencyLevel.toLowerCase()) {
+    case 'low':
+      final soundPath = prefs.getString('alert_sound_low') ?? 'sounds/low/low_alert_1.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
+      break;
+    case 'high':
+      final soundPath = prefs.getString('alert_sound_high') ?? 'sounds/high/high_alert_1.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
+      break;
+    default: // normal
+      final soundPath = prefs.getString('alert_sound_normal') ?? 'sounds/normal/normal_alert.wav';
+      soundFileName = soundPath.split('/').last.replaceAll('.wav', '');
+      iosSoundFileName = soundPath.split('/').last;
+  }
+
+  if (kDebugMode) {
+    debugPrint('Background notification sound: $soundFileName (urgency: $urgencyLevel)');
+    debugPrint('iOS sound file: $iosSoundFileName');
+  }
+
+  // Android: Use a channel ID specific to this sound file
+  // This is required because Android caches channel settings including sound
+  final channelId = 'yuh_blockin_alert_$soundFileName';
+
+  // Create the notification channel for this specific sound (Android only)
+  // Use defaultTargetPlatform here since we're in a global function
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final androidPlugin = plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      final channel = AndroidNotificationChannel(
+        channelId,
+        'Yuh Blockin Alerts',
+        description: 'Parking alert notifications',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound(soundFileName),
+        enableVibration: true,
+        enableLights: true,
+        ledColor: const Color(0xFF4CAF50),
+      );
+      await androidPlugin.createNotificationChannel(channel);
+    }
+  }
+
   // Premium rhythm vibration pattern: da-da-da-DAAAA (attention-grabbing)
   final vibrationPattern = Int64List.fromList([
     0,    // Start immediately
@@ -225,12 +386,13 @@ Future<void> _showAlertNotification(
   ]);
 
   final androidDetails = AndroidNotificationDetails(
-    'yuh_blockin_alerts',
+    channelId,
     'Yuh Blockin Alerts',
     channelDescription: 'Critical parking alert notifications',
     importance: Importance.max,
     priority: Priority.max,
     playSound: true,
+    sound: RawResourceAndroidNotificationSound(soundFileName),
     enableVibration: true,
     vibrationPattern: vibrationPattern,
     enableLights: true,
@@ -240,11 +402,11 @@ Future<void> _showAlertNotification(
     fullScreenIntent: true,
     category: AndroidNotificationCategory.alarm,
     visibility: NotificationVisibility.public,
-    ticker: 'Someone needs you to move your car!',
+    ticker: 'New alert',
     styleInformation: BigTextStyleInformation(
       message,
-      contentTitle: 'Parking Alert!',
-      summaryText: 'Yuh Blockin',
+      contentTitle: 'New Alert',
+      summaryText: "Yuh Blockin'",
     ),
     actions: [
       const AndroidNotificationAction(
@@ -256,11 +418,24 @@ Future<void> _showAlertNotification(
     ],
   );
 
-  final details = NotificationDetails(android: androidDetails);
+  // iOS notification details with custom sound
+  final iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    sound: iosSoundFileName,
+    interruptionLevel: InterruptionLevel.active,
+    threadIdentifier: 'yuh_blockin_alerts',
+  );
+
+  final details = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
 
   await plugin.show(
     alertId.hashCode,
-    'Parking Alert!',
+    'New Alert',
     message,
     details,
     payload: alertId,
@@ -318,6 +493,8 @@ Future<void> _vibrateRhythm() async {
       pattern: [0, 300, 150, 300, 150, 600],
     );
   } catch (e) {
-    debugPrint('Background vibration error: $e');
+    if (kDebugMode) {
+      debugPrint('Background vibration error: $e');
+    }
   }
 }

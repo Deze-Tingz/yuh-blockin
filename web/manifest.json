@@ -1,6 +1,6 @@
 {
-    "name": "yuh_blockin_app",
-    "short_name": "yuh_blockin_app",
+    "name": "yuh_blockin",
+    "short_name": "yuh_blockin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

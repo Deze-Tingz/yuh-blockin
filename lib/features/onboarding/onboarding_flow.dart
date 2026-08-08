@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/premium_theme.dart';
 import '../plate_registration/plate_registration_screen.dart';
-import '../../main_premium.dart';
+import '../account_recovery/login_with_key_screen.dart';
+import '../../main.dart';
 
 /// Compact Onboarding Flow - No Scrolling Required
 class OnboardingFlow extends StatefulWidget {
@@ -152,8 +154,22 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
   @override
   Widget build(BuildContext context) {
+    // Use Scaffold instead of CupertinoPageScaffold to avoid yellow text highlight
     return Scaffold(
       backgroundColor: PremiumTheme.backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'Welcome',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: PremiumTheme.primaryTextColor,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _entranceController,
@@ -282,6 +298,14 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 class _WelcomePage extends StatelessWidget {
   const _WelcomePage();
 
+  void _navigateToLoginWithKey(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const LoginWithKeyScreen(showBackButton: true),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -318,6 +342,41 @@ class _WelcomePage extends StatelessWidget {
               const _CompactFeature(Icons.people_rounded, 'Respectful', 'Polite notifications only'),
               const SizedBox(height: 12),
               const _CompactFeature(Icons.bolt_rounded, 'Quick', 'Most cars move in 5 min'),
+              SizedBox(height: isCompact ? 16 : 24),
+              // Login with secret key option for returning users
+              GestureDetector(
+                onTap: () => _navigateToLoginWithKey(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: PremiumTheme.accentColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.key_rounded,
+                        size: 16,
+                        color: PremiumTheme.accentColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Already registered? Login with secret key',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: PremiumTheme.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
